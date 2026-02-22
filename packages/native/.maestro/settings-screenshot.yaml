@@ -1,0 +1,12 @@
+appId: host.exp.Exponent
+---
+- openLink: "exp://127.0.0.1:8081"
+- waitForAnimationToEnd
+- tapOn:
+    id: "menu-button"
+- waitForAnimationToEnd
+- takeScreenshot: .maestro/screenshots/settings-01-sidebar
+- tapOn:
+    id: "settings-icon"
+- waitForAnimationToEnd
+- takeScreenshot: .maestro/screenshots/settings-02-screen

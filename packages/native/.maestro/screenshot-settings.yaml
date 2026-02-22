@@ -1,0 +1,13 @@
+appId: host.exp.Exponent
+---
+- openLink: "exp://127.0.0.1:8081"
+- extendedWaitUntil:
+    visible: "Session"
+    timeout: 20000
+- tapOn:
+    text: "Settings"
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "Server URL"
+    timeout: 5000
+- takeScreenshot: .maestro/screenshots/settings-modal
