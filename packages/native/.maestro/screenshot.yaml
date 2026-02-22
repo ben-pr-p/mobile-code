@@ -1,0 +1,5 @@
+appId: host.exp.Exponent
+---
+- launchApp
+- waitForAnimationToEnd
+- takeScreenshot: .maestro/screenshots/latest

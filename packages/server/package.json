@@ -1,0 +1,16 @@
+{
+  "name": "@mobile-agents/server",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "hono": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "~5.9.2"
+  },
+  "private": true
+}

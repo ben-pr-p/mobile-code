@@ -16,10 +16,13 @@ A React Native (Expo) mobile client for [opencode](https://github.com/sst/openco
 bun install          # install dependencies
 bun run start        # start Expo dev server
 bun run ios          # run on iOS simulator
-bun run android      # run on Android emulator
 bun run lint         # eslint + prettier check
 bun run format       # eslint --fix + prettier --write
 ```
+
+## Platform
+
+**iOS only** — no Android support. Do not add Android-specific code or configurations.
 
 ## Project Structure
 
@@ -38,6 +41,51 @@ opencode-rn/
 ├── tsconfig.json
 └── package.json
 ```
+
+## Simulator Screenshots with Maestro
+
+Use [Maestro](https://maestro.mobile.dev/) to take screenshots of the running iOS simulator and interact with the app. The app must already be running in the simulator (`bun run ios`).
+
+To run maestro commands, always set the Java environment:
+
+```sh
+JAVA_HOME=/opt/homebrew/opt/openjdk PATH="/opt/homebrew/opt/openjdk/bin:$PATH:$HOME/.maestro/bin" MAESTRO_CLI_NO_ANALYTICS=1 MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true maestro test <flow.yaml>
+```
+
+### Quick screenshot
+
+Run the existing flow to capture the current screen:
+
+```sh
+maestro test .maestro/screenshot.yaml
+```
+
+Then read `.maestro/screenshots/latest.png` to view it.
+
+### Writing custom flows
+
+Create a `.yaml` file in `.maestro/` with steps. Common commands:
+
+```yaml
+appId: host.exp.Exponent
+---
+- launchApp
+- waitForAnimationToEnd
+- tapOn: "Settings"              # tap on visible text
+- tapOn:
+    id: "my-test-id"            # tap by testID
+- scrollDown
+- assertVisible: "Some Text"
+- takeScreenshot: .maestro/screenshots/my-screenshot
+```
+
+See [Maestro docs](https://maestro.mobile.dev/reference/commands) for the full command reference.
+
+### Tips
+
+- `appId: host.exp.Exponent` is for Expo Go. After `expo prebuild`, use the app's bundle ID instead.
+- Use `testID` props on React Native components so Maestro can find them by `id`.
+- Screenshots are saved as PNG. Use the `Read` tool to view them.
 
 ## Requirements & Design Docs
 

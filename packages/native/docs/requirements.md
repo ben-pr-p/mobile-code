@@ -244,7 +244,7 @@ Shown when the user taps the `Changes` tab in the Main Session screen.
 
 ## iPad Layout (Landscape)
 
-On iPad Mini (and larger iPads) in landscape orientation, the app switches to a persistent split-pane layout. There are no slide-in sidebars — panels are always visible side-by-side.
+On iPad Mini (and larger iPads) in landscape orientation, the app switches to a persistent split-pane layout. Sessions and Projects remain slide-in sidebar overlays (like iPhone), while the left panel shows contextual content (changes, tool details, settings).
 
 ### Overall Layout
 
@@ -259,26 +259,39 @@ On iPad Mini (and larger iPads) in landscape orientation, the app switches to a 
 └─────────────────────┴──────────────────────────┘
 ```
 
-- **Left panel**: ~50% width. Shows contextual content: Sessions list, diff view, tool detail, Settings, or Projects.
+- **Left panel**: ~50% width. Shows contextual content: diff view, tool detail, or Settings.
 - **Right panel**: ~50% width. Always shows the active chat session (Session tab + Changes tab) and the voice input area.
 - **Global header**: Spans full width. Left: hamburger menu icon + project name (`opencode-rn`). Right: notification bell icon + settings gear icon.
 - **Subheader bar**: Below header, shows branch + timestamp (e.g. `Pull from main · 2m ago`) and a close/collapse button (`×`) for the left panel.
+
+### Sidebar Overlays (iPad)
+
+Sessions and Projects appear as slide-in sidebar overlays on iPad, just like on iPhone. They float over the split-pane layout.
+
+| Sidebar | Trigger | Position |
+|---------|---------|----------|
+| **Sessions** | Tap hamburger menu | Overlays left panel from the left edge |
+| **Projects** | Tap projects icon | Overlays from the right edge |
+
+#### Sessions Sidebar (overlay)
+- Search bar: `search · projects` placeholder
+- Session rows identical to iPhone sidebar: status dot, name, project path, timestamp, `···` menu
+- `+` new session button at bottom
+- `×` close button to dismiss
+
+#### Projects Sidebar (overlay)
+- Same project list as iPhone Projects sidebar
+- Spotify player at bottom
+- `×` close button to dismiss
 
 ### Left Panel States
 
 | Left Panel Content | Trigger |
 |--------------------|---------|
-| **Sessions list** | Tap hamburger menu |
 | **Changes (diff view)** | Default / after sending a message |
 | **Shell tool detail** | Tap a Shell tool call in chat |
 | **Agent tool detail** | Tap an Explore Agent tool call in chat |
 | **Settings** | Tap gear icon |
-| **Projects** | Tap projects icon |
-
-#### Sessions List (left panel)
-- Search bar: `search · projects` placeholder
-- Session rows identical to iPhone sidebar: status dot, name, project path, timestamp, `···` menu
-- `+` new session button at bottom
 
 #### Changes / Diff View (left panel)
 - Header: `N files changed`
@@ -300,11 +313,6 @@ On iPad Mini (and larger iPads) in landscape orientation, the app switches to a 
 
 #### Settings (left panel)
 - Same content as iPhone Settings screen
-- Right panel remains live with active chat
-
-#### Projects (left panel)
-- Same project list as iPhone Projects sidebar
-- Spotify player at bottom
 - Right panel remains live with active chat
 
 ### Right Panel
