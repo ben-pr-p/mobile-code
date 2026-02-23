@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback, useMemo } from 'react'
-import { View, Pressable, Animated, useWindowDimensions } from 'react-native'
+import { View, Text, Pressable, Animated, useWindowDimensions } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { usePathname, useLocalSearchParams } from 'expo-router'
 
 import './global.css'
 import { SessionScreen } from './components/SessionScreen'
@@ -124,6 +125,9 @@ export default function App() {
     setSettingsVisible(false)
   }, [])
 
+  const pathname = usePathname()
+  const params = useLocalSearchParams<{ projectId?: string; sessionId?: string }>()
+
   if (!session) return null
 
   const filteredProjects = projectSearchQuery
@@ -135,6 +139,11 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <View className="flex-1">
+        <View className="bg-yellow-500 px-3 py-1">
+          <Text className="text-black text-xs font-mono">
+            path: {pathname} | projectId: {params.projectId ?? '—'} | sessionId: {params.sessionId ?? '—'}
+          </Text>
+        </View>
         {isTabletLandscape ? (
           // iPad landscape: split-pane layout
           <SplitLayout

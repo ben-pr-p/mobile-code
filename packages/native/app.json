@@ -5,14 +5,16 @@
     "version": "1.0.0",
 
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
 
     "experiments": {
       "tsconfigPaths": true
     },
 
-    "plugins": [],
+    "scheme": "mobile-agents",
+    "plugins": ["expo-router"],
 
     "orientation": "default",
     "icon": "./assets/icon.png",
