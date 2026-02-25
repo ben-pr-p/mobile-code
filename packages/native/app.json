@@ -14,7 +14,15 @@
     },
 
     "scheme": "mobile-agents",
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for voice input."
+        }
+      ]
+    ],
 
     "orientation": "default",
     "icon": "./assets/icon.png",
