@@ -1,6 +1,8 @@
-import { useAtom, useAtomValue } from 'jotai'
+import { useEffect, useRef } from 'react'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   serverUrlAtom,
+  debouncedServerUrlAtom,
   handsFreeAutoRecordAtom,
   notificationSoundAtom,
   connectionInfoAtom,
@@ -11,13 +13,32 @@ import {
 } from '../__fixtures__/settings'
 import { useServerHealth } from './useServerHealth'
 
+const DEBOUNCE_MS = 1_000
+
 export function useSettings() {
   const [serverUrl, setServerUrl] = useAtom(serverUrlAtom)
   const [handsFreeAutoRecord, setHandsFreeAutoRecord] = useAtom(handsFreeAutoRecordAtom)
   const [notificationSound, setNotificationSound] = useAtom(notificationSoundAtom)
 
-  // Ping health endpoint and write results to connectionInfoAtom
-  useServerHealth(serverUrl)
+  // Debounce serverUrl → debouncedServerUrlAtom so downstream consumers
+  // (health check, API client) don't thrash on every keystroke.
+  const setDebouncedUrl = useSetAtom(debouncedServerUrlAtom)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      setDebouncedUrl(serverUrl)
+    }, DEBOUNCE_MS)
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [serverUrl, setDebouncedUrl])
+
+  const debouncedUrl = useAtomValue(debouncedServerUrlAtom)
+
+  // Ping health endpoint using the debounced URL
+  useServerHealth(debouncedUrl)
   const connection = useAtomValue(connectionInfoAtom)
 
   return {

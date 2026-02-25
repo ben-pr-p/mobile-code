@@ -1,5 +1,5 @@
 import 'react-native-random-uuid';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { View } from 'react-native';
 import { Slot } from 'expo-router';
 import { useFonts } from 'expo-font';
@@ -34,7 +34,9 @@ export default function RootLayout() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Slot />
+      <Suspense>
+        <Slot />
+      </Suspense>
     </View>
   );
 }

@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useEffect, useState } from 'react'
 import { View, StyleSheet } from 'react-native'
 import { WebView, type WebViewMessageEvent } from 'react-native-webview'
 import { useAtomValue } from 'jotai'
-import { serverUrlAtom } from '../state/settings'
+import { debouncedServerUrlAtom } from '../state/settings'
 
 interface DiffWebViewProps {
   sessionId: string
@@ -16,7 +16,7 @@ interface DiffWebViewProps {
  * Mount this once and keep it alive; use activeFile={null} to hide content.
  */
 export function DiffWebView({ sessionId, activeFile }: DiffWebViewProps) {
-  const serverUrl = useAtomValue(serverUrlAtom)
+  const serverUrl = useAtomValue(debouncedServerUrlAtom)
   const webViewRef = useRef<WebView>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const pendingFileRef = useRef<string | null>(null)
