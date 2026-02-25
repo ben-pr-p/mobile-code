@@ -1,8 +1,9 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, Pressable, Animated } from 'react-native';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { View, Text, Pressable, Animated, PanResponder } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useAtomValue } from 'jotai';
 
 import './global.css';
 import { SessionContent } from './components/SessionContent';
@@ -13,6 +14,8 @@ import { EmptySession } from './components/EmptySession';
 import { useMusicPlayer } from './hooks/useMusicPlayer';
 import { useSettings } from './hooks/useSettings';
 import { useLayout } from './hooks/useLayout';
+import { useProjects } from './hooks/useProjects';
+import { apiAtom } from './lib/api';
 
 export default function App() {
   const { isTabletLandscape, width: screenWidth } = useLayout();
@@ -20,9 +23,10 @@ export default function App() {
   const router = useRouter();
   const params = useLocalSearchParams<{ worktree?: string; sessionId?: string }>();
 
-  console.log(params);
   const sessionId = params.sessionId;
   const worktree = params.worktree;
+  const { data: projects } = useProjects();
+  const api = useAtomValue(apiAtom);
 
   // Settings (only used for phone layout; iPad handles settings in left panel)
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -38,6 +42,43 @@ export default function App() {
   const rightSlideAnim = useRef(new Animated.Value(sidebarWidth)).current;
   const rightBackdropAnim = useRef(new Animated.Value(0)).current;
   const musicPlayer = useMusicPlayer();
+
+  const openLeftSidebarRef = useRef<() => void>();
+  const openRightSidebarRef = useRef<() => void>();
+  const closeLeftSidebarRef = useRef<() => void>();
+  const closeRightSidebarRef = useRef<() => void>();
+  const leftSidebarVisibleRef = useRef(false);
+  const rightSidebarVisibleRef = useRef(false);
+
+  // Swipe gesture handling for opening/closing sidebars
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_evt, gestureState) => {
+        const { dx, dy } = gestureState;
+        return Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > SWIPE_THRESHOLD;
+      },
+      onPanResponderRelease: (_evt, gestureState) => {
+        const { dx, vx } = gestureState;
+        const swipedRight = dx > SWIPE_MIN_DISTANCE || vx > SWIPE_VELOCITY_THRESHOLD;
+        const swipedLeft = dx < -SWIPE_MIN_DISTANCE || vx < -SWIPE_VELOCITY_THRESHOLD;
+        if (swipedRight) {
+          if (rightSidebarVisibleRef.current) {
+            closeRightSidebarRef.current?.();
+          } else {
+            openLeftSidebarRef.current?.();
+          }
+        }
+        if (swipedLeft) {
+          if (leftSidebarVisibleRef.current) {
+            closeLeftSidebarRef.current?.();
+          } else {
+            openRightSidebarRef.current?.();
+          }
+        }
+      },
+    })
+  ).current;
 
   const openLeftSidebar = useCallback(() => {
     setLeftSidebarVisible(true);
@@ -105,6 +146,13 @@ export default function App() {
     });
   }, [rightSlideAnim, rightBackdropAnim, sidebarWidth]);
 
+  openLeftSidebarRef.current = openLeftSidebar;
+  openRightSidebarRef.current = openRightSidebar;
+  closeLeftSidebarRef.current = closeLeftSidebar;
+  closeRightSidebarRef.current = closeRightSidebar;
+  leftSidebarVisibleRef.current = leftSidebarVisible;
+  rightSidebarVisibleRef.current = rightSidebarVisible;
+
   const openSettings = useCallback(() => {
     closeLeftSidebar();
     setSettingsVisible(true);
@@ -114,12 +162,30 @@ export default function App() {
     setSettingsVisible(false);
   }, []);
 
+  const navigateToProject = useCallback(
+    async (wt: string) => {
+      const sessionListTarget = api.sessionList(wt);
+      try {
+        const sessions = await sessionListTarget.getState();
+        if (sessions.length > 0) {
+          router.push({
+            pathname: '/projects/[worktree]/sessions/[sessionId]',
+            params: { worktree: wt, sessionId: sessions[0].id },
+          });
+          return;
+        }
+      } catch {}
+      router.push({ pathname: '/projects/[worktree]', params: { worktree: wt } });
+    },
+    [api, router]
+  );
+
   const handleSelectProject = useCallback(
     (wt: string) => {
-      router.push({ pathname: '/projects/[worktree]', params: { worktree: wt } });
+      navigateToProject(wt);
       closeRightSidebar();
     },
-    [router, closeRightSidebar]
+    [navigateToProject, closeRightSidebar]
   );
 
   const handleSelectSession = useCallback(
@@ -133,9 +199,18 @@ export default function App() {
     [router, closeLeftSidebar]
   );
 
+  // Auto-navigate to the most recent project on initial load
+  const hasAutoNavigated = useRef(false);
+  useEffect(() => {
+    if (hasAutoNavigated.current || sessionId || worktree) return;
+    if (projects.length === 0) return;
+    hasAutoNavigated.current = true;
+    navigateToProject(projects[0].worktree);
+  }, [projects, sessionId, worktree, navigateToProject]);
+
   return (
     <SafeAreaProvider>
-      <View className="flex-1">
+      <View className="flex-1" {...panResponder.panHandlers}>
         {settingsVisible ? (
           <SettingsScreen
             serverUrl={settings.serverUrl}
@@ -228,3 +303,6 @@ export default function App() {
 }
 
 const ANIMATION_DURATION = 280;
+const SWIPE_THRESHOLD = 10; // Minimum px to recognize as a horizontal swipe
+const SWIPE_MIN_DISTANCE = 50; // Minimum px distance to trigger sidebar open
+const SWIPE_VELOCITY_THRESHOLD = 0.5; // Minimum velocity to trigger sidebar open
