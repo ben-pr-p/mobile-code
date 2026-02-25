@@ -1,23 +1,17 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { ActivityIndicator, View, Text, Pressable, ScrollView, TextInput } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ProjectCard } from './ProjectCard'
 import { MusicPlayerBar } from './MusicPlayerBar'
-import type { Project } from '../../server/src/types'
+import { useProjects } from '../hooks/useProjects'
 
 interface ProjectsSidebarProps {
-  projects: Project[]
   selectedProjectId: string | null
-  searchQuery: string
-  isLoading?: boolean
-  error?: Error | null
-  onSearchChange: (query: string) => void
   onClose: () => void
   onAddProject: () => void
   onSelectProject: (id: string) => void
   onNewSession: (projectId: string) => void
   onOverflow: (projectId: string) => void
-  onRetry?: () => void
   musicPlayer: {
     track: { name: string; artist: string; albumArtUri: string; durationMs: number } | null
     isPlaying: boolean
@@ -32,27 +26,23 @@ interface ProjectsSidebarProps {
 }
 
 export function ProjectsSidebar({
-  projects,
   selectedProjectId,
-  searchQuery,
-  isLoading,
-  error,
-  onSearchChange,
   onClose,
   onAddProject,
   onSelectProject,
   onNewSession,
   onOverflow,
-  onRetry,
   musicPlayer,
 }: ProjectsSidebarProps) {
   const insets = useSafeAreaInsets()
+  const [searchQuery, setSearchQuery] = useState('')
+  const { data: projects, isLoading, error } = useProjects()
   const showSearch = projects.length >= 8
   const showCount = projects.length >= 8
 
   const filtered = searchQuery
     ? projects.filter((p) =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase())
+        p.worktree.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : projects
 
@@ -87,7 +77,7 @@ export function ProjectsSidebar({
         <View className="px-4 pt-3">
           <TextInput
             value={searchQuery}
-            onChangeText={onSearchChange}
+            onChangeText={setSearchQuery}
             placeholder="search projects"
             placeholderTextColor="#475569"
             className="bg-[#1E293B] rounded-lg h-10 px-3 text-sm text-white"
@@ -113,14 +103,12 @@ export function ProjectsSidebar({
           <Text className="text-[#475569] text-xs text-center mt-1">
             {error.message}
           </Text>
-          {onRetry && (
-            <Pressable
-              onPress={onRetry}
-              className="mt-4 px-4 h-8 rounded-lg bg-[#1E293B] items-center justify-center"
-            >
-              <Text className="text-[#94A3B8] text-sm">Retry</Text>
-            </Pressable>
-          )}
+          <Pressable
+            onPress={() => {}}
+            className="mt-4 px-4 h-8 rounded-lg bg-[#1E293B] items-center justify-center"
+          >
+            <Text className="text-[#94A3B8] text-sm">Retry</Text>
+          </Pressable>
         </View>
       ) : filtered.length === 0 && searchQuery ? (
         <View className="flex-1 items-center justify-center px-8">

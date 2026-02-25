@@ -1,13 +1,13 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { View, Text, Pressable, ScrollView, TextInput } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Menu, Plus, Search, Ellipsis, Settings, Mic, HelpCircle } from 'lucide-react-native'
-import type { SidebarSession, GroupedSessions } from '../hooks/useSidebarSessions'
+import { useSidebarSessions, type SidebarSession } from '../hooks/useSidebarSessions'
 
 interface SessionRowProps {
   session: SidebarSession
   isSelected: boolean
-  onPress: (id: string) => void
+  onPress: (sessionId: string, projectId: string) => void
   onOverflow?: (id: string) => void
 }
 
@@ -16,7 +16,7 @@ function SessionRow({ session, isSelected, onPress, onOverflow }: SessionRowProp
 
   return (
     <Pressable
-      onPress={() => onPress(session.id)}
+      onPress={() => onPress(session.id, session.projectId)}
       className={`flex-row items-center gap-3 rounded-[10px] px-3.5 py-3 ${
         isSelected ? 'bg-oc-bg-surface' : ''
       }`}
@@ -49,13 +49,11 @@ function SessionRow({ session, isSelected, onPress, onOverflow }: SessionRowProp
 }
 
 interface SessionsSidebarProps {
-  sessions: GroupedSessions
+  projectId: string | undefined
   selectedSessionId: string | null
-  searchQuery: string
-  onSearchChange: (query: string) => void
   onClose: () => void
   onNewSession: () => void
-  onSelectSession: (id: string) => void
+  onSelectSession: (sessionId: string, projectId: string) => void
   onOverflowSession?: (id: string) => void
   onSettingsPress: () => void
   onMicPress: () => void
@@ -63,10 +61,8 @@ interface SessionsSidebarProps {
 }
 
 export function SessionsSidebar({
-  sessions,
+  projectId,
   selectedSessionId,
-  searchQuery,
-  onSearchChange,
   onClose,
   onNewSession,
   onSelectSession,
@@ -76,6 +72,8 @@ export function SessionsSidebar({
   onHelpPress,
 }: SessionsSidebarProps) {
   const insets = useSafeAreaInsets()
+  const [searchQuery, setSearchQuery] = useState('')
+  const { data: sessions } = useSidebarSessions(projectId, searchQuery)
 
   return (
     <View className="flex-1 bg-oc-bg-primary" style={{ paddingTop: insets.top }}>
@@ -104,7 +102,7 @@ export function SessionsSidebar({
           <Search size={16} color="#475569" />
           <TextInput
             value={searchQuery}
-            onChangeText={onSearchChange}
+            onChangeText={setSearchQuery}
             placeholder="search --sessions"
             placeholderTextColor="#475569"
             className="flex-1 text-xs text-white"
