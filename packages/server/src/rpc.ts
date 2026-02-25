@@ -386,13 +386,34 @@ export class Api extends RpcTarget {
 
   async createSession(opts: {
     title?: string,
+    directory?: string,
     onSessionStateChanged?: OnStateChangedFn<SessionState>,
   }): Promise<SessionHandle> {
     const res = await this.#client.session.create({
+      ...(opts.directory ? { query: { directory: opts.directory } } : {}),
       body: { title: opts?.title },
     })
     if (res.error) throw new Error("Failed to create session")
     return new SessionHandle(this.#client, res.data!.id, this.#opencode, opts.onSessionStateChanged)
+  }
+
+  async createSessionWithPrompt(opts: {
+    directory: string,
+    parts: PromptPartInput[],
+  }): Promise<{ sessionId: string }> {
+    // 1. Create the session
+    const createRes = await this.#client.session.create({
+      query: { directory: opts.directory },
+    })
+    if (createRes.error) throw new Error("Failed to create session")
+    const sessionId = createRes.data!.id
+
+    // 2. Build a temporary SessionHandle to reuse its prompt logic
+    //    (handles audio transcription, etc.)
+    const handle = new SessionHandle(this.#client, sessionId, this.#opencode)
+    await handle.prompt(opts.parts)
+
+    return { sessionId }
   }
 }
 

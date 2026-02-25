@@ -3,10 +3,11 @@ import { View, Text, Pressable, Animated, PanResponder } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useAtom } from 'jotai';
 
 import './global.css';
 import { SessionContent } from './components/SessionContent';
+import { NewSessionContent } from './components/NewSessionContent';
 import { SessionsSidebar } from './components/SessionsSidebar';
 import { ProjectsSidebar } from './components/ProjectsSidebar';
 import { SettingsScreen } from './components/SettingsScreen';
@@ -16,6 +17,7 @@ import { useSettings } from './hooks/useSettings';
 import { useLayout } from './hooks/useLayout';
 import { useProjects } from './hooks/useProjects';
 import { apiAtom } from './lib/api';
+import { newSessionWorktreeAtom } from './state/ui';
 
 export default function App() {
   const { isTabletLandscape, width: screenWidth } = useLayout();
@@ -27,6 +29,7 @@ export default function App() {
   const worktree = params.worktree;
   const { data: projects } = useProjects();
   const api = useAtomValue(apiAtom);
+  const [newSessionWorktree, setNewSessionWorktree] = useAtom(newSessionWorktreeAtom);
 
   // Settings (only used for phone layout; iPad handles settings in left panel)
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -190,14 +193,46 @@ export default function App() {
 
   const handleSelectSession = useCallback(
     (sessionId: string, wt: string) => {
+      setNewSessionWorktree(null);
       router.push({
         pathname: '/projects/[worktree]/sessions/[sessionId]',
         params: { worktree: wt, sessionId },
       });
       closeLeftSidebar();
     },
-    [router, closeLeftSidebar]
+    [router, closeLeftSidebar, setNewSessionWorktree]
   );
+
+  const handleNewSession = useCallback(() => {
+    if (!worktree) return;
+    // If already in new-session mode for this worktree, just close the sidebar
+    if (newSessionWorktree === worktree && !sessionId) {
+      closeLeftSidebar();
+      return;
+    }
+    setNewSessionWorktree(worktree);
+    // Navigate to the project route (no sessionId) so the new session view shows
+    router.push({ pathname: '/projects/[worktree]', params: { worktree } });
+    closeLeftSidebar();
+  }, [worktree, newSessionWorktree, sessionId, setNewSessionWorktree, router, closeLeftSidebar]);
+
+  const handleNewSessionCreated = useCallback(
+    (newSessionId: string, wt: string) => {
+      setNewSessionWorktree(null);
+      router.push({
+        pathname: '/projects/[worktree]/sessions/[sessionId]',
+        params: { worktree: wt, sessionId: newSessionId },
+      });
+    },
+    [router, setNewSessionWorktree]
+  );
+
+  // Clear new-session placeholder when navigating to an actual session
+  useEffect(() => {
+    if (sessionId && newSessionWorktree) {
+      setNewSessionWorktree(null);
+    }
+  }, [sessionId, newSessionWorktree, setNewSessionWorktree]);
 
   // Auto-navigate to the most recent project on initial load
   const hasAutoNavigated = useRef(false);
@@ -233,6 +268,15 @@ export default function App() {
             onProjectsPress={openRightSidebar}
             settings={settings}
           />
+        ) : newSessionWorktree ? (
+          <NewSessionContent
+            worktree={newSessionWorktree}
+            isTabletLandscape={isTabletLandscape}
+            onMenuPress={openLeftSidebar}
+            onProjectsPress={openRightSidebar}
+            onSessionCreated={handleNewSessionCreated}
+            settings={settings}
+          />
         ) : (
           <EmptySession onMenuPress={openLeftSidebar} onProjectsPress={openRightSidebar} />
         )}
@@ -257,7 +301,7 @@ export default function App() {
                 worktree={worktree}
                 selectedSessionId={params.sessionId ?? null}
                 onClose={closeLeftSidebar}
-                onNewSession={() => {}}
+                onNewSession={handleNewSession}
                 onSelectSession={handleSelectSession}
                 onOverflowSession={() => {}}
                 onSettingsPress={openSettings}
@@ -289,7 +333,7 @@ export default function App() {
                 onClose={closeRightSidebar}
                 onAddProject={() => {}}
                 onSelectProject={handleSelectProject}
-                onNewSession={() => {}}
+                onNewSession={handleNewSession}
                 onOverflow={() => {}}
                 musicPlayer={musicPlayer}
               />
