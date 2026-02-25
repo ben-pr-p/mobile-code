@@ -204,26 +204,27 @@ interface ConnectionStatusBadgeProps {
 }
 
 function ConnectionStatusBadge({ connection }: ConnectionStatusBadgeProps) {
-  const isConnected = connection.status === 'connected'
-  const isReconnecting = connection.status === 'reconnecting'
+  const { status } = connection
 
-  const dotColor = isConnected
+  const dotColor = status === 'connected'
     ? 'bg-green-500'
-    : isReconnecting
+    : status === 'reconnecting'
       ? 'bg-amber-500'
       : 'bg-red-500'
 
-  const label = isConnected
-    ? `Connected · ${connection.latencyMs}ms latency`
-    : isReconnecting
-      ? 'Reconnecting...'
-      : 'Disconnected'
+  const label = status === 'connected'
+    ? `Connected · ${connection.latencyMs}ms`
+    : status === 'reconnecting'
+      ? 'Connecting...'
+      : status === 'error'
+        ? connection.error ?? 'Connection failed'
+        : 'Disconnected'
 
   return (
     <View className="flex-row items-center gap-2 mt-2">
       <View className={`w-2 h-2 rounded-full ${dotColor}`} />
       <Text
-        className="text-xs text-stone-700 dark:text-stone-400"
+        className={`text-xs ${status === 'error' ? 'text-red-500' : 'text-stone-700 dark:text-stone-400'}`}
         style={{ fontFamily: 'JetBrains Mono' }}
       >
         {label}

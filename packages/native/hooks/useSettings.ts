@@ -1,23 +1,24 @@
-import { useState } from 'react'
-import { useAtom } from 'jotai'
+import { useAtom, useAtomValue } from 'jotai'
 import {
   serverUrlAtom,
   handsFreeAutoRecordAtom,
   notificationSoundAtom,
+  connectionInfoAtom,
 } from '../state/settings'
 import {
   FIXTURE_SETTINGS,
   NOTIFICATION_SOUND_OPTIONS,
-  type ConnectionInfo,
 } from '../__fixtures__/settings'
+import { useServerHealth } from './useServerHealth'
 
 export function useSettings() {
   const [serverUrl, setServerUrl] = useAtom(serverUrlAtom)
   const [handsFreeAutoRecord, setHandsFreeAutoRecord] = useAtom(handsFreeAutoRecordAtom)
   const [notificationSound, setNotificationSound] = useAtom(notificationSoundAtom)
 
-  // TODO: Replace with real connection monitoring
-  const connection: ConnectionInfo = FIXTURE_SETTINGS.connection
+  // Ping health endpoint and write results to connectionInfoAtom
+  useServerHealth(serverUrl)
+  const connection = useAtomValue(connectionInfoAtom)
 
   return {
     serverUrl,

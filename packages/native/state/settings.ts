@@ -1,5 +1,5 @@
 import { atom } from 'jotai';
-import type { NotificationSound } from '../__fixtures__/settings';
+import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings';
 
 // TODO: Replace with atomWithStorage for AsyncStorage persistence
 // import { atomWithStorage } from 'jotai/utils'
@@ -12,3 +12,8 @@ import type { NotificationSound } from '../__fixtures__/settings';
 export const serverUrlAtom = atom('http://localhost:3000');
 export const handsFreeAutoRecordAtom = atom(true);
 export const notificationSoundAtom = atom<NotificationSound>('chime');
+export const connectionInfoAtom = atom<ConnectionInfo>({
+  status: 'reconnecting',
+  latencyMs: null,
+  error: null,
+});

@@ -1,8 +1,9 @@
 export type NotificationSound = 'chime' | 'bell' | 'ping' | 'none'
 
 export interface ConnectionInfo {
-  status: 'connected' | 'disconnected' | 'reconnecting'
+  status: 'connected' | 'disconnected' | 'reconnecting' | 'error'
   latencyMs: number | null
+  error: string | null
 }
 
 export interface SettingsData {
@@ -26,6 +27,7 @@ export const FIXTURE_SETTINGS: SettingsData = {
   connection: {
     status: 'connected',
     latencyMs: 42,
+    error: null,
   },
   handsFreeAutoRecord: true,
   notificationSound: 'chime',
