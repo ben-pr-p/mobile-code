@@ -25,7 +25,7 @@ export function useSidebarSessions(
 ): { data: GroupedSessions; isLoading: boolean } {
   const api = useAtomValue(apiAtom)
 
-  const { data: sessions, isLoading } = useRpcTarget(
+  const { data: sessions, isLoading } = useRpcTarget<Session[]>(
     () => api.sessionList(worktree),
     [api, worktree],
   )

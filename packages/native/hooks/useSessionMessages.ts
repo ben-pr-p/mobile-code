@@ -1,5 +1,5 @@
 import { useAtomValue } from 'jotai'
-import { apiAtom, type RpcApi } from '../lib/api'
+import { apiAtom } from '../lib/api'
 import { useRpcTarget } from './useRpcTarget'
 import type { Message as ServerMessage } from '../../server/src/types'
 
@@ -21,8 +21,19 @@ export interface Message {
 export function useSessionMessages(sessionId: string | undefined): { data: Message[]; isLoading: boolean } {
   const api = useAtomValue(apiAtom)
 
-  const { data, isLoading } = useRpcTarget(
-    () => new MessageListTarget(api.getSession(sessionId!)),
+  const { data, isLoading } = useRpcTarget<Message[]>(
+    () => {
+      const handle = api.getSession(sessionId!)
+      const target = handle.messageList()
+      return {
+        async getState() {
+          const serverMessages: ServerMessage[] = await target.getState()
+          return serverMessages
+            .sort((a, b) => a.createdAt - b.createdAt)
+            .flatMap(flattenMessage)
+        },
+      }
+    },
     [api, sessionId],
   )
 
@@ -90,20 +101,4 @@ function flattenMessage(msg: ServerMessage): Message[] {
   }
 
   return messages
-}
-
-// Wrapper that fetches messages via the session handle and flattens them
-class MessageListTarget {
-  #handle: ReturnType<RpcApi['getSession']>
-
-  constructor(handle: ReturnType<RpcApi['getSession']>) {
-    this.#handle = handle
-  }
-
-  async getState(): Promise<Message[]> {
-    const serverMessages = await this.#handle.messages()
-    return serverMessages
-      .sort((a: ServerMessage, b: ServerMessage) => a.createdAt - b.createdAt)
-      .flatMap(flattenMessage)
-  }
 }

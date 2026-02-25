@@ -5,13 +5,14 @@
 // callback so the client receives pushed updates over WebSocket.
 
 import { RpcTarget } from "capnweb"
-import type { OpencodeClient, OpencodeSession, OpencodeProject } from "./opencode"
-import { Opencode, mapMessage, getSessionId, type SessionEvent } from "./opencode"
+import type { OpencodeClient } from "./opencode"
+import { Opencode, mapMessage, mapPart, getSessionId, type SessionEvent } from "./opencode"
 import type {
   Project,
   Session,
   File,
   Message,
+  MessagePart,
   PromptPartInput,
 } from "./types"
 
@@ -20,6 +21,13 @@ import type {
 // ---------------------------------------------------------------------------
 
 type OnStateChangedFn<T> = (newState: T) => void
+
+// Wrap a callback so it silently no-ops if the RPC session was disposed
+function safeCallback<T>(fn: OnStateChangedFn<T>): OnStateChangedFn<T> {
+  return (state: T) => {
+    try { fn(state) } catch {}
+  }
+}
 
 // ---------------------------------------------------------------------------
 // List RPC targets
@@ -45,12 +53,39 @@ export class ProjectList extends RpcTarget {
 export class SessionList extends RpcTarget {
   #client: OpencodeClient
   #worktree: string | undefined
+  #opencode: Opencode | undefined
+  #onStateChanged: OnStateChangedFn<Session[]> | undefined
 
-  constructor(client: OpencodeClient, worktree?: string, onStateChanged?: OnStateChangedFn<Session[]>) {
+  constructor(client: OpencodeClient, worktree?: string, opencode?: Opencode, onStateChanged?: OnStateChangedFn<Session[]>) {
     super()
     this.#client = client
     this.#worktree = worktree
-    // TODO: wire opencode events to push session list changes via onStateChanged
+    this.#opencode = opencode
+    this.#onStateChanged = onStateChanged
+
+    if (opencode && onStateChanged) {
+      let refreshScheduled = false
+      opencode.addGlobalListener((event) => {
+        // Only refresh the list on session-level status changes
+        if (
+          event.type === 'session.created' ||
+          event.type === 'session.updated' ||
+          event.type === 'session.deleted' ||
+          event.type === 'session.status' ||
+          event.type === 'session.idle'
+        ) {
+          if (refreshScheduled) return
+          refreshScheduled = true
+          queueMicrotask(async () => {
+            refreshScheduled = false
+            try {
+              const state = await this.getState()
+              try { onStateChanged(state) } catch {}
+            } catch {}
+          })
+        }
+      })
+    }
   }
 
   async getState(): Promise<Session[]> {
@@ -69,6 +104,10 @@ export class MessageList extends RpcTarget {
   #sessionId: string
   #opencode: Opencode | undefined
   #onStateChanged: OnStateChangedFn<Message[]> | undefined
+  // Local message state for incremental updates
+  #messages: Map<string, Message> = new Map()
+  #initialized = false
+  #pushScheduled = false
 
   constructor(
     client: OpencodeClient,
@@ -83,37 +122,188 @@ export class MessageList extends RpcTarget {
     this.#onStateChanged = onStateChanged
 
     if (opencode && onStateChanged) {
-      opencode.addSessionListener(sessionId, async () => {
-        try {
-          const state = await this.getState()
-          onStateChanged(state)
-        } catch {}
+      opencode.addSessionListener(sessionId, (event) => {
+        this.#handleEvent(event)
       })
     }
   }
 
-  async getState(): Promise<Message[]> {
-    const res = await this.#client.session.messages({
-      path: { id: this.#sessionId },
+  #handleEvent(event: SessionEvent) {
+    const props = event.properties as any
+
+    switch (event.type) {
+      case "message.updated": {
+        // Full message metadata update (creation, token counts, finish, etc.)
+        const info = props.info
+        if (!info?.id) break
+        const existing = this.#messages.get(info.id)
+        if (existing) {
+          // Update metadata fields
+          existing.createdAt = info.time?.created ?? existing.createdAt
+          if (info.role === "assistant") {
+            existing.cost = info.cost
+            existing.tokens = info.tokens
+              ? { input: info.tokens.input, output: info.tokens.output, reasoning: info.tokens.reasoning }
+              : existing.tokens
+            existing.finish = info.finish
+          }
+        } else {
+          // New message — create with empty parts (parts arrive via part events)
+          this.#messages.set(info.id, {
+            id: info.id,
+            sessionId: info.sessionID,
+            role: info.role,
+            parts: [],
+            createdAt: info.time?.created ?? 0,
+            ...(info.role === "assistant" ? {
+              cost: info.cost,
+              tokens: info.tokens
+                ? { input: info.tokens.input, output: info.tokens.output, reasoning: info.tokens.reasoning }
+                : undefined,
+              finish: info.finish,
+            } : {}),
+          })
+        }
+        this.#schedulePush()
+        break
+      }
+
+      case "message.part.updated": {
+        // Full part snapshot — create or replace the part in its parent message
+        const rawPart = props.part
+        if (!rawPart?.messageID || !rawPart?.id) break
+        const msg = this.#messages.get(rawPart.messageID)
+        if (!msg) break
+        const mapped = mapPart(rawPart)
+        const idx = msg.parts.findIndex((p) => p.id === mapped.id)
+        if (idx >= 0) {
+          msg.parts[idx] = mapped
+        } else {
+          msg.parts.push(mapped)
+        }
+        this.#schedulePush()
+        break
+      }
+
+      case "message.part.delta": {
+        // Streaming text delta — append to existing text/reasoning part
+        const { messageID, partID, field, delta } = props
+        if (!messageID || !partID || !delta) break
+        const msg = this.#messages.get(messageID)
+        if (!msg) break
+        const part = msg.parts.find((p) => p.id === partID)
+        if (part && field === "text" && "text" in part) {
+          (part as any).text = ((part as any).text ?? "") + delta
+          this.#schedulePush()
+        }
+        break
+      }
+
+      case "message.removed": {
+        const messageID = props.messageID
+        if (messageID) {
+          this.#messages.delete(messageID)
+          this.#schedulePush()
+        }
+        break
+      }
+
+      case "message.part.removed": {
+        // Remove a specific part from its message
+        const { messageID, partID } = props
+        if (!messageID || !partID) break
+        const msg = this.#messages.get(messageID)
+        if (!msg) break
+        msg.parts = msg.parts.filter((p) => p.id !== partID)
+        this.#schedulePush()
+        break
+      }
+
+      case "session.idle": {
+        // Session done — do a full sync to ensure consistency
+        this.#fullSync()
+        break
+      }
+    }
+  }
+
+  // Coalesce rapid event pushes into a single callback per microtask
+  #schedulePush() {
+    if (!this.#onStateChanged || this.#pushScheduled) return
+    this.#pushScheduled = true
+    queueMicrotask(() => {
+      this.#pushScheduled = false
+      try { this.#onStateChanged?.(this.#toArray()) } catch {}
     })
-    if (res.error) throw new Error(`Failed to get messages: ${this.#sessionId}`)
-    return (res.data ?? []).map(mapMessage)
+  }
+
+  #toArray(): Message[] {
+    return [...this.#messages.values()].sort((a, b) => a.createdAt - b.createdAt)
+  }
+
+  async #fullSync() {
+    try {
+      const res = await this.#client.session.messages({
+        path: { id: this.#sessionId },
+      })
+      if (res.error) return
+      this.#messages.clear()
+      for (const raw of res.data ?? []) {
+        const msg = mapMessage(raw)
+        this.#messages.set(msg.id, msg)
+      }
+      try { this.#onStateChanged?.(this.#toArray()) } catch {}
+    } catch {}
+  }
+
+  async getState(): Promise<Message[]> {
+    if (!this.#initialized) {
+      this.#initialized = true
+      const res = await this.#client.session.messages({
+        path: { id: this.#sessionId },
+      })
+      if (res.error) throw new Error(`Failed to get messages: ${this.#sessionId}`)
+      this.#messages.clear()
+      for (const raw of res.data ?? []) {
+        const msg = mapMessage(raw)
+        this.#messages.set(msg.id, msg)
+      }
+    }
+    return this.#toArray()
   }
 }
 
 export class ChangeList extends RpcTarget {
   #client: OpencodeClient
   #sessionId: string
+  #onStateChanged: OnStateChangedFn<File[]> | undefined
 
   constructor(
     client: OpencodeClient,
     sessionId: string,
+    opencode?: Opencode,
     onStateChanged?: OnStateChangedFn<File[]>,
   ) {
     super()
     this.#client = client
     this.#sessionId = sessionId
-    // TODO: wire opencode events for file change pushes
+    this.#onStateChanged = onStateChanged
+
+    if (opencode && onStateChanged) {
+      opencode.addSessionListener(sessionId, (event) => {
+        // Refresh file changes on session.diff events and on session.idle
+        if (event.type === "session.diff" || event.type === "session.idle") {
+          this.#refresh()
+        }
+      })
+    }
+  }
+
+  async #refresh() {
+    try {
+      const state = await this.getState()
+      try { this.#onStateChanged?.(state) } catch {}
+    } catch {}
   }
 
   async getState(): Promise<File[]> {
@@ -186,7 +376,7 @@ export class Api extends RpcTarget {
 
   // Returns a reactive SessionList RPC target filtered by worktree
   sessionList(worktree: string, onStateChanged?: OnStateChangedFn<Session[]>): SessionList {
-    return new SessionList(this.#client, worktree, onStateChanged)
+    return new SessionList(this.#client, worktree, this.#opencode, onStateChanged)
   }
 
   getSession(id: string, onSessionStateChanged?: OnStateChangedFn<SessionState>): SessionHandle {
@@ -238,7 +428,7 @@ export class ProjectHandle extends RpcTarget {
 
   // Returns a reactive SessionList scoped to this project's worktree
   sessionList(onStateChanged?: OnStateChangedFn<Session[]>): SessionList {
-    return new SessionList(this.#client, this.#project.worktree, onStateChanged)
+    return new SessionList(this.#client, this.#project.worktree, this.#opencode, onStateChanged)
   }
 
   getSession(id: string, onSessionStateChanged?: OnStateChangedFn<SessionState>): SessionHandle {
@@ -260,7 +450,7 @@ export class ProjectHandle extends RpcTarget {
 
 type SessionState = {
   status: 'running' | 'idle'
-  opencode: OpencodeSession | undefined
+  opencode: Session | undefined
 }
 
 export class SessionHandle extends RpcTarget {
@@ -284,9 +474,22 @@ export class SessionHandle extends RpcTarget {
     this.#onStateChangedCallback = onStateChanged
 
     if (opencode && onStateChanged) {
+      const safeCb = safeCallback(onStateChanged)
       opencode.addSessionListener(sessionId, (event) => {
-        // Push session state changes to the client
-        this.#refreshAndPush()
+        // Update status from session.status and session.idle events
+        if (event.type === "session.status") {
+          const statusObj = (event.properties as any).status
+          this.#state = {
+            ...this.#state,
+            status: statusObj?.type === "busy" ? "running" : "idle",
+          }
+          safeCb(this.#state)
+        } else if (event.type === "session.idle") {
+          this.#state = { ...this.#state, status: "idle" }
+          this.#refreshAndPush()
+        } else if (event.type === "message.updated" || event.type === "session.updated") {
+          this.#refreshAndPush()
+        }
       })
     }
   }
@@ -298,9 +501,9 @@ export class SessionHandle extends RpcTarget {
       })
       this.#state = {
         ...this.#state,
-        opencode: res.data as OpencodeSession,
+        opencode: res.data as Session,
       }
-      this.#onStateChangedCallback?.(this.#state)
+      try { this.#onStateChangedCallback?.(this.#state) } catch {}
     } catch {}
   }
 
@@ -310,17 +513,17 @@ export class SessionHandle extends RpcTarget {
     })
     this.#state = {
       ...this.#state,
-      opencode: res.data as OpencodeSession,
+      opencode: res.data as Session,
     }
     return this.#state
   }
 
   // Legacy alias used by existing tests
-  async info(): Promise<OpencodeSession> {
+  async info(): Promise<Session> {
     const res = await this.#client.session.get({
       path: { id: this.#sessionId },
     })
-    return res.data as OpencodeSession
+    return res.data as Session
   }
 
   // Returns a reactive MessageList RPC target
@@ -362,7 +565,7 @@ export class SessionHandle extends RpcTarget {
 
   // Returns a reactive ChangeList RPC target
   changeList(onStateChanged?: OnStateChangedFn<File[]>): ChangeList {
-    return new ChangeList(this.#client, this.#sessionId, onStateChanged)
+    return new ChangeList(this.#client, this.#sessionId, this.#opencode, onStateChanged)
   }
 
   // Derive file-level change summary from session diffs

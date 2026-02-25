@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 interface VoiceInputAreaProps {
   textValue: string
   onTextChange: (text: string) => void
+  onSend: () => void
+  isSending?: boolean
   onMicPress: () => void
   onAttachPress: () => void
   onStopPress: () => void
@@ -16,6 +18,8 @@ interface VoiceInputAreaProps {
 export function VoiceInputArea({
   textValue,
   onTextChange,
+  onSend,
+  isSending,
   onMicPress,
   onAttachPress,
   onStopPress,
@@ -33,10 +37,23 @@ export function VoiceInputArea({
           <TextInput
             value={textValue}
             onChangeText={onTextChange}
-            placeholder="Ask anything..."
+            onSubmitEditing={textValue.trim() && !isSending ? onSend : undefined}
+            returnKeyType="send"
+            editable={!isSending}
+            placeholder={isSending ? 'Waiting for response...' : 'Ask anything...'}
             placeholderTextColor="#475569"
             className="flex-1 text-sm text-white"
           />
+          {textValue.trim() ? (
+            <Pressable
+              onPress={onSend}
+              disabled={isSending}
+              className="w-7 h-7 rounded-full bg-oc-accent items-center justify-center"
+              style={{ opacity: isSending ? 0.5 : 1 }}
+            >
+              <Text className="text-oc-bg-primary text-xs font-bold">↑</Text>
+            </Pressable>
+          ) : null}
         </View>
         <Pressable
           onPress={onAttachPress}

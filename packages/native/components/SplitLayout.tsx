@@ -21,6 +21,8 @@ interface SplitLayoutProps {
   onMenuPress: () => void
   onProjectsPress: () => void
   onToolCallPress?: (messageId: string) => void
+  onSend: (text: string) => void
+  isSending?: boolean
   settings: {
     serverUrl: string
     setServerUrl: (url: string) => void
@@ -43,6 +45,8 @@ export function SplitLayout({
   onMenuPress,
   onProjectsPress,
   onToolCallPress,
+  onSend,
+  isSending,
   settings,
 }: SplitLayoutProps) {
   const insets = useSafeAreaInsets()
@@ -164,6 +168,13 @@ export function SplitLayout({
           <VoiceInputArea
             textValue={textValue}
             onTextChange={setTextValue}
+            onSend={() => {
+              const text = textValue.trim()
+              if (!text) return
+              setTextValue('')
+              onSend(text)
+            }}
+            isSending={isSending}
             onMicPress={() => {}}
             onAttachPress={() => {}}
             onStopPress={() => {}}

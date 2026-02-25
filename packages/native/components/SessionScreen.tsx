@@ -20,6 +20,8 @@ interface SessionScreenProps {
   onMenuPress: () => void
   onProjectsPress: () => void
   onToolCallPress?: (messageId: string) => void
+  onSend: (text: string) => void
+  isSending?: boolean
   emptyMessage?: string
 }
 
@@ -33,6 +35,8 @@ export function SessionScreen({
   onMenuPress,
   onProjectsPress,
   onToolCallPress,
+  onSend,
+  isSending,
   emptyMessage,
 }: SessionScreenProps) {
   const insets = useSafeAreaInsets()
@@ -63,6 +67,13 @@ export function SessionScreen({
       <VoiceInputArea
         textValue={textValue}
         onTextChange={setTextValue}
+        onSend={() => {
+          const text = textValue.trim()
+          if (!text) return
+          setTextValue('')
+          onSend(text)
+        }}
+        isSending={isSending}
         onMicPress={() => {}}
         onAttachPress={() => {}}
         onStopPress={() => {}}

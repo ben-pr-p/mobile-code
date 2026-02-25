@@ -32,6 +32,7 @@ export function EmptySession({ onMenuPress, onProjectsPress }: EmptySessionProps
       <VoiceInputArea
         textValue={textValue}
         onTextChange={setTextValue}
+        onSend={() => {}}
         onMicPress={() => {}}
         onAttachPress={() => {}}
         onStopPress={() => {}}

@@ -1,5 +1,5 @@
 import { useAtomValue } from 'jotai'
-import { apiAtom, type RpcApi } from '../lib/api'
+import { apiAtom } from '../lib/api'
 import { useRpcTarget } from './useRpcTarget'
 
 // Re-export the UI Session type that components expect
@@ -16,8 +16,16 @@ export interface Session {
 export function useSession(sessionId: string | undefined): { data: Session | null; isLoading: boolean } {
   const api = useAtomValue(apiAtom)
 
-  const { data, isLoading } = useRpcTarget(
-    () => new SessionStateTarget(api.getSession(sessionId!)),
+  const { data, isLoading } = useRpcTarget<Session>(
+    () => {
+      const handle = api.getSession(sessionId!)
+      return {
+        async getState() {
+          const state = await handle.getState()
+          return mapSessionState(state)
+        },
+      }
+    },
     [api, sessionId],
   )
 
@@ -28,25 +36,26 @@ export function useSession(sessionId: string | undefined): { data: Session | nul
   return { data, isLoading }
 }
 
-// Wrapper RPC target that maps the raw server state to the UI Session shape
-class SessionStateTarget {
-  #handle: ReturnType<RpcApi['getSession']>
-
-  constructor(handle: ReturnType<RpcApi['getSession']>) {
-    this.#handle = handle
-  }
-
-  async getState(): Promise<Session> {
-    const info = await this.#handle.info()
-    const isActive = Date.now() - info.time.updated < 5 * 60_000
+function mapSessionState(state: any): Session {
+  const info = state.opencode
+  if (!info) {
     return {
-      id: info.id,
-      directory: info.directory,
-      name: info.title || 'Untitled',
+      id: '',
+      directory: '',
+      name: 'Loading...',
       branchName: null,
-      status: isActive ? 'active' : 'idle',
-      createdAt: info.time.created,
-      updatedAt: info.time.updated,
+      status: state.status === 'running' ? 'active' : 'idle',
+      createdAt: 0,
+      updatedAt: 0,
     }
+  }
+  return {
+    id: info.id,
+    directory: info.directory,
+    name: info.title || 'Untitled',
+    branchName: null,
+    status: state.status === 'running' ? 'active' : 'idle',
+    createdAt: info.time.created,
+    updatedAt: info.time.updated,
   }
 }

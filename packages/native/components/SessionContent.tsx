@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { View, Text } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useAtomValue } from 'jotai'
 import { SessionScreen } from './SessionScreen'
 import { SplitLayout } from './SplitLayout'
 import { SessionHeader } from './SessionHeader'
@@ -9,6 +10,7 @@ import { VoiceInputArea } from './VoiceInputArea'
 import { useSession } from '../hooks/useSession'
 import { useSessionMessages } from '../hooks/useSessionMessages'
 import { useChanges } from '../hooks/useChanges'
+import { apiAtom } from '../lib/api'
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings'
 
 interface SessionContentProps {
@@ -76,9 +78,23 @@ function SessionDataLoader({
   onProjectsPress: () => void
   settings: SessionContentProps['settings']
 }) {
+  const api = useAtomValue(apiAtom)
   const { data: messages } = useSessionMessages(sessionId)
   const { data: changes } = useChanges(sessionId)
   const [activeTab, setActiveTab] = useState<'session' | 'changes'>('session')
+  const [isSending, setIsSending] = useState(false)
+
+  const handleSend = useCallback(async (text: string) => {
+    setIsSending(true)
+    try {
+      const handle = api.getSession(sessionId)
+      await handle.prompt([{ type: 'text', text }])
+    } catch (err) {
+      console.error('[SessionContent] prompt failed:', err)
+    } finally {
+      setIsSending(false)
+    }
+  }, [api, sessionId])
 
   if (isTabletLandscape) {
     return (
@@ -90,6 +106,8 @@ function SessionDataLoader({
         onMenuPress={onMenuPress}
         onProjectsPress={onProjectsPress}
         onToolCallPress={() => {}}
+        onSend={handleSend}
+        isSending={isSending}
         settings={settings}
       />
     )
@@ -106,6 +124,8 @@ function SessionDataLoader({
       onMenuPress={onMenuPress}
       onProjectsPress={onProjectsPress}
       onToolCallPress={() => {}}
+      onSend={handleSend}
+      isSending={isSending}
     />
   )
 }
@@ -136,6 +156,7 @@ function SessionLoading({
       <VoiceInputArea
         textValue={textValue}
         onTextChange={setTextValue}
+        onSend={() => {}}
         onMicPress={() => {}}
         onAttachPress={() => {}}
         onStopPress={() => {}}

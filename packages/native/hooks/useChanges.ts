@@ -1,5 +1,5 @@
 import { useAtomValue } from 'jotai'
-import { apiAtom, type RpcApi } from '../lib/api'
+import { apiAtom } from '../lib/api'
 import { useRpcTarget } from './useRpcTarget'
 
 // UI ChangedFile type that components expect
@@ -13,8 +13,17 @@ export interface ChangedFile {
 export function useChanges(sessionId: string | undefined): { data: ChangedFile[]; isLoading: boolean } {
   const api = useAtomValue(apiAtom)
 
-  const { data, isLoading } = useRpcTarget(
-    () => new ChangeListTarget(api.getSession(sessionId!)),
+  const { data, isLoading } = useRpcTarget<ChangedFile[]>(
+    () => {
+      const handle = api.getSession(sessionId!)
+      const target = handle.changeList()
+      return {
+        async getState() {
+          const files = await target.getState()
+          return mapFiles(files)
+        },
+      }
+    },
     [api, sessionId],
   )
 
@@ -25,15 +34,11 @@ export function useChanges(sessionId: string | undefined): { data: ChangedFile[]
   return { data: data ?? [], isLoading }
 }
 
-// Wrapper that fetches changes via the session handle
-class ChangeListTarget {
-  #handle: ReturnType<RpcApi['getSession']>
-
-  constructor(handle: ReturnType<RpcApi['getSession']>) {
-    this.#handle = handle
-  }
-
-  async getState(): Promise<ChangedFile[]> {
-    return this.#handle.changes()
-  }
+function mapFiles(files: any[]): ChangedFile[] {
+  return files.map((f) => ({
+    path: f.path,
+    added: f.added,
+    removed: f.removed,
+    status: f.status,
+  }))
 }

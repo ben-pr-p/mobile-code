@@ -4,6 +4,9 @@ interface RpcTargetLike<T> {
   getState(): Promise<T>
 }
 
+// Poll interval for checking server state updates (ms)
+const POLL_INTERVAL = 500
+
 export function useRpcTarget<T>(
   getTarget: () => RpcTargetLike<T>,
   deps: unknown[] = [],
@@ -19,6 +22,7 @@ export function useRpcTarget<T>(
     const target = getTarget()
     stubRef.current = target
 
+    // Initial fetch
     target.getState().then((state) => {
       if (!cancelled) {
         setData(state)
@@ -31,8 +35,19 @@ export function useRpcTarget<T>(
       }
     })
 
+    // Poll for updates — capnweb disposes callback params after the call
+    // returns, so push-based callbacks don't work. The server maintains
+    // event-driven state internally; we poll getState() to pick it up.
+    const interval = setInterval(() => {
+      if (cancelled) return
+      target.getState().then((state) => {
+        if (!cancelled) setData(state)
+      }).catch(() => {})
+    }, POLL_INTERVAL)
+
     return () => {
       cancelled = true
+      clearInterval(interval)
     }
   }, deps)
 

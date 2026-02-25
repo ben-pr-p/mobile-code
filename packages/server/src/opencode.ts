@@ -20,6 +20,18 @@ import {
   type EventTodoUpdated,
   type EventCommandExecuted,
 } from "@opencode-ai/sdk"
+
+// Not exported from the v1 SDK types, but the server does emit this event
+export type EventMessagePartDelta = {
+  type: "message.part.delta"
+  properties: {
+    sessionID: string
+    messageID: string
+    partID: string
+    field: string
+    delta: string
+  }
+}
 import { EventEmitter } from 'node:events';
 import type {
   Message,
@@ -35,34 +47,36 @@ export function createClient(baseUrl: string): OpencodeClient {
 
 // --- Mappers ---
 
+export function mapPart(p: any): MessagePart {
+  switch (p.type) {
+    case "text":
+      return { type: "text" as const, id: p.id, text: p.text }
+    case "tool":
+      return {
+        type: "tool" as const,
+        id: p.id,
+        tool: p.tool,
+        state: {
+          status: p.state?.status ?? "pending",
+          input: p.state?.input,
+          output: p.state?.output,
+          title: p.state?.title,
+        },
+      }
+    case "step-start":
+      return { type: "step-start" as const, id: p.id }
+    case "step-finish":
+      return { type: "step-finish" as const, id: p.id }
+    case "reasoning":
+      return { type: "reasoning" as const, id: p.id, text: p.text }
+    default:
+      return { type: "text" as const, id: p.id, text: `[${p.type}]` }
+  }
+}
+
 export function mapMessage(raw: any): Message {
   const info = raw.info
-  const parts: MessagePart[] = (raw.parts ?? []).map((p: any) => {
-    switch (p.type) {
-      case "text":
-        return { type: "text" as const, id: p.id, text: p.text }
-      case "tool":
-        return {
-          type: "tool" as const,
-          id: p.id,
-          tool: p.tool,
-          state: {
-            status: p.state?.status ?? "pending",
-            input: p.state?.input,
-            output: p.state?.output,
-            title: p.state?.title,
-          },
-        }
-      case "step-start":
-        return { type: "step-start" as const, id: p.id }
-      case "step-finish":
-        return { type: "step-finish" as const, id: p.id }
-      case "reasoning":
-        return { type: "reasoning" as const, id: p.id, text: p.text }
-      default:
-        return { type: "text" as const, id: p.id, text: `[${p.type}]` }
-    }
-  })
+  const parts: MessagePart[] = (raw.parts ?? []).map(mapPart)
 
   const msg: Message = {
     id: info.id,
@@ -103,6 +117,7 @@ export class Opencode {
         const session = getSessionId(event)
         if (session) {
           this.#listener.emit(session.sessionId, session.event)
+          this.#listener.emit('*', session.event)
         }
       }
     }
@@ -111,6 +126,11 @@ export class Opencode {
 
   addSessionListener(sessionId: string, fn: (event: SessionEvent) => void) {
     this.#listener.on(sessionId, fn)
+  }
+
+  // Listen for all session events (any sessionId). Useful for session list updates.
+  addGlobalListener(fn: (event: SessionEvent) => void) {
+    this.#listener.on('*', fn)
   }
 
   async listProjects() {
@@ -131,6 +151,7 @@ export class Opencode {
 // Events that carry a sessionID directly in properties
 type DirectSessionEvent =
   | EventMessageRemoved
+  | EventMessagePartDelta
   | EventMessagePartRemoved
   | EventPermissionUpdated
   | EventPermissionReplied
