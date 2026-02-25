@@ -7,6 +7,7 @@
 import { RpcTarget } from "capnweb"
 import type { OpencodeClient } from "./opencode"
 import { Opencode, mapMessage, mapPart, getSessionId, type SessionEvent } from "./opencode"
+import { transcribeAudio } from "./transcribe"
 import type {
   Project,
   Session,
@@ -541,12 +542,46 @@ export class SessionHandle extends RpcTarget {
   }
 
   async prompt(parts: PromptPartInput[]): Promise<Message> {
-    const textParts = parts.map((p) => {
+    console.log(`[prompt] received ${parts.length} part(s):`, parts.map((p) => {
       if (p.type === "audio") {
-        return { type: "text" as const, text: "[audio transcription pending]" }
+        return { type: "audio", mimeType: p.mimeType, audioDataLength: p.audioData.length, first80: p.audioData.slice(0, 80) }
       }
-      return { type: "text" as const, text: p.text }
-    })
+      return { type: "text", textLength: p.text.length, text: p.text.slice(0, 100) }
+    }))
+
+    // Fetch conversation context for audio transcription
+    let conversationContext: Message[] | undefined
+    const hasAudio = parts.some((p) => p.type === "audio")
+    if (hasAudio) {
+      try {
+        const res = await this.#client.session.messages({ path: { id: this.#sessionId } })
+        if (!res.error && res.data) {
+          conversationContext = (res.data as any[]).map(mapMessage)
+        }
+      } catch {}
+    }
+
+    // Resolve all parts to text, transcribing audio via Gemini
+    const textParts = await Promise.all(
+      parts.map(async (p) => {
+        if (p.type === "audio") {
+          console.log(`[prompt] transcribing audio: ${p.audioData.length} chars base64, mimeType=${p.mimeType ?? "audio/mp4"}`)
+          try {
+            const transcription = await transcribeAudio(
+              p.audioData,
+              p.mimeType ?? "audio/mp4",
+              conversationContext,
+            )
+            console.log(`[prompt] transcription result: "${transcription}" (length=${transcription.length})`)
+            return { type: "text" as const, text: transcription || "[inaudible]" }
+          } catch (err) {
+            console.error(`[prompt] transcription error:`, err)
+            return { type: "text" as const, text: "[transcription error]" }
+          }
+        }
+        return { type: "text" as const, text: p.text }
+      }),
+    )
 
     const res = await this.#client.session.prompt({
       path: { id: this.#sessionId },

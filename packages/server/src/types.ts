@@ -388,7 +388,7 @@ export type MessagePart =
   | { type: "reasoning"; id: string; text?: string }
 
 export type TextPartInput = { type: "text"; text: string }
-export type AudioPartInput = { type: "audio"; audioData: ArrayBuffer }
+export type AudioPartInput = { type: "audio"; audioData: string; mimeType?: string }
 export type PromptPartInput = TextPartInput | AudioPartInput
 
 // Inferred types from Zod schemas
