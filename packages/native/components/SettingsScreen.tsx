@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { View, Text, Pressable, ScrollView, TextInput, Switch } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useColorScheme } from 'nativewind'
 import { ArrowLeft, ChevronDown } from 'lucide-react-native'
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings'
 
@@ -38,23 +39,27 @@ export function SettingsScreen({
   onBack,
 }: SettingsScreenProps) {
   const insets = useSafeAreaInsets()
+  const { colorScheme, setColorScheme } = useColorScheme()
+  const placeholderColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E'
+  const iconColor = colorScheme === 'dark' ? '#A8A29E' : '#44403C'
+  const mutedIconColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E'
 
   return (
-    <View className="flex-1 bg-oc-bg-primary" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-stone-50 dark:bg-stone-950" style={{ paddingTop: insets.top }}>
       {/* Header */}
       <View className="h-14 flex-row items-center px-5 gap-4">
         <Pressable
           testID="settings-back"
           onPress={onBack}
-          className="w-10 h-10 rounded-lg bg-oc-bg-surface items-center justify-center"
+          className="w-10 h-10 rounded-lg bg-white dark:bg-stone-900 items-center justify-center"
         >
-          <ArrowLeft size={20} color="#94A3B8" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
-        <Text className="text-lg font-semibold text-white">Settings</Text>
+        <Text className="text-lg font-semibold text-stone-900 dark:text-stone-50" style={{ fontFamily: 'JetBrains Mono' }}>Settings</Text>
       </View>
 
       {/* Divider */}
-      <View className="h-px bg-oc-divider" />
+      <View className="h-px bg-stone-200 dark:bg-stone-800" />
 
       <ScrollView
         className="flex-1"
@@ -65,14 +70,14 @@ export function SettingsScreen({
         <SectionHeader title="SERVER" />
 
         <View className="px-5 pb-1">
-          <Text className="text-sm font-medium text-oc-text-primary mb-2">Server URL</Text>
+          <Text className="text-sm font-medium text-stone-900 dark:text-stone-50 mb-2" style={{ fontFamily: 'JetBrains Mono' }}>Server URL</Text>
           <TextInput
             testID="server-url-input"
             value={serverUrl}
             onChangeText={onServerUrlChange}
             placeholder="https://api.opencode.dev"
-            placeholderTextColor="#475569"
-            className="bg-oc-bg-surface rounded-lg h-11 px-3.5 text-xs text-white"
+            placeholderTextColor={placeholderColor}
+            className="bg-white dark:bg-stone-900 rounded-lg h-11 px-3.5 text-xs text-stone-900 dark:text-stone-50"
             style={{ fontFamily: 'JetBrains Mono' }}
             autoCapitalize="none"
             autoCorrect={false}
@@ -82,7 +87,45 @@ export function SettingsScreen({
         </View>
 
         {/* Divider */}
-        <View className="h-px bg-oc-divider mx-5 mt-4" />
+        <View className="h-px bg-stone-200 dark:bg-stone-800 mx-5 mt-4" />
+
+        {/* APPEARANCE section */}
+        <SectionHeader title="APPEARANCE" />
+
+        <View className="px-5 pb-1">
+          <Text className="text-sm font-medium text-stone-900 dark:text-stone-50 mb-3" style={{ fontFamily: 'JetBrains Mono' }}>Theme</Text>
+          <View className="flex-row gap-2">
+            {(['light', 'dark', 'system'] as const).map((mode) => (
+              <Pressable
+                key={mode}
+                onPress={() => setColorScheme(mode)}
+                className={`flex-1 h-10 rounded-lg items-center justify-center ${
+                  (mode === 'system' && colorScheme === undefined) ||
+                  (mode === 'light' && colorScheme === 'light') ||
+                  (mode === 'dark' && colorScheme === 'dark')
+                    ? 'bg-amber-500'
+                    : 'bg-white dark:bg-stone-900'
+                }`}
+              >
+                <Text
+                  className={`text-xs font-medium ${
+                    (mode === 'system' && colorScheme === undefined) ||
+                    (mode === 'light' && colorScheme === 'light') ||
+                    (mode === 'dark' && colorScheme === 'dark')
+                      ? 'text-stone-950'
+                      : 'text-stone-700 dark:text-stone-400'
+                  }`}
+                  style={{ fontFamily: 'JetBrains Mono' }}
+                >
+                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* Divider */}
+        <View className="h-px bg-stone-200 dark:bg-stone-800 mx-5 mt-4" />
 
         {/* VOICE MODE section */}
         <SectionHeader title="VOICE MODE" />
@@ -95,7 +138,7 @@ export function SettingsScreen({
             testID="auto-record-toggle"
             value={handsFreeAutoRecord}
             onValueChange={onHandsFreeAutoRecordChange}
-            trackColor={{ false: '#1E293B', true: '#22D3EE' }}
+            trackColor={{ false: colorScheme === 'dark' ? '#292524' : '#E7E5E4', true: '#F59E0B' }}
             thumbColor="#FFFFFF"
           />
         </SettingsRow>
@@ -111,25 +154,25 @@ export function SettingsScreen({
         </SettingsRow>
 
         {/* Divider */}
-        <View className="h-px bg-oc-divider mx-5 mt-2" />
+        <View className="h-px bg-stone-200 dark:bg-stone-800 mx-5 mt-2" />
 
         {/* ABOUT section */}
         <SectionHeader title="ABOUT" />
 
         <View className="px-5 py-3.5">
           <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-sm font-medium text-oc-text-primary">Version</Text>
+            <Text className="text-sm font-medium text-stone-900 dark:text-stone-50" style={{ fontFamily: 'JetBrains Mono' }}>Version</Text>
             <Text
-              className="text-xs text-oc-text-secondary"
+              className="text-xs text-stone-700 dark:text-stone-400"
               style={{ fontFamily: 'JetBrains Mono' }}
             >
               {appVersion}
             </Text>
           </View>
           <View className="flex-row items-center justify-between">
-            <Text className="text-sm font-medium text-oc-text-primary">Default model</Text>
+            <Text className="text-sm font-medium text-stone-900 dark:text-stone-50" style={{ fontFamily: 'JetBrains Mono' }}>Default model</Text>
             <Text
-              className="text-xs text-oc-text-secondary"
+              className="text-xs text-stone-700 dark:text-stone-400"
               style={{ fontFamily: 'JetBrains Mono' }}
             >
               {defaultModel}
@@ -147,8 +190,8 @@ function SectionHeader({ title }: { title: string }) {
   return (
     <View className="px-5 pt-6 pb-2">
       <Text
-        className="text-[10px] font-semibold text-oc-text-muted"
-        style={{ letterSpacing: 2 }}
+        className="text-[10px] font-semibold text-stone-400 dark:text-stone-600"
+        style={{ letterSpacing: 2, fontFamily: 'JetBrains Mono' }}
       >
         {title}
       </Text>
@@ -165,10 +208,10 @@ function ConnectionStatusBadge({ connection }: ConnectionStatusBadgeProps) {
   const isReconnecting = connection.status === 'reconnecting'
 
   const dotColor = isConnected
-    ? 'bg-oc-green'
+    ? 'bg-green-500'
     : isReconnecting
-      ? 'bg-oc-amber'
-      : 'bg-oc-red'
+      ? 'bg-amber-500'
+      : 'bg-red-500'
 
   const label = isConnected
     ? `Connected · ${connection.latencyMs}ms latency`
@@ -180,7 +223,7 @@ function ConnectionStatusBadge({ connection }: ConnectionStatusBadgeProps) {
     <View className="flex-row items-center gap-2 mt-2">
       <View className={`w-2 h-2 rounded-full ${dotColor}`} />
       <Text
-        className="text-xs text-oc-text-secondary"
+        className="text-xs text-stone-700 dark:text-stone-400"
         style={{ fontFamily: 'JetBrains Mono' }}
       >
         {label}
@@ -200,9 +243,9 @@ function SettingsRow({ label, description, children }: SettingsRowProps) {
     <View className="px-5 py-3.5">
       <View className="flex-row items-center justify-between">
         <View className="flex-1 mr-3">
-          <Text className="text-sm font-medium text-oc-text-primary">{label}</Text>
+          <Text className="text-sm font-medium text-stone-900 dark:text-stone-50" style={{ fontFamily: 'JetBrains Mono' }}>{label}</Text>
           {description && (
-            <Text className="text-xs text-oc-text-muted mt-0.5">{description}</Text>
+            <Text className="text-xs text-stone-400 dark:text-stone-600 mt-0.5">{description}</Text>
           )}
         </View>
         {children}
@@ -223,20 +266,22 @@ function DropdownPicker<T extends string | number>({
   onValueChange,
 }: DropdownPickerProps<T>) {
   const [isOpen, setIsOpen] = useState(false)
+  const { colorScheme } = useColorScheme()
+  const chevronColor = colorScheme === 'dark' ? '#78716C' : '#78716C'
   const selectedLabel = options.find((o) => o.value === value)?.label ?? ''
 
   return (
     <View>
       <Pressable
         onPress={() => setIsOpen(!isOpen)}
-        className="flex-row items-center gap-1.5 bg-oc-bg-surface rounded-lg px-3 py-2"
+        className="flex-row items-center gap-1.5 bg-white dark:bg-stone-900 rounded-lg px-3 py-2"
       >
-        <Text className="text-xs text-oc-text-secondary">{selectedLabel}</Text>
-        <ChevronDown size={14} color="#64748B" />
+        <Text className="text-xs text-stone-700 dark:text-stone-400">{selectedLabel}</Text>
+        <ChevronDown size={14} color={chevronColor} />
       </Pressable>
 
       {isOpen && (
-        <View className="absolute top-11 right-0 bg-oc-bg-surface rounded-lg overflow-hidden z-10 min-w-[160px]"
+        <View className="absolute top-11 right-0 bg-white dark:bg-stone-900 rounded-lg overflow-hidden z-10 min-w-[160px]"
           style={{
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
@@ -253,12 +298,12 @@ function DropdownPicker<T extends string | number>({
                 setIsOpen(false)
               }}
               className={`px-3.5 py-2.5 ${
-                option.value === value ? 'bg-oc-bg-inset' : ''
+                option.value === value ? 'bg-stone-100 dark:bg-stone-950' : ''
               }`}
             >
               <Text
                 className={`text-xs ${
-                  option.value === value ? 'text-oc-accent' : 'text-oc-text-secondary'
+                  option.value === value ? 'text-amber-600 dark:text-amber-500' : 'text-stone-700 dark:text-stone-400'
                 }`}
               >
                 {option.label}
@@ -276,7 +321,7 @@ function DropdownPicker<T extends string | number>({
 function AutoRecordBehavior() {
   return (
     <View className="px-5 pb-2">
-      <View className="bg-oc-bg-surface rounded-lg px-3.5 py-3 gap-2">
+      <View className="bg-white dark:bg-stone-900 rounded-lg px-3.5 py-3 gap-2">
         <BehaviorItem text="Pauses music when agent finishes responding" />
         <BehaviorItem text="Plays a beep to notify you" />
         <BehaviorItem text="Automatically starts recording your response" />
@@ -288,8 +333,8 @@ function AutoRecordBehavior() {
 function BehaviorItem({ text }: { text: string }) {
   return (
     <View className="flex-row items-start gap-2">
-      <Text className="text-xs text-oc-text-muted mt-0.5">•</Text>
-      <Text className="text-xs text-oc-text-secondary flex-1">{text}</Text>
+      <Text className="text-xs text-stone-400 dark:text-stone-600 mt-0.5">•</Text>
+      <Text className="text-xs text-stone-700 dark:text-stone-400 flex-1">{text}</Text>
     </View>
   )
 }

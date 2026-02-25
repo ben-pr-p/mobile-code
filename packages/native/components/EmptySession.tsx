@@ -15,7 +15,7 @@ export function EmptySession({ onMenuPress, onProjectsPress }: EmptySessionProps
   const [textValue, setTextValue] = useState('')
 
   return (
-    <View className="flex-1 bg-oc-bg-primary" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-stone-50 dark:bg-stone-950" style={{ paddingTop: insets.top }}>
       <SessionHeader
         projectName=""
         branchName=""
@@ -25,7 +25,7 @@ export function EmptySession({ onMenuPress, onProjectsPress }: EmptySessionProps
       />
       <TabBar activeTab="session" onTabChange={() => {}} />
       <View className="flex-1 items-center justify-center px-8">
-        <Text className="text-oc-text-muted text-sm text-center">
+        <Text className="text-stone-400 dark:text-stone-600 text-sm text-center">
           Select a project and session to get started
         </Text>
       </View>

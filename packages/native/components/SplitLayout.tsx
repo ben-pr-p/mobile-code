@@ -81,9 +81,9 @@ export function SplitLayout({
   }
 
   return (
-    <View className="flex-1 bg-oc-bg-primary" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-stone-50 dark:bg-stone-950" style={{ paddingTop: insets.top }}>
       {/* Global header spanning full width */}
-      <View className="h-12 flex-row items-center justify-between px-4 border-b border-oc-divider">
+      <View className="h-12 flex-row items-center justify-between px-4 border-b border-stone-200 dark:border-stone-800">
         <View className="flex-row items-center gap-3">
           <Pressable
             testID="menu-button"
@@ -91,12 +91,12 @@ export function SplitLayout({
             className="w-9 h-9 items-center justify-center"
             hitSlop={8}
           >
-            <Text className="text-oc-text-secondary text-lg">☰</Text>
+            <Text className="text-stone-700 dark:text-stone-400 text-lg">☰</Text>
           </Pressable>
           <View className="flex-row items-center gap-2">
-            <View className="w-2 h-2 rounded-full bg-oc-green" />
+            <View className="w-2 h-2 rounded-full bg-green-500" />
             <Text
-              className="text-sm font-semibold text-white"
+              className="text-sm font-semibold text-stone-900 dark:text-stone-50"
               style={{ fontFamily: 'JetBrains Mono' }}
             >
               {session.name.includes('/') ? session.name : 'opencode-rn'}
@@ -112,26 +112,26 @@ export function SplitLayout({
             className="w-9 h-9 items-center justify-center"
             hitSlop={8}
           >
-            <Text className="text-oc-text-secondary text-lg">⚙</Text>
+            <Text className="text-stone-700 dark:text-stone-400 text-lg">⚙</Text>
           </Pressable>
           <Pressable
             onPress={onProjectsPress}
             className="w-9 h-9 items-center justify-center"
             hitSlop={8}
           >
-            <Text className="text-oc-text-secondary text-lg">📁</Text>
+            <Text className="text-stone-700 dark:text-stone-400 text-lg">📁</Text>
           </Pressable>
         </View>
       </View>
 
       {/* Subheader bar with branch + close button */}
-      <View className="h-8 flex-row items-center justify-between px-4 border-b border-oc-divider">
+      <View className="h-8 flex-row items-center justify-between px-4 border-b border-stone-200 dark:border-stone-800">
         <View className="flex-row items-center gap-1.5">
-          <Text className="text-xs text-oc-text-secondary">
+          <Text className="text-xs text-stone-700 dark:text-stone-400">
             {session.name}
           </Text>
-          <Text className="text-xs text-oc-text-muted">·</Text>
-          <Text className="text-xs text-oc-text-muted">
+          <Text className="text-xs text-stone-400 dark:text-stone-600">·</Text>
+          <Text className="text-xs text-stone-400 dark:text-stone-600">
             {formatRelativeTime(session.updatedAt)}
           </Text>
         </View>
@@ -141,7 +141,7 @@ export function SplitLayout({
             className="w-7 h-7 items-center justify-center"
             hitSlop={8}
           >
-            <Text className="text-oc-text-muted text-sm">✕</Text>
+            <Text className="text-stone-400 dark:text-stone-600 text-sm">✕</Text>
           </Pressable>
         )}
       </View>
@@ -149,10 +149,10 @@ export function SplitLayout({
       {/* Split pane content */}
       <View className="flex-1 flex-row">
         {/* Left panel — contextual content (~50%) */}
-        <View className="flex-1 border-r border-oc-divider">
+        <View className="flex-1 border-r border-stone-200 dark:border-stone-800">
           {leftPanel.type === 'tool-detail' ? (
             <View className="flex-1 p-4">
-              <Text className="text-sm text-oc-text-muted">
+              <Text className="text-sm text-stone-400 dark:text-stone-600">
                 Tool detail for message: {leftPanel.messageId}
               </Text>
             </View>
@@ -198,7 +198,7 @@ export function SplitLayout({
 
           {/* Modal card */}
           <View
-            className="bg-oc-bg-primary rounded-2xl overflow-hidden"
+            className="bg-stone-50 dark:bg-stone-950 rounded-2xl overflow-hidden"
             style={{
               width: 480,
               height: 560,

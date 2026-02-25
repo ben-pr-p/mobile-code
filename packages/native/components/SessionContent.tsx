@@ -141,7 +141,7 @@ function SessionLoading({
   const [textValue, setTextValue] = useState('')
 
   return (
-    <View className="flex-1 bg-oc-bg-primary" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-stone-50 dark:bg-stone-950" style={{ paddingTop: insets.top }}>
       <SessionHeader
         projectName=""
         branchName=""
@@ -151,7 +151,7 @@ function SessionLoading({
       />
       <TabBar activeTab="session" onTabChange={() => {}} />
       <View className="flex-1 items-center justify-center px-8">
-        <Text className="text-oc-text-muted text-sm text-center">Loading session...</Text>
+        <Text className="text-stone-400 dark:text-stone-600 text-sm text-center">Loading session...</Text>
       </View>
       <VoiceInputArea
         textValue={textValue}

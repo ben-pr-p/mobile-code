@@ -222,7 +222,7 @@ export default function App() {
           </View>
         )}
       </View>
-      <StatusBar style="light" />
+      <StatusBar style="auto" />
     </SafeAreaProvider>
   );
 }

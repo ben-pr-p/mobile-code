@@ -27,7 +27,7 @@ export function ChangesView({ sessionId, changes }: ChangesViewProps) {
     <View className="flex-1">
       {/* Sticky file header — shown when a file is expanded */}
       {expandedChange && (
-        <View className="border-b border-oc-divider px-4 py-3" style={{ gap: 12 }}>
+        <View className="border-b border-stone-200 dark:border-stone-800 px-4 py-3" style={{ gap: 12 }}>
           {changeBefore && (
             <FileRow
               file={changeBefore}
@@ -49,7 +49,7 @@ export function ChangesView({ sessionId, changes }: ChangesViewProps) {
           className="flex-1"
           contentContainerStyle={{ padding: 16, gap: 12 }}
           showsVerticalScrollIndicator={false}>
-          <Text className="text-xs text-oc-text-muted" style={{ fontFamily: 'JetBrains Mono' }}>
+          <Text className="text-xs text-stone-400 dark:text-stone-600" style={{ fontFamily: 'JetBrains Mono' }}>
             {changes.length} file{changes.length !== 1 ? 's' : ''} changed
           </Text>
 
@@ -72,7 +72,7 @@ export function ChangesView({ sessionId, changes }: ChangesViewProps) {
       </View>
 
       {expandedChange && changeAfter && (
-        <View className="border-t border-oc-divider px-4 py-3">
+        <View className="border-t border-stone-200 dark:border-stone-800 px-4 py-3">
           <FileRow
             file={changeAfter}
             isExpanded={false}
@@ -91,9 +91,9 @@ const STATUS_LABEL: Record<ChangedFile['status'], string> = {
 };
 
 const STATUS_COLOR: Record<ChangedFile['status'], string> = {
-  added: 'text-oc-green',
-  deleted: 'text-oc-red',
-  modified: 'text-oc-accent',
+  added: 'text-green-500',
+  deleted: 'text-red-500',
+  modified: 'text-amber-600 dark:text-amber-500',
 };
 
 function FileRow({
@@ -108,7 +108,7 @@ function FileRow({
   return (
     <Pressable onPress={onPress} className="flex-row items-center gap-3">
       <Text
-        className="text-xs text-oc-text-muted"
+        className="text-xs text-stone-400 dark:text-stone-600"
         style={{ fontFamily: 'JetBrains Mono', width: 10 }}>
         {isExpanded ? '\u25BC' : '\u25B6'}
       </Text>
@@ -118,19 +118,19 @@ function FileRow({
         {STATUS_LABEL[file.status]}
       </Text>
       <Text
-        className="flex-1 text-xs text-oc-text-primary"
+        className="flex-1 text-xs text-stone-900 dark:text-stone-50"
         style={{ fontFamily: 'JetBrains Mono' }}
         numberOfLines={1}>
         {file.path}
       </Text>
       <View className="flex-row items-center gap-2">
         {file.added > 0 && (
-          <Text className="text-xs text-oc-green" style={{ fontFamily: 'JetBrains Mono' }}>
+          <Text className="text-xs text-green-500" style={{ fontFamily: 'JetBrains Mono' }}>
             +{file.added}
           </Text>
         )}
         {file.removed > 0 && (
-          <Text className="text-xs text-oc-red" style={{ fontFamily: 'JetBrains Mono' }}>
+          <Text className="text-xs text-red-500" style={{ fontFamily: 'JetBrains Mono' }}>
             -{file.removed}
           </Text>
         )}

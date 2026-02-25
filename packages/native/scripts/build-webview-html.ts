@@ -32,7 +32,8 @@ const html = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0A0F1C; font-family: monospace; overflow-x: hidden; }
+    body { background: #FAFAF9; font-family: monospace; overflow-x: hidden; }
+    @media (prefers-color-scheme: dark) { body { background: #0C0A09; } }
   </style>
 </head>
 <body>

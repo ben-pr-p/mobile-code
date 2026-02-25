@@ -9,17 +9,23 @@ interface ToolCallBlockProps {
 
 export function ToolCallBlock({ toolName, description, onPress }: ToolCallBlockProps) {
   return (
-    <View className="gap-1.5">
+    <View className="gap-1">
       {/* Tool name label */}
       <View className="flex-row items-center gap-1.5">
         {toolName === 'Shell' ? (
-          <Text className="text-xs text-oc-text-muted" style={{ fontFamily: 'JetBrains Mono' }}>
+          <Text
+            className="text-[11px] font-semibold text-stone-500"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1.5 }}
+          >
             {'>'} {toolName}
           </Text>
         ) : (
           <>
-            <View className="w-2 h-2 rounded-sm bg-oc-accent" />
-            <Text className="text-xs text-oc-text-muted" style={{ fontFamily: 'JetBrains Mono' }}>
+            <View className="w-3.5 h-3.5 rounded-sm bg-amber-600 dark:bg-amber-500" />
+            <Text
+              className="text-[11px] font-semibold text-stone-500"
+              style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1.5 }}
+            >
               {toolName}
             </Text>
           </>
@@ -29,9 +35,9 @@ export function ToolCallBlock({ toolName, description, onPress }: ToolCallBlockP
       {/* Description block */}
       <Pressable
         onPress={onPress}
-        className="bg-oc-bg-surface rounded-lg p-3"
+        className="bg-white dark:bg-stone-900 rounded-lg p-3"
       >
-        <Text className="text-sm text-oc-accent" style={{ fontFamily: 'JetBrains Mono' }}>
+        <Text className="text-[13px] font-medium text-amber-600 dark:text-amber-500" style={{ fontFamily: 'JetBrains Mono' }}>
           {description}
         </Text>
       </Pressable>

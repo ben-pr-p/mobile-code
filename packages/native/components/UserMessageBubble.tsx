@@ -12,15 +12,15 @@ export function UserMessageBubble({ content, isVoice, syncStatus }: UserMessageB
 
   return (
     <View className="items-end">
-      <View className="bg-oc-bg-surface rounded-2xl rounded-br-sm px-4 py-3 max-w-[85%]">
+      <View className="bg-white dark:bg-stone-900 rounded-xl px-3.5 py-2.5 max-w-[85%]">
         {isVoice && (
-          <Text className="text-[10px] text-oc-text-muted mb-1">
+          <Text className="text-[10px] text-stone-400 dark:text-stone-600 mb-1" style={{ fontFamily: 'JetBrains Mono' }}>
             🎙 voice message
           </Text>
         )}
-        <Text className="text-sm text-white leading-5">{content}</Text>
+        <Text className="text-sm font-medium text-stone-900 dark:text-stone-50 leading-5" style={{ fontFamily: 'JetBrains Mono' }}>{content}</Text>
         {isQueued && (
-          <Text className="text-[10px] text-oc-amber mt-1.5" style={{ fontFamily: 'JetBrains Mono' }}>
+          <Text className="text-[10px] text-amber-500 mt-1.5" style={{ fontFamily: 'JetBrains Mono' }}>
             queued · will send when online
           </Text>
         )}

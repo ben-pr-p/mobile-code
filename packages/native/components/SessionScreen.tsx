@@ -43,7 +43,7 @@ export function SessionScreen({
   const [textValue, setTextValue] = useState('')
 
   return (
-    <View className="flex-1 bg-oc-bg-primary" style={{ paddingTop: insets.top }}>
+    <View className="flex-1 bg-stone-50 dark:bg-stone-950" style={{ paddingTop: insets.top }}>
       <SessionHeader
         projectName={session.name.includes('/') ? session.name : 'opencode-rn'}
         branchName={session.name}
@@ -56,7 +56,7 @@ export function SessionScreen({
 
       {emptyMessage ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-oc-text-muted text-sm text-center">{emptyMessage}</Text>
+          <Text className="text-stone-400 dark:text-stone-600 text-sm text-center">{emptyMessage}</Text>
         </View>
       ) : activeTab === 'session' ? (
         <ChatThread messages={messages} onToolCallPress={onToolCallPress} />

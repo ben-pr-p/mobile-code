@@ -7,9 +7,9 @@ interface ToolOutputBlockProps {
 
 export function ToolOutputBlock({ content }: ToolOutputBlockProps) {
   return (
-    <View className="bg-oc-bg-surface rounded-lg p-3">
+    <View className="bg-stone-100 dark:bg-stone-950 rounded-md p-3">
       <Text
-        className="text-xs text-oc-text-secondary"
+        className="text-[11px] text-stone-700 dark:text-stone-400"
         style={{ fontFamily: 'JetBrains Mono' }}
       >
         {content}

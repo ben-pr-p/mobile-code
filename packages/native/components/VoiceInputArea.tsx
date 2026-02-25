@@ -1,6 +1,8 @@
 import React from 'react'
 import { View, Text, Pressable, TextInput } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useColorScheme } from 'nativewind'
+import { Mic, Plus, ChevronDown } from 'lucide-react-native'
 
 interface VoiceInputAreaProps {
   textValue: string
@@ -28,12 +30,18 @@ export function VoiceInputArea({
   providerName,
 }: VoiceInputAreaProps) {
   const insets = useSafeAreaInsets()
+  const { colorScheme } = useColorScheme()
+  const isDark = colorScheme === 'dark'
+  const placeholderColor = isDark ? '#57534E' : '#A8A29E'
+  const inputIconColor = isDark ? '#57534E' : '#A8A29E'
+  const micIconColor = isDark ? '#0C0A09' : '#FAFAF9'
+  const selectorColor = isDark ? '#57534E' : '#A8A29E'
 
   return (
     <View style={{ paddingBottom: insets.bottom + 4 }}>
-      {/* Text input row */}
-      <View className="flex-row items-center px-4 gap-2 mb-3">
-        <View className="flex-1 flex-row items-center bg-oc-bg-surface rounded-xl h-11 px-3 gap-2">
+      {/* Text input row — plus and stop buttons inside */}
+      <View className="px-4 mb-3">
+        <View className="flex-row items-center bg-stone-100 dark:bg-stone-900 rounded-xl h-11 pl-3.5 pr-1.5 gap-2">
           <TextInput
             value={textValue}
             onChangeText={onTextChange}
@@ -41,57 +49,53 @@ export function VoiceInputArea({
             returnKeyType="send"
             editable={!isSending}
             placeholder={isSending ? 'Waiting for response...' : 'Ask anything...'}
-            placeholderTextColor="#475569"
-            className="flex-1 text-sm text-white"
+            placeholderTextColor={placeholderColor}
+            className="flex-1 text-sm text-stone-900 dark:text-stone-50"
+            style={{ fontFamily: 'JetBrains Mono' }}
           />
-          {textValue.trim() ? (
-            <Pressable
-              onPress={onSend}
-              disabled={isSending}
-              className="w-7 h-7 rounded-full bg-oc-accent items-center justify-center"
-              style={{ opacity: isSending ? 0.5 : 1 }}
-            >
-              <Text className="text-oc-bg-primary text-xs font-bold">↑</Text>
-            </Pressable>
-          ) : null}
+          <Pressable
+            onPress={onAttachPress}
+            className="w-[30px] h-[30px] rounded-lg bg-stone-50 dark:bg-stone-950 items-center justify-center"
+          >
+            <Plus size={16} color={inputIconColor} />
+          </Pressable>
+          <Pressable
+            onPress={isSending ? onStopPress : onSend}
+            className="w-[34px] h-[34px] rounded-lg bg-stone-900 dark:bg-stone-50 items-center justify-center"
+            style={{ opacity: !textValue.trim() && !isSending ? 0.5 : 1 }}
+          >
+            {isSending ? (
+              <View className="w-3 h-3 rounded-sm bg-stone-50 dark:bg-stone-950" />
+            ) : (
+              <Text className="text-stone-50 dark:text-stone-900 text-xs font-bold">↑</Text>
+            )}
+          </Pressable>
         </View>
-        <Pressable
-          onPress={onAttachPress}
-          className="w-9 h-9 rounded-lg bg-oc-bg-surface items-center justify-center"
-        >
-          <Text className="text-oc-text-secondary text-base">+</Text>
-        </Pressable>
-        <Pressable
-          onPress={onStopPress}
-          className="w-9 h-9 rounded-lg bg-oc-bg-surface items-center justify-center"
-        >
-          <Text className="text-oc-text-secondary text-sm">■</Text>
-        </Pressable>
       </View>
 
-      {/* Mic button */}
-      <View className="items-center mb-2">
+      {/* Voice control row */}
+      <View className="flex-row items-center justify-between px-4 mb-2">
+        <Pressable className="flex-row items-center gap-1">
+          <Text className="text-[11px] font-medium" style={{ fontFamily: 'JetBrains Mono', color: selectorColor }}>
+            {providerName}
+          </Text>
+          <ChevronDown size={12} color={selectorColor} />
+        </Pressable>
+
+        {/* Mic button */}
         <Pressable
           onPress={onMicPress}
-          className="w-14 h-14 rounded-full bg-oc-accent items-center justify-center"
+          className="w-[52px] h-[52px] rounded-full bg-amber-500 dark:bg-amber-500 items-center justify-center"
         >
-          <Text className="text-oc-bg-primary text-2xl">🎙</Text>
+          <Mic size={22} color={micIconColor} />
         </Pressable>
-      </View>
 
-      {/* Hint text */}
-      <Text className="text-center text-[10px] text-oc-text-muted mb-2">
-        {micHint}
-      </Text>
-
-      {/* Model selectors */}
-      <View className="flex-row items-center justify-between px-6">
-        <Text className="text-xs text-oc-text-muted" style={{ fontFamily: 'JetBrains Mono' }}>
-          {providerName} ↓
-        </Text>
-        <Text className="text-xs text-oc-text-muted" style={{ fontFamily: 'JetBrains Mono' }}>
-          {modelName} ↓
-        </Text>
+        <Pressable className="flex-row items-center gap-1">
+          <Text className="text-[11px] font-medium" style={{ fontFamily: 'JetBrains Mono', color: selectorColor }}>
+            {modelName}
+          </Text>
+          <ChevronDown size={12} color={selectorColor} />
+        </Pressable>
       </View>
     </View>
   )
