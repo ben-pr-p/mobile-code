@@ -8,61 +8,6 @@ interface ChangesViewProps {
   changes: ChangedFile[];
 }
 
-const STATUS_LABEL: Record<ChangedFile['status'], string> = {
-  added: 'A',
-  deleted: 'D',
-  modified: 'M',
-};
-
-const STATUS_COLOR: Record<ChangedFile['status'], string> = {
-  added: 'text-oc-green',
-  deleted: 'text-oc-red',
-  modified: 'text-oc-accent',
-};
-
-function FileRow({
-  file,
-  isExpanded,
-  onPress,
-}: {
-  file: ChangedFile;
-  isExpanded: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} className="flex-row items-center gap-3">
-      <Text
-        className="text-xs text-oc-text-muted"
-        style={{ fontFamily: 'JetBrains Mono', width: 10 }}>
-        {isExpanded ? '\u25BC' : '\u25B6'}
-      </Text>
-      <Text
-        className={`text-xs font-bold ${STATUS_COLOR[file.status]}`}
-        style={{ fontFamily: 'JetBrains Mono', width: 14 }}>
-        {STATUS_LABEL[file.status]}
-      </Text>
-      <Text
-        className="flex-1 text-xs text-oc-text-primary"
-        style={{ fontFamily: 'JetBrains Mono' }}
-        numberOfLines={1}>
-        {file.path}
-      </Text>
-      <View className="flex-row items-center gap-2">
-        {file.added > 0 && (
-          <Text className="text-xs text-oc-green" style={{ fontFamily: 'JetBrains Mono' }}>
-            +{file.added}
-          </Text>
-        )}
-        {file.removed > 0 && (
-          <Text className="text-xs text-oc-red" style={{ fontFamily: 'JetBrains Mono' }}>
-            -{file.removed}
-          </Text>
-        )}
-      </View>
-    </Pressable>
-  );
-}
-
 export function ChangesView({ sessionId, changes }: ChangesViewProps) {
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
 
@@ -136,5 +81,60 @@ export function ChangesView({ sessionId, changes }: ChangesViewProps) {
         </View>
       )}
     </View>
+  );
+}
+
+const STATUS_LABEL: Record<ChangedFile['status'], string> = {
+  added: 'A',
+  deleted: 'D',
+  modified: 'M',
+};
+
+const STATUS_COLOR: Record<ChangedFile['status'], string> = {
+  added: 'text-oc-green',
+  deleted: 'text-oc-red',
+  modified: 'text-oc-accent',
+};
+
+function FileRow({
+  file,
+  isExpanded,
+  onPress,
+}: {
+  file: ChangedFile;
+  isExpanded: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} className="flex-row items-center gap-3">
+      <Text
+        className="text-xs text-oc-text-muted"
+        style={{ fontFamily: 'JetBrains Mono', width: 10 }}>
+        {isExpanded ? '\u25BC' : '\u25B6'}
+      </Text>
+      <Text
+        className={`text-xs font-bold ${STATUS_COLOR[file.status]}`}
+        style={{ fontFamily: 'JetBrains Mono', width: 14 }}>
+        {STATUS_LABEL[file.status]}
+      </Text>
+      <Text
+        className="flex-1 text-xs text-oc-text-primary"
+        style={{ fontFamily: 'JetBrains Mono' }}
+        numberOfLines={1}>
+        {file.path}
+      </Text>
+      <View className="flex-row items-center gap-2">
+        {file.added > 0 && (
+          <Text className="text-xs text-oc-green" style={{ fontFamily: 'JetBrains Mono' }}>
+            +{file.added}
+          </Text>
+        )}
+        {file.removed > 0 && (
+          <Text className="text-xs text-oc-red" style={{ fontFamily: 'JetBrains Mono' }}>
+            -{file.removed}
+          </Text>
+        )}
+      </View>
+    </Pressable>
   );
 }

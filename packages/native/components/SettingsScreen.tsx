@@ -4,6 +4,143 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft, ChevronDown } from 'lucide-react-native'
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings'
 
+interface SettingsScreenProps {
+  // Server
+  serverUrl: string
+  onServerUrlChange: (url: string) => void
+  connection: ConnectionInfo
+
+  // Voice mode
+  handsFreeAutoRecord: boolean
+  onHandsFreeAutoRecordChange: (value: boolean) => void
+  notificationSound: NotificationSound
+  onNotificationSoundChange: (value: NotificationSound) => void
+  notificationSoundOptions: { label: string; value: NotificationSound }[]
+  // About
+  appVersion: string
+  defaultModel: string
+
+  // Navigation
+  onBack: () => void
+}
+
+export function SettingsScreen({
+  serverUrl,
+  onServerUrlChange,
+  connection,
+  handsFreeAutoRecord,
+  onHandsFreeAutoRecordChange,
+  notificationSound,
+  onNotificationSoundChange,
+  notificationSoundOptions,
+  appVersion,
+  defaultModel,
+  onBack,
+}: SettingsScreenProps) {
+  const insets = useSafeAreaInsets()
+
+  return (
+    <View className="flex-1 bg-oc-bg-primary" style={{ paddingTop: insets.top }}>
+      {/* Header */}
+      <View className="h-14 flex-row items-center px-5 gap-4">
+        <Pressable
+          testID="settings-back"
+          onPress={onBack}
+          className="w-10 h-10 rounded-lg bg-oc-bg-surface items-center justify-center"
+        >
+          <ArrowLeft size={20} color="#94A3B8" />
+        </Pressable>
+        <Text className="text-lg font-semibold text-white">Settings</Text>
+      </View>
+
+      {/* Divider */}
+      <View className="h-px bg-oc-divider" />
+
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 28) }}
+      >
+        {/* SERVER section */}
+        <SectionHeader title="SERVER" />
+
+        <View className="px-5 pb-1">
+          <Text className="text-sm font-medium text-oc-text-primary mb-2">Server URL</Text>
+          <TextInput
+            testID="server-url-input"
+            value={serverUrl}
+            onChangeText={onServerUrlChange}
+            placeholder="https://api.opencode.dev"
+            placeholderTextColor="#475569"
+            className="bg-oc-bg-surface rounded-lg h-11 px-3.5 text-xs text-white"
+            style={{ fontFamily: 'JetBrains Mono' }}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+          <ConnectionStatusBadge connection={connection} />
+        </View>
+
+        {/* Divider */}
+        <View className="h-px bg-oc-divider mx-5 mt-4" />
+
+        {/* VOICE MODE section */}
+        <SectionHeader title="VOICE MODE" />
+
+        <SettingsRow
+          label="Hands-free auto-record"
+          description="Auto-record when agent finishes"
+        >
+          <Switch
+            testID="auto-record-toggle"
+            value={handsFreeAutoRecord}
+            onValueChange={onHandsFreeAutoRecordChange}
+            trackColor={{ false: '#1E293B', true: '#22D3EE' }}
+            thumbColor="#FFFFFF"
+          />
+        </SettingsRow>
+
+        <AutoRecordBehavior />
+
+        <SettingsRow label="Notification sound">
+          <DropdownPicker
+            value={notificationSound}
+            options={notificationSoundOptions}
+            onValueChange={onNotificationSoundChange}
+          />
+        </SettingsRow>
+
+        {/* Divider */}
+        <View className="h-px bg-oc-divider mx-5 mt-2" />
+
+        {/* ABOUT section */}
+        <SectionHeader title="ABOUT" />
+
+        <View className="px-5 py-3.5">
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-sm font-medium text-oc-text-primary">Version</Text>
+            <Text
+              className="text-xs text-oc-text-secondary"
+              style={{ fontFamily: 'JetBrains Mono' }}
+            >
+              {appVersion}
+            </Text>
+          </View>
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm font-medium text-oc-text-primary">Default model</Text>
+            <Text
+              className="text-xs text-oc-text-secondary"
+              style={{ fontFamily: 'JetBrains Mono' }}
+            >
+              {defaultModel}
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  )
+}
+
 // --- Sub-components ---
 
 function SectionHeader({ title }: { title: string }) {
@@ -153,145 +290,6 @@ function BehaviorItem({ text }: { text: string }) {
     <View className="flex-row items-start gap-2">
       <Text className="text-xs text-oc-text-muted mt-0.5">•</Text>
       <Text className="text-xs text-oc-text-secondary flex-1">{text}</Text>
-    </View>
-  )
-}
-
-// --- Main SettingsScreen ---
-
-interface SettingsScreenProps {
-  // Server
-  serverUrl: string
-  onServerUrlChange: (url: string) => void
-  connection: ConnectionInfo
-
-  // Voice mode
-  handsFreeAutoRecord: boolean
-  onHandsFreeAutoRecordChange: (value: boolean) => void
-  notificationSound: NotificationSound
-  onNotificationSoundChange: (value: NotificationSound) => void
-  notificationSoundOptions: { label: string; value: NotificationSound }[]
-  // About
-  appVersion: string
-  defaultModel: string
-
-  // Navigation
-  onBack: () => void
-}
-
-export function SettingsScreen({
-  serverUrl,
-  onServerUrlChange,
-  connection,
-  handsFreeAutoRecord,
-  onHandsFreeAutoRecordChange,
-  notificationSound,
-  onNotificationSoundChange,
-  notificationSoundOptions,
-  appVersion,
-  defaultModel,
-  onBack,
-}: SettingsScreenProps) {
-  const insets = useSafeAreaInsets()
-
-  return (
-    <View className="flex-1 bg-oc-bg-primary" style={{ paddingTop: insets.top }}>
-      {/* Header */}
-      <View className="h-14 flex-row items-center px-5 gap-4">
-        <Pressable
-          testID="settings-back"
-          onPress={onBack}
-          className="w-10 h-10 rounded-lg bg-oc-bg-surface items-center justify-center"
-        >
-          <ArrowLeft size={20} color="#94A3B8" />
-        </Pressable>
-        <Text className="text-lg font-semibold text-white">Settings</Text>
-      </View>
-
-      {/* Divider */}
-      <View className="h-px bg-oc-divider" />
-
-      <ScrollView
-        className="flex-1"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 28) }}
-      >
-        {/* SERVER section */}
-        <SectionHeader title="SERVER" />
-
-        <View className="px-5 pb-1">
-          <Text className="text-sm font-medium text-oc-text-primary mb-2">Server URL</Text>
-          <TextInput
-            testID="server-url-input"
-            value={serverUrl}
-            onChangeText={onServerUrlChange}
-            placeholder="https://api.opencode.dev"
-            placeholderTextColor="#475569"
-            className="bg-oc-bg-surface rounded-lg h-11 px-3.5 text-xs text-white"
-            style={{ fontFamily: 'JetBrains Mono' }}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-          />
-          <ConnectionStatusBadge connection={connection} />
-        </View>
-
-        {/* Divider */}
-        <View className="h-px bg-oc-divider mx-5 mt-4" />
-
-        {/* VOICE MODE section */}
-        <SectionHeader title="VOICE MODE" />
-
-        <SettingsRow
-          label="Hands-free auto-record"
-          description="Auto-record when agent finishes"
-        >
-          <Switch
-            testID="auto-record-toggle"
-            value={handsFreeAutoRecord}
-            onValueChange={onHandsFreeAutoRecordChange}
-            trackColor={{ false: '#1E293B', true: '#22D3EE' }}
-            thumbColor="#FFFFFF"
-          />
-        </SettingsRow>
-
-        <AutoRecordBehavior />
-
-        <SettingsRow label="Notification sound">
-          <DropdownPicker
-            value={notificationSound}
-            options={notificationSoundOptions}
-            onValueChange={onNotificationSoundChange}
-          />
-        </SettingsRow>
-
-        {/* Divider */}
-        <View className="h-px bg-oc-divider mx-5 mt-2" />
-
-        {/* ABOUT section */}
-        <SectionHeader title="ABOUT" />
-
-        <View className="px-5 py-3.5">
-          <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-sm font-medium text-oc-text-primary">Version</Text>
-            <Text
-              className="text-xs text-oc-text-secondary"
-              style={{ fontFamily: 'JetBrains Mono' }}
-            >
-              {appVersion}
-            </Text>
-          </View>
-          <View className="flex-row items-center justify-between">
-            <Text className="text-sm font-medium text-oc-text-primary">Default model</Text>
-            <Text
-              className="text-xs text-oc-text-secondary"
-              style={{ fontFamily: 'JetBrains Mono' }}
-            >
-              {defaultModel}
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
     </View>
   )
 }

@@ -2,22 +2,6 @@ import React from 'react'
 import { View, Text, Pressable } from 'react-native'
 import type { Project } from '../../server/src/types'
 
-// Color palette for project avatars - cycles through these
-const AVATAR_COLORS = ['#22D3EE', '#475569', '#475569', '#8B5CF6', '#EC4899', '#475569']
-
-function formatRelativeTime(timestamp: number): string {
-  const diff = Date.now() - timestamp
-  const minutes = Math.floor(diff / 60_000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 7) return `${days}d ago`
-  const weeks = Math.floor(days / 7)
-  return `${weeks}w ago`
-}
-
 interface ProjectCardProps {
   project: Project
   index: number
@@ -25,11 +9,6 @@ interface ProjectCardProps {
   onPress: (worktree: string) => void
   onNewSession: (worktree: string) => void
   onOverflow: (worktree: string) => void
-}
-
-function projectName(worktree: string): string {
-  if (worktree === '/') return 'global'
-  return worktree.split('/').pop() || worktree
 }
 
 export function ProjectCard({
@@ -92,4 +71,25 @@ export function ProjectCard({
       )}
     </Pressable>
   )
+}
+
+// Color palette for project avatars - cycles through these
+const AVATAR_COLORS = ['#22D3EE', '#475569', '#475569', '#8B5CF6', '#EC4899', '#475569']
+
+function formatRelativeTime(timestamp: number): string {
+  const diff = Date.now() - timestamp
+  const minutes = Math.floor(diff / 60_000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  const weeks = Math.floor(days / 7)
+  return `${weeks}w ago`
+}
+
+function projectName(worktree: string): string {
+  if (worktree === '/') return 'global'
+  return worktree.split('/').pop() || worktree
 }

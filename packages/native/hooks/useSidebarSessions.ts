@@ -4,8 +4,6 @@ import { apiAtom } from '../lib/api'
 import { useRpcTarget } from './useRpcTarget'
 import type { Session } from '../../server/src/types'
 
-const DAY = 24 * 60 * 60_000
-
 export interface SidebarSession {
   id: string
   worktree: string
@@ -20,25 +18,6 @@ export interface GroupedSessions {
   recent: SidebarSession[]
   earlier: SidebarSession[]
 }
-
-function formatRelativeTime(timestamp: number): string {
-  const diff = Date.now() - timestamp
-  const minutes = Math.floor(diff / 60_000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days === 1) return 'yesterday'
-  return `${days} days ago`
-}
-
-function projectName(worktree: string): string {
-  if (worktree === '/') return 'global'
-  return worktree.split('/').pop() || worktree
-}
-
-const EMPTY: GroupedSessions = { recent: [], earlier: [] }
 
 export function useSidebarSessions(
   worktree: string,
@@ -83,4 +62,23 @@ export function useSidebarSessions(
   }, [sessions, searchQuery])
 
   return { data: grouped, isLoading }
+}
+
+const DAY = 24 * 60 * 60_000
+
+function formatRelativeTime(timestamp: number): string {
+  const diff = Date.now() - timestamp
+  const minutes = Math.floor(diff / 60_000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days === 1) return 'yesterday'
+  return `${days} days ago`
+}
+
+function projectName(worktree: string): string {
+  if (worktree === '/') return 'global'
+  return worktree.split('/').pop() || worktree
 }

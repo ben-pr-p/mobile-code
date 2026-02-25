@@ -4,6 +4,94 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Menu, Plus, Search, Ellipsis, Settings, Mic, HelpCircle } from 'lucide-react-native';
 import { useSidebarSessions, type SidebarSession } from '../hooks/useSidebarSessions';
 
+interface SessionsSidebarProps {
+  worktree: string | undefined;
+  selectedSessionId: string | null;
+  onClose: () => void;
+  onNewSession: () => void;
+  onSelectSession: (sessionId: string, worktree: string) => void;
+  onOverflowSession?: (id: string) => void;
+  onSettingsPress: () => void;
+  onMicPress: () => void;
+  onHelpPress: () => void;
+}
+
+export function SessionsSidebar({
+  worktree,
+  selectedSessionId,
+  onClose,
+  onNewSession,
+  onSelectSession,
+  onOverflowSession,
+  onSettingsPress,
+  onMicPress,
+  onHelpPress,
+}: SessionsSidebarProps) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View className="flex-1 bg-oc-bg-primary" style={{ paddingTop: insets.top }}>
+      {/* Header */}
+      <View className="h-14 flex-row items-center justify-between px-5">
+        <Pressable
+          onPress={onClose}
+          className="h-10 w-10 items-center justify-center rounded-lg bg-oc-bg-surface">
+          <Menu size={20} color="#94A3B8" />
+        </Pressable>
+
+        <Text className="text-lg font-semibold text-white">Sessions</Text>
+
+        <Pressable
+          onPress={onNewSession}
+          className="h-10 w-10 items-center justify-center rounded-lg bg-oc-bg-surface">
+          <Plus size={20} color="#94A3B8" />
+        </Pressable>
+      </View>
+
+      {/* Divider */}
+      <View className="h-px bg-oc-divider" />
+
+      {worktree ? (
+        <SessionListContent
+          worktree={worktree}
+          selectedSessionId={selectedSessionId}
+          onSelectSession={onSelectSession}
+          onOverflowSession={onOverflowSession}
+        />
+      ) : (
+        <View className="flex-1 items-center justify-center px-8">
+          <Text className="text-center text-sm font-medium text-oc-text-secondary">
+            Select a project to view sessions
+          </Text>
+        </View>
+      )}
+
+      {/* Bottom bar */}
+      <View
+        className="flex-row items-center justify-between px-5 pt-3"
+        style={{
+          borderTopWidth: 1,
+          borderTopColor: '#0F172A',
+          paddingBottom: Math.max(insets.bottom, 28),
+        }}>
+        <Pressable testID="settings-icon" onPress={onSettingsPress} hitSlop={8}>
+          <Settings size={22} color="#475569" />
+        </Pressable>
+
+        <Pressable
+          onPress={onMicPress}
+          className="h-12 w-12 items-center justify-center rounded-full bg-oc-accent">
+          <Mic size={22} color="#0A0F1C" />
+        </Pressable>
+
+        <Pressable onPress={onHelpPress} hitSlop={8}>
+          <HelpCircle size={22} color="#475569" />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 interface SessionRowProps {
   session: SidebarSession;
   isSelected: boolean;
@@ -112,93 +200,5 @@ function SessionListContent({
         )}
       </ScrollView>
     </>
-  );
-}
-
-interface SessionsSidebarProps {
-  worktree: string | undefined;
-  selectedSessionId: string | null;
-  onClose: () => void;
-  onNewSession: () => void;
-  onSelectSession: (sessionId: string, worktree: string) => void;
-  onOverflowSession?: (id: string) => void;
-  onSettingsPress: () => void;
-  onMicPress: () => void;
-  onHelpPress: () => void;
-}
-
-export function SessionsSidebar({
-  worktree,
-  selectedSessionId,
-  onClose,
-  onNewSession,
-  onSelectSession,
-  onOverflowSession,
-  onSettingsPress,
-  onMicPress,
-  onHelpPress,
-}: SessionsSidebarProps) {
-  const insets = useSafeAreaInsets();
-
-  return (
-    <View className="flex-1 bg-oc-bg-primary" style={{ paddingTop: insets.top }}>
-      {/* Header */}
-      <View className="h-14 flex-row items-center justify-between px-5">
-        <Pressable
-          onPress={onClose}
-          className="h-10 w-10 items-center justify-center rounded-lg bg-oc-bg-surface">
-          <Menu size={20} color="#94A3B8" />
-        </Pressable>
-
-        <Text className="text-lg font-semibold text-white">Sessions</Text>
-
-        <Pressable
-          onPress={onNewSession}
-          className="h-10 w-10 items-center justify-center rounded-lg bg-oc-bg-surface">
-          <Plus size={20} color="#94A3B8" />
-        </Pressable>
-      </View>
-
-      {/* Divider */}
-      <View className="h-px bg-oc-divider" />
-
-      {worktree ? (
-        <SessionListContent
-          worktree={worktree}
-          selectedSessionId={selectedSessionId}
-          onSelectSession={onSelectSession}
-          onOverflowSession={onOverflowSession}
-        />
-      ) : (
-        <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-center text-sm font-medium text-oc-text-secondary">
-            Select a project to view sessions
-          </Text>
-        </View>
-      )}
-
-      {/* Bottom bar */}
-      <View
-        className="flex-row items-center justify-between px-5 pt-3"
-        style={{
-          borderTopWidth: 1,
-          borderTopColor: '#0F172A',
-          paddingBottom: Math.max(insets.bottom, 28),
-        }}>
-        <Pressable testID="settings-icon" onPress={onSettingsPress} hitSlop={8}>
-          <Settings size={22} color="#475569" />
-        </Pressable>
-
-        <Pressable
-          onPress={onMicPress}
-          className="h-12 w-12 items-center justify-center rounded-full bg-oc-accent">
-          <Mic size={22} color="#0A0F1C" />
-        </Pressable>
-
-        <Pressable onPress={onHelpPress} hitSlop={8}>
-          <HelpCircle size={22} color="#475569" />
-        </Pressable>
-      </View>
-    </View>
   );
 }

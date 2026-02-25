@@ -10,19 +10,6 @@ export interface ChangedFile {
   removed: number
 }
 
-// Wrapper that fetches changes via the session handle
-class ChangeListTarget {
-  #handle: ReturnType<RpcApi['getSession']>
-
-  constructor(handle: ReturnType<RpcApi['getSession']>) {
-    this.#handle = handle
-  }
-
-  async getState(): Promise<ChangedFile[]> {
-    return this.#handle.changes()
-  }
-}
-
 export function useChanges(sessionId: string | undefined): { data: ChangedFile[]; isLoading: boolean } {
   const api = useAtomValue(apiAtom)
 
@@ -36,4 +23,17 @@ export function useChanges(sessionId: string | undefined): { data: ChangedFile[]
   }
 
   return { data: data ?? [], isLoading }
+}
+
+// Wrapper that fetches changes via the session handle
+class ChangeListTarget {
+  #handle: ReturnType<RpcApi['getSession']>
+
+  constructor(handle: ReturnType<RpcApi['getSession']>) {
+    this.#handle = handle
+  }
+
+  async getState(): Promise<ChangedFile[]> {
+    return this.#handle.changes()
+  }
 }

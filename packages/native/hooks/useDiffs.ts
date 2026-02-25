@@ -10,6 +10,21 @@ export interface FileDiff {
   deletions: number
 }
 
+export function useDiffs(sessionId: string | undefined): { data: FileDiff[]; isLoading: boolean } {
+  const api = useAtomValue(apiAtom)
+
+  const { data, isLoading } = useRpcTarget(
+    () => new DiffTarget(api.getSession(sessionId!)),
+    [api, sessionId],
+  )
+
+  if (!sessionId) {
+    return { data: [], isLoading: false }
+  }
+
+  return { data: data ?? [], isLoading }
+}
+
 class DiffTarget {
   #handle: ReturnType<RpcApi['getSession']>
 
@@ -25,19 +40,4 @@ class DiffTarget {
       return []
     }
   }
-}
-
-export function useDiffs(sessionId: string | undefined): { data: FileDiff[]; isLoading: boolean } {
-  const api = useAtomValue(apiAtom)
-
-  const { data, isLoading } = useRpcTarget(
-    () => new DiffTarget(api.getSession(sessionId!)),
-    [api, sessionId],
-  )
-
-  if (!sessionId) {
-    return { data: [], isLoading: false }
-  }
-
-  return { data: data ?? [], isLoading }
 }

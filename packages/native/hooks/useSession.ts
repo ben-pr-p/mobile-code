@@ -13,6 +13,21 @@ export interface Session {
   updatedAt: number
 }
 
+export function useSession(sessionId: string | undefined): { data: Session | null; isLoading: boolean } {
+  const api = useAtomValue(apiAtom)
+
+  const { data, isLoading } = useRpcTarget(
+    () => new SessionStateTarget(api.getSession(sessionId!)),
+    [api, sessionId],
+  )
+
+  if (!sessionId) {
+    return { data: null, isLoading: false }
+  }
+
+  return { data, isLoading }
+}
+
 // Wrapper RPC target that maps the raw server state to the UI Session shape
 class SessionStateTarget {
   #handle: ReturnType<RpcApi['getSession']>
@@ -34,19 +49,4 @@ class SessionStateTarget {
       updatedAt: info.time.updated,
     }
   }
-}
-
-export function useSession(sessionId: string | undefined): { data: Session | null; isLoading: boolean } {
-  const api = useAtomValue(apiAtom)
-
-  const { data, isLoading } = useRpcTarget(
-    () => new SessionStateTarget(api.getSession(sessionId!)),
-    [api, sessionId],
-  )
-
-  if (!sessionId) {
-    return { data: null, isLoading: false }
-  }
-
-  return { data, isLoading }
 }

@@ -18,6 +18,21 @@ export interface Message {
   createdAt: number
 }
 
+export function useSessionMessages(sessionId: string | undefined): { data: Message[]; isLoading: boolean } {
+  const api = useAtomValue(apiAtom)
+
+  const { data, isLoading } = useRpcTarget(
+    () => new MessageListTarget(api.getSession(sessionId!)),
+    [api, sessionId],
+  )
+
+  if (!sessionId) {
+    return { data: [], isLoading: false }
+  }
+
+  return { data: data ?? [], isLoading }
+}
+
 function flattenMessage(msg: ServerMessage): Message[] {
   const messages: Message[] = []
 
@@ -91,19 +106,4 @@ class MessageListTarget {
       .sort((a: ServerMessage, b: ServerMessage) => a.createdAt - b.createdAt)
       .flatMap(flattenMessage)
   }
-}
-
-export function useSessionMessages(sessionId: string | undefined): { data: Message[]; isLoading: boolean } {
-  const api = useAtomValue(apiAtom)
-
-  const { data, isLoading } = useRpcTarget(
-    () => new MessageListTarget(api.getSession(sessionId!)),
-    [api, sessionId],
-  )
-
-  if (!sessionId) {
-    return { data: [], isLoading: false }
-  }
-
-  return { data: data ?? [], isLoading }
 }

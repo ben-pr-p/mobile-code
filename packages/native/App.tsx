@@ -14,8 +14,6 @@ import { useMusicPlayer } from './hooks/useMusicPlayer';
 import { useSettings } from './hooks/useSettings';
 import { useLayout } from './hooks/useLayout';
 
-const ANIMATION_DURATION = 280;
-
 export default function App() {
   const { isTabletLandscape, width: screenWidth } = useLayout();
   const sidebarWidth = screenWidth * 0.85;
@@ -228,3 +226,5 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+const ANIMATION_DURATION = 280;
