@@ -1,5 +1,9 @@
 import React from 'react'
 import { View, Text, Pressable } from 'react-native'
+import { Menu, FolderOpen } from 'lucide-react-native'
+import { useColorScheme } from 'nativewind'
+import { useAtomValue } from 'jotai'
+import { connectionInfoAtom } from '../state/settings'
 
 interface SessionHeaderProps {
   projectName: string
@@ -16,6 +20,11 @@ export function SessionHeader({
   onMenuPress,
   onProjectsPress,
 }: SessionHeaderProps) {
+  const { colorScheme } = useColorScheme()
+  const iconColor = colorScheme === 'dark' ? '#A8A29E' : '#44403C'
+  const connection = useAtomValue(connectionInfoAtom)
+  const dotColor = connection.status === 'connected' ? 'bg-green-500' : 'bg-red-500'
+
   return (
     <View>
       {/* Top header row */}
@@ -26,11 +35,11 @@ export function SessionHeader({
           className="w-9 h-9 items-center justify-center"
           hitSlop={8}
         >
-          <Text className="text-stone-700 dark:text-stone-400 text-lg">☰</Text>
+          <Menu size={20} color={iconColor} />
         </Pressable>
 
         <View className="flex-row items-center gap-2">
-          <View className="w-2 h-2 rounded-full bg-green-500" />
+          <View className={`w-2 h-2 rounded-full ${dotColor}`} />
           <Text
             className="text-sm font-semibold text-stone-900 dark:text-stone-50"
             style={{ fontFamily: 'JetBrains Mono' }}
@@ -44,7 +53,7 @@ export function SessionHeader({
           className="w-9 h-9 items-center justify-center"
           hitSlop={8}
         >
-          <Text className="text-stone-700 dark:text-stone-400 text-lg">📁</Text>
+          <FolderOpen size={20} color={iconColor} />
         </Pressable>
       </View>
 

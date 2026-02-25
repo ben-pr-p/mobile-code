@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef, useEffect } from 'react'
 import { View, ScrollView } from 'react-native'
 import { ToolCallBlock } from './ToolCallBlock'
 import { ToolOutputBlock } from './ToolOutputBlock'
@@ -13,8 +13,23 @@ interface ChatThreadProps {
 }
 
 export function ChatThread({ messages, onToolCallPress }: ChatThreadProps) {
+  const scrollRef = useRef<ScrollView>(null)
+  const prevCountRef = useRef(0)
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      const animated = prevCountRef.current > 0
+      prevCountRef.current = messages.length
+      // Small delay to ensure layout is complete
+      setTimeout(() => {
+        scrollRef.current?.scrollToEnd({ animated })
+      }, 100)
+    }
+  }, [messages.length])
+
   return (
     <ScrollView
+      ref={scrollRef}
       className="flex-1"
       contentContainerStyle={{ padding: 16, gap: 12 }}
       showsVerticalScrollIndicator={false}

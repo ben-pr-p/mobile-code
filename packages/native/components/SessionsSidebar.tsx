@@ -111,7 +111,7 @@ function SessionRow({ session, isSelected, onPress, onOverflow }: SessionRowProp
     <Pressable
       onPress={() => onPress(session.id, session.worktree)}
       className={`flex-row items-center gap-3 rounded-lg px-3.5 py-3 ${
-        isSelected ? 'bg-white dark:bg-stone-900' : ''
+        isSelected ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700' : ''
       }`}>
       <View className={`h-2 w-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-stone-400 dark:bg-stone-600'}`} />
       <View className="flex-1 gap-0.5">

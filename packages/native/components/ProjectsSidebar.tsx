@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { ActivityIndicator, View, Text, Pressable, ScrollView, TextInput } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useColorScheme } from 'nativewind'
+import { X, Plus } from 'lucide-react-native'
 import { ProjectCard } from './ProjectCard'
 import { MusicPlayerBar } from './MusicPlayerBar'
 import { useProjects } from '../hooks/useProjects'
@@ -39,6 +40,7 @@ export function ProjectsSidebar({
   const [searchQuery, setSearchQuery] = useState('')
   const { data: projects, isLoading, error } = useProjects()
   const { colorScheme } = useColorScheme()
+  const iconColor = colorScheme === 'dark' ? '#A8A29E' : '#44403C'
   const placeholderColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E'
   const showSearch = projects.length >= 8
   const showCount = projects.length >= 8
@@ -57,7 +59,7 @@ export function ProjectsSidebar({
           onPress={onClose}
           className="w-10 h-10 rounded-lg bg-white dark:bg-stone-900 items-center justify-center"
         >
-          <Text className="text-stone-700 dark:text-stone-400 text-xl">✕</Text>
+          <X size={20} color={iconColor} />
         </Pressable>
 
         <Text className="text-lg font-semibold text-stone-900 dark:text-stone-50" style={{ fontFamily: 'JetBrains Mono' }}>
@@ -68,7 +70,7 @@ export function ProjectsSidebar({
           onPress={onAddProject}
           className="w-10 h-10 rounded-lg bg-white dark:bg-stone-900 items-center justify-center"
         >
-          <Text className="text-stone-700 dark:text-stone-400 text-xl">+</Text>
+          <Plus size={20} color={iconColor} />
         </Pressable>
       </View>
 
@@ -147,7 +149,6 @@ export function ProjectsSidebar({
               index={index}
               isSelected={project.worktree === selectedWorktree}
               onPress={onSelectProject}
-              onNewSession={onNewSession}
               onOverflow={onOverflow}
             />
           ))}

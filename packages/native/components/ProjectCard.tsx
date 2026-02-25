@@ -7,7 +7,6 @@ interface ProjectCardProps {
   index: number
   isSelected: boolean
   onPress: (worktree: string) => void
-  onNewSession: (worktree: string) => void
   onOverflow: (worktree: string) => void
 }
 
@@ -16,7 +15,6 @@ export function ProjectCard({
   index,
   isSelected,
   onPress,
-  onNewSession,
   onOverflow,
 }: ProjectCardProps) {
   const name = projectName(project.worktree)
@@ -27,7 +25,11 @@ export function ProjectCard({
   return (
     <Pressable
       onPress={() => onPress(project.worktree)}
-      className="rounded-xl bg-white dark:bg-stone-900 p-4 gap-2.5"
+      className={`rounded-xl p-4 gap-2.5 ${
+        isSelected
+          ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700'
+          : 'bg-white dark:bg-stone-900'
+      }`}
     >
       {/* Header row: avatar + name/path + overflow */}
       <View className="flex-row items-center gap-2.5">
@@ -57,18 +59,6 @@ export function ProjectCard({
         </Text>
       </View>
 
-      {/* New session button - only shown on selected project */}
-      {isSelected && (
-        <Pressable
-          onPress={() => onNewSession(project.worktree)}
-          className="bg-stone-100 dark:bg-stone-950 rounded-lg h-[38px] items-center justify-center flex-row gap-1.5"
-        >
-          <Text className="text-stone-500 text-sm">+</Text>
-          <Text className="text-xs text-stone-500 font-medium" style={{ fontFamily: 'JetBrains Mono' }}>
-            New session
-          </Text>
-        </Pressable>
-      )}
     </Pressable>
   )
 }
