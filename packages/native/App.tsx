@@ -6,8 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAtomValue, useAtom } from 'jotai';
 
 import './global.css';
-import { SessionContent } from './components/SessionContent';
-import { NewSessionContent } from './components/NewSessionContent';
+import { SessionContent, NewSessionContent } from './components/SessionContent';
 import { SessionsSidebar } from './components/SessionsSidebar';
 import { ProjectsSidebar } from './components/ProjectsSidebar';
 import { SettingsScreen } from './components/SettingsScreen';

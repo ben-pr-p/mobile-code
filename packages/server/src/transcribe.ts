@@ -12,13 +12,25 @@ export async function transcribeAudio(
   console.log(`[transcribe] input: ${base64Audio.length} chars base64, mimeType=${mimeType} -> ${normalizedMime}, context=${conversationContext?.length ?? 0} messages`)
   const contextSummary = buildContextSummary(conversationContext)
 
-  const systemPrompt = `You are a voice transcription layer between a human user and an AI coding agent.
+  const systemPrompt = `\
+## General Instructions
+You are a voice transcription layer between a human user and an AI coding agent.
 The user is speaking voice commands/messages that will be forwarded to the coding agent.
-You will be provided recent conversation history to help you resolve ambiguous words, technical terms, variable names, file paths, and other domain-specific vocabulary.
+You will be provided recent conversation history to help you resolve ambiguous words, technical terms,
+variable names, file paths, and other domain-specific vocabulary.
 The final message will be an audio recording from the user to transcribe.
-Transcribe the user's audio message verbatim.
-Output ONLY the transcription text, nothing else.
-If the audio is unclear or empty, respond with an empty string.`
+
+## Transcription Intent Correction
+Transcribe the user's audio message. Transcribe the intent of it - you should not transcribe umms.
+If the user corrects themselves in natural speech, only output the correction.
+
+## Reference Resolution
+Resolve the user's references to real files that may have been recently referenced. If the user says "Add server dot env to gitignore",
+and the agent recently edited \`./server/.env\`, then output \`Add ./server/.env to .gitignore\`.
+
+## Output Instructions
+Output ONLY the text that you believe should be forwarded to the coding agent, nothing else.
+If the audio is unclear or empty, respond with an empty string and nothing will happen.`
 
   const contextMessages = [
     {

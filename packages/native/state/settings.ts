@@ -2,7 +2,10 @@ import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings';
 
-export const serverUrlAtom = atomWithStorage('settings:serverUrl', 'https://api.opencode.dev');
+export const serverUrlAtom = atomWithStorage(
+  'settings:serverUrl',
+  'http://bens-macbook-pro-2.bobtail-kelvin.ts.net:3001'
+);
 
 /**
  * Debounced version of serverUrlAtom — updates 1 s after the last write to

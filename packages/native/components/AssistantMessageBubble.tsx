@@ -26,12 +26,10 @@ export function AssistantMessageBubble({ content }: AssistantMessageBubbleProps)
   }, [colorScheme])
 
   return (
-    <View className="items-start">
-      <View className="max-w-[85%]">
-        <StreamdownRN theme={theme} isComplete style={{ flex: undefined }}>
-          {content}
-        </StreamdownRN>
-      </View>
+    <View>
+      <StreamdownRN theme={theme} isComplete style={{ flex: undefined }}>
+        {content}
+      </StreamdownRN>
     </View>
   )
 }

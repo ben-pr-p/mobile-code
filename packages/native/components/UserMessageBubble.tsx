@@ -13,8 +13,8 @@ export function UserMessageBubble({ content, isVoice, syncStatus }: UserMessageB
   const isQueued = syncStatus === 'pending' || syncStatus === 'failed'
 
   return (
-    <View className="items-end">
-      <View className="bg-white dark:bg-stone-900 rounded-xl px-3.5 py-2.5 max-w-[85%]">
+    <View>
+      <View className="bg-white dark:bg-stone-900 rounded-xl px-3.5 py-2.5 border border-amber-400 dark:border-amber-500">
         {isVoice && (
           <View className="flex-row items-center gap-1 mb-1">
             <Mic size={10} color="#A8A29E" />
