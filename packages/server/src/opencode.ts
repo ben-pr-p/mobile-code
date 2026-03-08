@@ -97,14 +97,35 @@ export class Opencode {
     this.#client = createOpencodeClient({ baseUrl })
   }
 
-  async spawnListener(callback: OpencodeEventCallback) {
-    const events = await this.#client.event.subscribe()
-    const forwardEvents = async () => {
-      for await (const event of events.stream) {
-        callback(event)
+  async spawnListener(callback: OpencodeEventCallback, baseUrl: string) {
+    const url = `${baseUrl}/global/event`
+    const res = await fetch(url)
+    if (!res.ok || !res.body) throw new Error(`Failed to connect to ${url}: ${res.status}`)
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+    const processStream = async () => {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() ?? ""
+        for (const line of lines) {
+          if (!line.startsWith("data:")) continue
+          const json = line.slice("data:".length).trim()
+          if (!json) continue
+          try {
+            const parsed = JSON.parse(json)
+            // Global events wrap the payload: { directory, payload: <event> }
+            const event = parsed.payload ?? parsed
+            if (event.type === "server.heartbeat" || event.type === "server.connected") continue
+            callback(event)
+          } catch {}
+        }
       }
     }
-    forwardEvents()
+    processStream()
   }
 
   async listProjects() {

@@ -7,9 +7,10 @@ import type { ThemeConfig } from 'streamdown-rn/dist/core/types'
 
 interface AssistantMessageBubbleProps {
   content: string
+  isComplete: boolean
 }
 
-export function AssistantMessageBubble({ content }: AssistantMessageBubbleProps) {
+export function AssistantMessageBubble({ content, isComplete }: AssistantMessageBubbleProps) {
   const { colorScheme } = useColorScheme()
 
   const theme = useMemo((): ThemeConfig => {
@@ -27,7 +28,7 @@ export function AssistantMessageBubble({ content }: AssistantMessageBubbleProps)
 
   return (
     <View>
-      <StreamdownRN theme={theme} isComplete style={{ flex: undefined }}>
+      <StreamdownRN theme={theme} isComplete={isComplete} style={{ flex: undefined }}>
         {content}
       </StreamdownRN>
     </View>

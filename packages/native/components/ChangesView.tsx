@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
-import type { ChangedFile } from '../hooks/useChanges';
+import type { ChangedFile } from '../lib/stream-db';
 import { DiffWebView } from './DiffWebView';
 
 interface ChangesViewProps {

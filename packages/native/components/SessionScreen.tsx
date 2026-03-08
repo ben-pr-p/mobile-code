@@ -7,7 +7,7 @@ import { ChatThread } from './ChatThread'
 import { ChangesView } from './ChangesView'
 import { VoiceInputArea } from './VoiceInputArea'
 import type { SessionValue, UIMessage as Message } from '../lib/stream-db'
-import type { ChangedFile } from '../hooks/useChanges'
+import type { ChangedFile } from '../lib/stream-db'
 import type { RecordingState } from '../hooks/useAudioRecorder'
 
 interface SessionScreenProps {

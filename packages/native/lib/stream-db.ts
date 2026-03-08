@@ -1,5 +1,6 @@
 export { useStateQuery, flattenServerMessage };
-export type { ProjectValue, SessionValue, StateDB, UIMessage };
+export type { ProjectValue, SessionValue, ChangeValue, StateDB, UIMessage };
+export type { ChangedFile } from '../../server/src/types';
 
 import { atom } from 'jotai';
 import { useAtomValue } from 'jotai/react';
@@ -9,7 +10,7 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { useLiveQuery } from '@tanstack/react-db';
 import type { InitialQueryBuilder, Context, QueryBuilder } from '@tanstack/react-db';
 import { debouncedServerUrlAtom } from '../state/settings';
-import type { Message } from '../../server/src/types';
+import type { Message, ChangedFile } from '../../server/src/types';
 
 function passthrough<T>(): StandardSchemaV1<T> {
   return {
@@ -41,6 +42,11 @@ type SessionValue = {
   time: { created: number; updated: number };
 };
 
+type ChangeValue = {
+  sessionId: string;
+  files: ChangedFile[];
+};
+
 const stateDef = {
   projects: {
     schema: passthrough<ProjectValue>(),
@@ -53,6 +59,11 @@ const stateDef = {
     primaryKey: 'id' as const,
   },
   messages: { schema: passthrough<Message>(), type: 'message' as const, primaryKey: 'id' as const },
+  changes: {
+    schema: passthrough<ChangeValue>(),
+    type: 'change' as const,
+    primaryKey: 'sessionId' as const,
+  },
 };
 
 type StateDef = typeof stateDef;
@@ -105,17 +116,19 @@ type UIMessage = {
   toolMeta: Record<string, unknown> | null;
   syncStatus: 'synced' | 'pending' | 'sending' | 'failed';
   createdAt: number;
+  isComplete: boolean;
 };
 
 function flattenServerMessage(msg: Message): UIMessage[] {
   const messages: UIMessage[] = [];
+  const isComplete = msg.role === 'user' || !!msg.finish;
 
   for (const part of msg.parts) {
     switch (part.type) {
       case 'text': {
         const prev = messages[messages.length - 1];
         if (prev && prev.type === 'text' && prev.role === msg.role) {
-          prev.content += '\n' + part.text;
+          prev.content += part.text;
         } else {
           messages.push({
             id: part.id,
@@ -129,6 +142,7 @@ function flattenServerMessage(msg: Message): UIMessage[] {
             toolMeta: null,
             syncStatus: 'synced',
             createdAt: msg.createdAt,
+            isComplete,
           });
         }
         break;
@@ -146,6 +160,7 @@ function flattenServerMessage(msg: Message): UIMessage[] {
           toolMeta: part.state as Record<string, unknown>,
           syncStatus: 'synced',
           createdAt: msg.createdAt,
+          isComplete,
         });
         break;
     }
@@ -164,6 +179,7 @@ function flattenServerMessage(msg: Message): UIMessage[] {
       toolMeta: null,
       syncStatus: 'synced',
       createdAt: msg.createdAt,
+      isComplete,
     });
   }
 

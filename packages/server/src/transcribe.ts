@@ -9,7 +9,6 @@ export async function transcribeAudio(
 ): Promise<string> {
   // Normalize MIME types that Gemini doesn't recognize
   const normalizedMime = normalizeMimeType(mimeType)
-  console.log(`[transcribe] input: ${base64Audio.length} chars base64, mimeType=${mimeType} -> ${normalizedMime}, context=${conversationContext?.length ?? 0} messages`)
   const contextSummary = buildContextSummary(conversationContext)
 
   const systemPrompt = `\
@@ -65,7 +64,6 @@ If the audio is unclear or empty, respond with an empty string and nothing will 
     stream: false,
   })
 
-  console.log(`[transcribe] raw result: "${result}"`)
   return result.trim()
 }
 

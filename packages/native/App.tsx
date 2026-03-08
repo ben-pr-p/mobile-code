@@ -189,9 +189,10 @@ export default function App() {
           }
         }
       } catch {}
+      setNewSessionProjectId(pid);
       router.push({ pathname: '/projects/[projectId]', params: { projectId: pid } });
     },
-    [api, router]
+    [api, router, setNewSessionProjectId]
   );
 
   const handleSelectProject = useCallback(

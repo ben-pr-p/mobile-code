@@ -75,6 +75,7 @@ export function ChatThread({ messages, onToolCallPress }: ChatThreadProps) {
               <AssistantMessageBubble
                 key={message.id}
                 content={message.content}
+                isComplete={message.isComplete}
               />
             )
           default:

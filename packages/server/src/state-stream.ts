@@ -3,10 +3,10 @@ export { StateStream }
 import type { DurableStreamServer } from "durable-streams-web-standard"
 import type { OpencodeClient, StateStreamSink } from "./opencode"
 import { mapMessage, mapPart } from "./opencode"
-import type { Message, MessagePart } from "./types"
+import type { Message, MessagePart, ChangedFile } from "./types"
 
 type StateEvent = {
-  type: "project" | "session" | "message"
+  type: "project" | "session" | "message" | "change"
   key: string
   value?: unknown
   headers: { operation: "insert" | "update" | "upsert" | "delete" }
@@ -73,6 +73,13 @@ class StateStream implements StateStreamSink {
         })
       }
     }
+
+    // Load file changes for sessions that have diffs
+    for (const session of sessions ?? []) {
+      if ((session as any).summary?.files > 0) {
+        this.#refetchChanges(session.id)
+      }
+    }
   }
 
   // --- StateStreamSink implementation ---
@@ -113,14 +120,20 @@ class StateStream implements StateStreamSink {
   sessionIdle(sessionId: string) {
     this.#refetchSession(sessionId)
     this.#fullMessageSync(sessionId)
+    this.#refetchChanges(sessionId)
   }
 
   sessionCompacted(_sessionId: string) {
     // No-op for now
   }
 
-  sessionDiff(_sessionId: string, _diff: any[]) {
-    // No-op for now
+  sessionDiff(sessionId: string, diff: any[]) {
+    this.#appendEvent({
+      type: "change",
+      key: sessionId,
+      value: { sessionId, files: this.#mapChanges(diff) },
+      headers: { operation: "upsert" },
+    })
   }
 
   sessionError(_sessionId: string | undefined, _error: any) {
@@ -229,7 +242,7 @@ class StateStream implements StateStreamSink {
   async #refetchSession(sessionId: string) {
     try {
       const directory = this.#sessionDirectories.get(sessionId)
-      const res = await this.#client.session.get({ path: { id: sessionId }, query: { directory } })
+      const res = await this.#client.session.get({ path: { id: sessionId }, ...(directory ? { query: { directory } } : {}) })
       if (res.data) {
         this.#appendEvent({
           type: "session",
@@ -244,7 +257,7 @@ class StateStream implements StateStreamSink {
   async #fullMessageSync(sessionId: string) {
     try {
       const directory = this.#sessionDirectories.get(sessionId)
-      const res = await this.#client.session.messages({ path: { id: sessionId }, query: { directory } })
+      const res = await this.#client.session.messages({ path: { id: sessionId }, ...(directory ? { query: { directory } } : {}) })
       if (res.error) return
       for (const raw of res.data ?? []) {
         const msg = mapMessage(raw)
@@ -259,6 +272,31 @@ class StateStream implements StateStreamSink {
     } catch {}
   }
 
+  #mapChanges(diff: any[]): ChangedFile[] {
+    return diff.map((d: any) => ({
+      path: d.file as string,
+      status: (d.status === "deleted" ? "deleted"
+        : d.status === "added" ? "added"
+        : "modified") as ChangedFile["status"],
+      added: d.additions as number,
+      removed: d.deletions as number,
+    }))
+  }
+
+  async #refetchChanges(sessionId: string) {
+    try {
+      const directory = this.#sessionDirectories.get(sessionId)
+      const res = await this.#client.session.diff({ path: { id: sessionId }, ...(directory ? { query: { directory } } : {}) })
+      if (res.error) return
+      this.#appendEvent({
+        type: "change",
+        key: sessionId,
+        value: { sessionId, files: this.#mapChanges(res.data ?? []) },
+        headers: { operation: "upsert" },
+      })
+    } catch {}
+  }
+
   #appendEvent(event: StateEvent) {
     // console.log('Appending ', event)
     this.#ds.appendToStream("/", JSON.stringify(event), {
@@ -268,8 +306,6 @@ class StateStream implements StateStreamSink {
 }
 
 function mapProject(raw: any) {
-  console.log('===== PROJECT =====')
-  console.log(raw)
   return {
     id: raw.id,
     worktree: raw.worktree,
@@ -283,8 +319,6 @@ function mapProject(raw: any) {
 }
 
 function mapSession(raw: any) {
-  console.log('===== SESSION =====')
-  console.log(raw)
   return {
     id: raw.id,
     title: raw.title,

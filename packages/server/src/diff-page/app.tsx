@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react"
+import React, { useState, useEffect } from "react"
 import { createRoot } from "react-dom/client"
 import { MultiFileDiff } from "@pierre/diffs/react"
 
@@ -23,38 +23,18 @@ type DiffData = {
 function App() {
   const [diffs, setDiffs] = useState<DiffData[]>([])
   const [activeFile, setActiveFile] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
 
-  // Load all diffs upfront on mount
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const sessionId = params.get("session")
-
-    if (!sessionId) {
-      setError("Missing session param")
-      return
-    }
-
-    fetch(`/api/diffs?session=${encodeURIComponent(sessionId)}`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-      .then((data: DiffData[]) => {
-        setDiffs(data)
-        setLoaded(true)
-        postToNative({ type: "loaded", files: data.map((d) => d.file) })
-      })
-      .catch((err) => setError(String(err)))
-  }, [])
-
-  // Listen for messages from React Native to switch files
+  // Listen for messages from React Native
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       try {
         const msg = typeof event.data === "string" ? JSON.parse(event.data) : event.data
-        if (msg.type === "showFile") {
+        if (msg.type === "loadDiffs") {
+          setDiffs(msg.diffs)
+          setLoaded(true)
+          postToNative({ type: "loaded", files: (msg.diffs as DiffData[]).map((d) => d.file) })
+        } else if (msg.type === "showFile") {
           setActiveFile(msg.file)
         } else if (msg.type === "hide") {
           setActiveFile(null)
@@ -80,16 +60,12 @@ function App() {
     postToNative({ type: "ready" })
   }, [])
 
-  if (error) {
-    return <div style={{ padding: 16, color: "#EF4444", fontFamily: "monospace" }}>{error}</div>
-  }
-
   if (!loaded) {
-    return <div style={{ padding: 16, color: "#64748B", fontFamily: "monospace" }}>Loading diffs...</div>
+    return <div style={{ padding: 16, color: "#64748B", fontFamily: "monospace" }}>Waiting for diffs...</div>
   }
 
   if (!activeFile) {
-    return <div style={{ padding: 16, color: "#64748B", fontFamily: "monospace" }}>Ready</div>
+    return null
   }
 
   const diff = diffs.find((d) => d.file === activeFile)

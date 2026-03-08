@@ -4,6 +4,13 @@ import { z } from "zod/v4"
 // depending on @opencode-ai/sdk directly.
 export type { Project, Session, File } from "@opencode-ai/sdk"
 
+export interface ChangedFile {
+  path: string
+  status: 'added' | 'deleted' | 'modified'
+  added: number
+  removed: number
+}
+
 // ---------- Zod Schemas for OpenCode API messages ----------
 
 // Shared time range used by parts and tool states

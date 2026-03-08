@@ -10,6 +10,7 @@ export interface Message {
   toolMeta: Record<string, unknown> | null
   syncStatus: 'synced' | 'pending' | 'sending' | 'failed'
   createdAt: number
+  isComplete: boolean
 }
 
 const NOW = Date.now()
@@ -34,6 +35,7 @@ export const FIXTURE_MESSAGES: Message[] = [
     },
     syncStatus: 'synced',
     createdAt: NOW - 10 * MINUTE,
+    isComplete: true,
   },
   // Tool output
   {
@@ -48,6 +50,7 @@ export const FIXTURE_MESSAGES: Message[] = [
     toolMeta: null,
     syncStatus: 'synced',
     createdAt: NOW - 10 * MINUTE + 1000,
+    isComplete: true,
   },
   // Tool call: Explore Agent
   {
@@ -66,6 +69,7 @@ export const FIXTURE_MESSAGES: Message[] = [
     },
     syncStatus: 'synced',
     createdAt: NOW - 8 * MINUTE,
+    isComplete: true,
   },
   // Agent status
   {
@@ -80,6 +84,7 @@ export const FIXTURE_MESSAGES: Message[] = [
     toolMeta: null,
     syncStatus: 'synced',
     createdAt: NOW - 5 * MINUTE,
+    isComplete: true,
   },
   // User voice message
   {
@@ -94,6 +99,7 @@ export const FIXTURE_MESSAGES: Message[] = [
     toolMeta: null,
     syncStatus: 'synced',
     createdAt: NOW - 3 * MINUTE,
+    isComplete: true,
   },
 ]
 

@@ -36,7 +36,7 @@ export function createApp(opencodeUrl: string) {
   })
 
   // Subscribe to opencode events and route them to the state stream
-  opencode.spawnListener((event) => handleOpencodeEvent(event, stateStream)).catch((err) => {
+  opencode.spawnListener((event) => handleOpencodeEvent(event, stateStream), opencodeUrl).catch((err) => {
     console.error("Failed to start opencode event listener:", err)
   })
 
@@ -109,14 +109,10 @@ export function createApp(opencodeUrl: string) {
           return c.json({ error: `Project not found: ${projectId}` }, 404)
         }
 
-        console.log('Creating session')
-        console.log({ projectId, project })
-
         // Create the session in the project's worktree
         const createRes = await client.session.create({
           query: { directory: project.worktree },
         })
-        console.log(createRes.data)
         if (createRes.error) {
           return c.json({ error: "Failed to create session" }, 500)
         }
@@ -155,26 +151,6 @@ export function createApp(opencodeUrl: string) {
         .sort((a, b) => b.time.updated - a.time.updated)
 
       return c.json(sessions)
-    })
-
-    // File change summary for a session
-    .get("/sessions/:sessionId/changes", async (c) => {
-      const sessionId = c.req.param("sessionId")
-      const sessionRes = await client.session.get({ path: { id: sessionId } })
-      const directory = (sessionRes.data as any)?.directory as string | undefined
-      const res = await client.session.diff({ path: { id: sessionId }, query: { directory } })
-      if (res.error) {
-        return c.json({ error: "Failed to fetch changes" }, 500)
-      }
-      const changes = (res.data ?? []).map((d: any) => ({
-        path: d.file as string,
-        added: d.additions as number,
-        removed: d.deletions as number,
-        status: (d.status === "deleted" ? "deleted"
-          : d.status === "added" ? "added"
-          : "modified") as "added" | "deleted" | "modified",
-      }))
-      return c.json(changes)
     })
 
     // Returns { file, before, after } for a single file in a session

@@ -13,12 +13,12 @@ import {
   flattenServerMessage,
   type UIMessage as Message,
   type SessionValue,
+  type ChangeValue,
+  type ChangedFile,
 } from '../lib/stream-db';
 import type { Message as ServerMessage } from '../../server/src/types';
-import { useChanges } from '../hooks/useChanges';
 import { apiClientAtom } from '../lib/api';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
-import type { ChangedFile } from '../hooks/useChanges';
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings';
 
 // ---------------------------------------------------------------------------
@@ -128,6 +128,7 @@ export function SessionView({
         toolMeta: null,
         syncStatus: 'sending',
         createdAt: Date.now(),
+        isComplete: true,
       };
       setPendingVoiceMessages((prev) => [...prev, optimisticMsg]);
 
@@ -221,7 +222,7 @@ export function SessionContent({
   );
 }
 
-// Separate component so useSessionMessages/useChanges only mount when session exists
+// Separate component so hooks only mount when session exists
 function ExistingSessionDataLoader({
   session,
   sessionId,
@@ -254,7 +255,17 @@ function ExistingSessionDataLoader({
       .flatMap(flattenServerMessage);
   }, [rawMessages]);
 
-  const { data: changes } = useChanges(sessionId);
+  const { data: changeResults } = useStateQuery(
+    (db, q) =>
+      q
+        .from({ changes: db.collections.changes })
+        .where(({ changes }) => eq(changes.sessionId, sessionId)),
+    [sessionId]
+  );
+  const changes = useMemo(() => {
+    const result = (changeResults as ChangeValue[] | undefined)?.[0];
+    return result?.files ?? [];
+  }, [changeResults]);
 
   const handleSendText = useCallback(
     async (text: string) => {
@@ -348,9 +359,10 @@ export function NewSessionContent({
 
   const createAndPrompt = useCallback(
     async (
-      parts: Array<
-        { type: 'text'; text: string } | { type: 'audio'; audioData: string; mimeType: string }
-      >
+      parts: (
+        | { type: 'text'; text: string }
+        | { type: 'audio'; audioData: string; mimeType: string }
+      )[]
     ) => {
       if (creatingRef.current) return;
       creatingRef.current = true;

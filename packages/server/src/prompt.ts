@@ -11,13 +11,6 @@ export async function sendPrompt(
   parts: PromptPartInput[],
   directory?: string,
 ): Promise<Message> {
-  console.log(`[prompt] received ${parts.length} part(s):`, parts.map((p) => {
-    if (p.type === "audio") {
-      return { type: "audio", mimeType: p.mimeType, audioDataLength: p.audioData.length, first80: p.audioData.slice(0, 80) }
-    }
-    return { type: "text", textLength: p.text.length, text: p.text.slice(0, 100) }
-  }))
-
   // Fetch conversation context for audio transcription
   let conversationContext: Message[] | undefined
   const hasAudio = parts.some((p) => p.type === "audio")
@@ -30,18 +23,19 @@ export async function sendPrompt(
     } catch {}
   }
 
+  const partSummary = parts.map((p) => p.type === "audio" ? "audio" : `text(${p.text.length})`).join(", ")
+  console.log(`[prompt] session=${sessionId} received ${parts.length} part(s): ${partSummary}`)
+
   // Resolve all parts to text, transcribing audio via Gemini
   const textParts = await Promise.all(
     parts.map(async (p) => {
       if (p.type === "audio") {
-        console.log(`[prompt] transcribing audio: ${p.audioData.length} chars base64, mimeType=${p.mimeType ?? "audio/mp4"}`)
         try {
           const transcription = await transcribeAudio(
             p.audioData,
             p.mimeType ?? "audio/mp4",
             conversationContext,
           )
-          console.log(`[prompt] transcription result: "${transcription}" (length=${transcription.length})`)
           return { type: "text" as const, text: transcription || "[inaudible]" }
         } catch (err) {
           console.error(`[prompt] transcription error:`, err)
@@ -52,11 +46,21 @@ export async function sendPrompt(
     }),
   )
 
+  const resolvedText = textParts.map((p) => p.text.slice(0, 100)).join(" | ")
+  console.log(`[prompt] session=${sessionId} forwarding to opencode: ${textParts.length} part(s), text preview: "${resolvedText.slice(0, 200)}"`)
+
   const res = await client.session.prompt({
     path: { id: sessionId },
     body: { parts: textParts },
     query: { directory },
   })
-  if (res.error) throw new Error(`Prompt failed: ${JSON.stringify(res.error)}`)
-  return mapMessage(res.data)
+  if (res.error) {
+    console.error(`[prompt] session=${sessionId} opencode error:`, res.error)
+    throw new Error(`Prompt failed: ${JSON.stringify(res.error)}`)
+  }
+
+  const message = mapMessage(res.data)
+  const responseSummary = message.parts.map((p) => p.type === "text" ? `text(${p.text.length})` : `${p.type}`).join(", ")
+  console.log(`[prompt] session=${sessionId} opencode responded: role=${message.role}, ${message.parts.length} part(s): ${responseSummary}`)
+  return message
 }
