@@ -14,7 +14,7 @@ const { values } = parseArgs({
 const opencodeUrl = values["opencode-url"]!
 const port = parseInt(values.port!, 10)
 
-export const { app, sessionStreams, getSessionStreams } = createApp(opencodeUrl)
+export const { app, ds, stateStream, instanceId } = createApp(opencodeUrl)
 
 console.log(`Server starting on port ${port} (opencode: ${opencodeUrl})`)
 

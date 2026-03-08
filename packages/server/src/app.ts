@@ -2,8 +2,13 @@ import { Hono } from "hono"
 import { upgradeWebSocket } from "hono/bun"
 import { newRpcResponse } from "@hono/capnweb"
 import { DurableStreamServer } from "durable-streams-web-standard"
+import { customAlphabet } from "nanoid"
 import { createClient, Opencode } from "./opencode"
 import { Api } from "./rpc"
+import { StateStream } from "./state-stream"
+import { logger } from 'hono/logger'
+
+const generateInstanceId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12)
 
 export function createApp(opencodeUrl: string) {
   const client = createClient(opencodeUrl)
@@ -12,26 +17,33 @@ export function createApp(opencodeUrl: string) {
     console.error("Failed to start opencode event listener:", err)
   })
   const app = new Hono()
+  app.use(logger())
 
-  // Per-session durable stream servers
-  const sessionStreams = new Map<string, DurableStreamServer>()
+  // Unique instance ID for this server boot — clients use this to detect restarts
+  const instanceId = generateInstanceId()
 
-  function getSessionStreams(sessionId: string): DurableStreamServer {
-    let ds = sessionStreams.get(sessionId)
-    if (!ds) {
-      ds = new DurableStreamServer()
-      sessionStreams.set(sessionId, ds)
-    }
-    return ds
-  }
+  // Single durable stream server for state protocol events
+  const ds = new DurableStreamServer()
+  const stateStream = new StateStream(ds, client, opencode)
+  stateStream.initialize().catch((err) => {
+    console.error("Failed to initialize state stream:", err)
+  })
 
-  app.all("/streams/:sessionId/*", (c) => {
-    const sessionId = c.req.param("sessionId")
-    const ds = getSessionStreams(sessionId)
-    // Rewrite the URL so the handler sees the path after /streams/:sessionId
+  // Returns the current instance ID so clients know where to connect
+  app.get("/", (c) => {
+    return c.json({ instanceId })
+  })
+
+  // Stream is mounted at /{instanceId} — changes on every restart
+  app.all(`/${instanceId}/*`, (c) => {
     const url = new URL(c.req.url)
-    const prefix = `/streams/${sessionId}`
-    url.pathname = url.pathname.slice(prefix.length) || "/"
+    url.pathname = url.pathname.slice(`/${instanceId}`.length) || "/"
+    const rewritten = new Request(url.toString(), c.req.raw)
+    return ds.fetch(rewritten)
+  })
+  app.all(`/${instanceId}`, (c) => {
+    const url = new URL(c.req.url)
+    url.pathname = "/"
     const rewritten = new Request(url.toString(), c.req.raw)
     return ds.fetch(rewritten)
   })
@@ -80,5 +92,5 @@ export function createApp(opencodeUrl: string) {
     return c.json(diffs)
   })
 
-  return { app, sessionStreams, getSessionStreams }
+  return { app, ds, stateStream, instanceId }
 }

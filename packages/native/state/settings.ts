@@ -2,10 +2,9 @@ import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings';
 
-export const serverUrlAtom = atomWithStorage(
-  'settings:serverUrl',
-  'http://bens-macbook-pro-2.bobtail-kelvin.ts.net:3001'
-);
+const DEFAULT_SERVER_URL = 'http://localhost:3000';
+
+export const serverUrlAtom = atomWithStorage('settings:serverUrl', DEFAULT_SERVER_URL);
 
 /**
  * Debounced version of serverUrlAtom — updates 1 s after the last write to
@@ -15,7 +14,7 @@ export const serverUrlAtom = atomWithStorage(
  * The atom is writable so the debounce listener can push values into it, but
  * external code should treat it as read-only.
  */
-export const debouncedServerUrlAtom = atom('https://api.opencode.dev');
+export const debouncedServerUrlAtom = atom(DEFAULT_SERVER_URL);
 
 export const handsFreeAutoRecordAtom = atom(true);
 export const notificationSoundAtom = atom<NotificationSound>('chime');

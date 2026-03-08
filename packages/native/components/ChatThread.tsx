@@ -5,7 +5,7 @@ import { ToolOutputBlock } from './ToolOutputBlock'
 import { AgentStatusIndicator } from './AgentStatusIndicator'
 import { UserMessageBubble } from './UserMessageBubble'
 import { AssistantMessageBubble } from './AssistantMessageBubble'
-import type { Message } from '../hooks/useSessionMessages'
+import type { UIMessage as Message } from '../lib/stream-db'
 
 interface ChatThreadProps {
   messages: Message[]

@@ -2,17 +2,17 @@ import React, { useState, useCallback, useMemo, useRef } from 'react'
 import { View, Text } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAtomValue } from 'jotai'
+import { eq } from '@tanstack/react-db'
 import { SessionScreen } from './SessionScreen'
 import { SplitLayout } from './SplitLayout'
 import { SessionHeader } from './SessionHeader'
 import { TabBar } from './TabBar'
 import { VoiceInputArea } from './VoiceInputArea'
-import { useSession, type Session } from '../hooks/useSession'
-import { useSessionMessages } from '../hooks/useSessionMessages'
+import { useStateQuery, flattenServerMessage, type UIMessage as Message, type SessionValue } from '../lib/stream-db'
+import type { Message as ServerMessage } from '../../server/src/types'
 import { useChanges } from '../hooks/useChanges'
 import { apiAtom } from '../lib/api'
 import { useAudioRecorder } from '../hooks/useAudioRecorder'
-import type { Message } from '../hooks/useSessionMessages'
 import type { ChangedFile } from '../hooks/useChanges'
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings'
 
@@ -42,7 +42,7 @@ export interface SessionSettings {
 
 interface SessionViewProps {
   sessionId: string
-  session: Session
+  session: SessionValue
   serverMessages: Message[]
   changes: ChangedFile[]
   isTabletLandscape: boolean
@@ -187,7 +187,13 @@ export function SessionContent({
   onProjectsPress,
   settings,
 }: SessionContentProps) {
-  const { data: session, isLoading: sessionLoading } = useSession(sessionId)
+  const { data: sessionResults, isLoading: sessionLoading } = useStateQuery(
+    (db, q) =>
+      q.from({ sessions: db.collections.sessions })
+        .where(({ sessions }) => eq(sessions.id, sessionId)),
+    [sessionId],
+  )
+  const session = (sessionResults as SessionValue[] | undefined)?.[0] ?? null
 
   if (sessionLoading || !session) {
     return (
@@ -219,7 +225,7 @@ function ExistingSessionDataLoader({
   onProjectsPress,
   settings,
 }: {
-  session: NonNullable<ReturnType<typeof useSession>['data']>
+  session: SessionValue
   sessionId: string
   isTabletLandscape: boolean
   onMenuPress: () => void
@@ -227,7 +233,21 @@ function ExistingSessionDataLoader({
   settings: SessionSettings
 }) {
   const api = useAtomValue(apiAtom)
-  const { data: serverMessages } = useSessionMessages(sessionId)
+
+  const { data: rawMessages } = useStateQuery(
+    (db, q) =>
+      q.from({ messages: db.collections.messages })
+        .where(({ messages }) => eq(messages.sessionId, sessionId)),
+    [sessionId],
+  )
+  const serverMessages = useMemo(() => {
+    if (!rawMessages) return []
+    return (rawMessages as ServerMessage[])
+      .slice()
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .flatMap(flattenServerMessage)
+  }, [rawMessages])
+
   const { data: changes } = useChanges(sessionId)
 
   const handleSendText = useCallback(async (text: string) => {
@@ -288,14 +308,14 @@ export function NewSessionContent({
 
   const projectName = worktree.split('/').pop() || worktree
 
-  const placeholderSession: Session = {
+  const now = Date.now()
+  const placeholderSession: SessionValue = {
     id: 'new',
+    title: 'New Session',
     directory: worktree,
-    name: 'New Session',
-    branchName: null,
-    status: 'idle',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    projectID: '',
+    version: '',
+    time: { created: now, updated: now },
   }
 
   const createAndPrompt = useCallback(

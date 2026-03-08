@@ -14,7 +14,7 @@ import { EmptySession } from './components/EmptySession';
 import { useMusicPlayer } from './hooks/useMusicPlayer';
 import { useSettings } from './hooks/useSettings';
 import { useLayout } from './hooks/useLayout';
-import { useProjects } from './hooks/useProjects';
+import { useStateQuery, type ProjectValue } from './lib/stream-db';
 import { apiAtom } from './lib/api';
 import { newSessionWorktreeAtom } from './state/ui';
 
@@ -26,7 +26,12 @@ export default function App() {
 
   const sessionId = params.sessionId;
   const worktree = params.worktree;
-  const { data: projects } = useProjects();
+  const { data: rawProjects } = useStateQuery(
+    (db, q) => q.from({ projects: db.collections.projects }),
+  );
+  const projects = (rawProjects as ProjectValue[] | undefined)
+    ?.slice()
+    .sort((a, b) => b.time.created - a.time.created) ?? [];
   const api = useAtomValue(apiAtom);
   const [newSessionWorktree, setNewSessionWorktree] = useAtom(newSessionWorktreeAtom);
 

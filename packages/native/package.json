@@ -12,9 +12,11 @@
     "build:webview": "bun scripts/build-webview-html.ts"
   },
   "dependencies": {
+    "@durable-streams/state": "^0.2.2",
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@pierre/diffs": "^1.0.11",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@tanstack/react-db": "^0.1.75",
     "capnweb": "^0.5.0",
     "expo": "^54.0.0",
     "expo-av": "^16.0.8",
@@ -34,6 +36,7 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "^15.15.3",
+    "react-native-web": "^0.21.2",
     "react-native-webview": "13.15.0",
     "react-native-worklets": "0.5.1",
     "streamdown-rn": "^0.2.1"

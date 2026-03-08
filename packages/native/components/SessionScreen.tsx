@@ -6,14 +6,13 @@ import { TabBar } from './TabBar'
 import { ChatThread } from './ChatThread'
 import { ChangesView } from './ChangesView'
 import { VoiceInputArea } from './VoiceInputArea'
-import type { Session } from '../hooks/useSession'
-import type { Message } from '../hooks/useSessionMessages'
+import type { SessionValue, UIMessage as Message } from '../lib/stream-db'
 import type { ChangedFile } from '../hooks/useChanges'
 import type { RecordingState } from '../hooks/useAudioRecorder'
 
 interface SessionScreenProps {
   sessionId: string
-  session: Session
+  session: SessionValue
   messages: Message[]
   changes: ChangedFile[]
   activeTab: 'session' | 'changes'
@@ -54,8 +53,8 @@ export function SessionScreen({
     <View className="flex-1 bg-stone-50 dark:bg-stone-950" style={{ paddingTop: insets.top }}>
       <SessionHeader
         projectName={session.directory ? session.directory.split('/').pop() || session.directory : ''}
-        branchName={session.name}
-        relativeTime={formatRelativeTime(session.updatedAt)}
+        branchName={session.title || 'Untitled'}
+        relativeTime={formatRelativeTime(session.time.updated)}
         onMenuPress={onMenuPress}
         onProjectsPress={onProjectsPress}
       />

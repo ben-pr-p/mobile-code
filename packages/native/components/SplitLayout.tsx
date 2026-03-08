@@ -9,8 +9,7 @@ import { ChatThread } from './ChatThread'
 import { ChangesView } from './ChangesView'
 import { VoiceInputArea } from './VoiceInputArea'
 import { SettingsScreen } from './SettingsScreen'
-import type { Session } from '../hooks/useSession'
-import type { Message } from '../hooks/useSessionMessages'
+import type { SessionValue, UIMessage as Message } from '../lib/stream-db'
 import type { ChangedFile } from '../hooks/useChanges'
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings'
 import type { LeftPanelContent } from '../state/ui'
@@ -18,7 +17,7 @@ import type { RecordingState } from '../hooks/useAudioRecorder'
 
 interface SplitLayoutProps {
   sessionId: string
-  session: Session
+  session: SessionValue
   messages: Message[]
   changes: ChangedFile[]
   onMenuPress: () => void
@@ -141,11 +140,11 @@ export function SplitLayout({
       <View className="h-8 flex-row items-center justify-between px-4 border-b border-stone-200 dark:border-stone-800">
         <View className="flex-row items-center gap-1.5">
           <Text className="text-xs text-stone-700 dark:text-stone-400">
-            {session.name}
+            {session.title || 'Untitled'}
           </Text>
           <Text className="text-xs text-stone-400 dark:text-stone-600">·</Text>
           <Text className="text-xs text-stone-400 dark:text-stone-600">
-            {formatRelativeTime(session.updatedAt)}
+            {formatRelativeTime(session.time.updated)}
           </Text>
         </View>
         {leftPanel.type !== 'changes' && (
