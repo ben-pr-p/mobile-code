@@ -90,13 +90,6 @@ A slide-in panel from the right edge. Lists all projects.
 - When there are many projects (8+), a search bar appears at the top: placeholder "search projects"
 - List scrolls; projects not visible are clipped
 
-**Spotify / Music Player** (bottom of sidebar)
-- Album art thumbnail
-- Track name + artist
-- Playback controls: previous, play/pause, next
-- Progress bar with timestamps
-- Heart/like button
-
 ---
 
 ### 4. Settings Screen
@@ -281,7 +274,6 @@ Sessions and Projects appear as slide-in sidebar overlays on iPad, just like on 
 
 #### Projects Sidebar (overlay)
 - Same project list as iPhone Projects sidebar
-- Spotify player at bottom
 - `×` close button to dismiss
 
 ### Left Panel States
@@ -370,6 +362,5 @@ The voice input mechanics are identical to iPhone, but the waveform and recordin
 - Agent: opencode (SST) — communicates via `Server URL` configured in Settings
 - Default model: `claude-opus-4-6` (configurable)
 - Voice transcription happens client-side or deferred when offline
-- Music playback is Spotify-integrated (shown in Projects sidebar)
 - Recording timeout is configurable (default 60 seconds)
 - App version shown in Settings (`6.4.2-beta` in designs)

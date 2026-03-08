@@ -11,7 +11,6 @@ import { SessionsSidebar } from './components/SessionsSidebar';
 import { ProjectsSidebar } from './components/ProjectsSidebar';
 import { SettingsScreen } from './components/SettingsScreen';
 import { EmptySession } from './components/EmptySession';
-import { useMusicPlayer } from './hooks/useMusicPlayer';
 import { useSettings } from './hooks/useSettings';
 import { useLayout } from './hooks/useLayout';
 import { useStateQuery, type ProjectValue } from './lib/stream-db';
@@ -51,7 +50,6 @@ export default function App() {
   const [rightSidebarVisible, setRightSidebarVisible] = useState(false);
   const rightSlideAnim = useRef(new Animated.Value(sidebarWidth)).current;
   const rightBackdropAnim = useRef(new Animated.Value(0)).current;
-  const musicPlayer = useMusicPlayer();
 
   const openLeftSidebarRef = useRef<() => void>();
   const openRightSidebarRef = useRef<() => void>();
@@ -347,7 +345,6 @@ export default function App() {
                 onSelectProject={handleSelectProject}
                 onNewSession={handleNewSession}
                 onOverflow={() => {}}
-                musicPlayer={musicPlayer}
               />
             </Animated.View>
           </View>

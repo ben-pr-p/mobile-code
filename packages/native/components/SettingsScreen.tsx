@@ -323,7 +323,7 @@ function AutoRecordBehavior() {
   return (
     <View className="px-5 pb-2">
       <View className="bg-white dark:bg-stone-900 rounded-lg px-3.5 py-3 gap-2">
-        <BehaviorItem text="Pauses music when agent finishes responding" />
+        <BehaviorItem text="Pauses system audio when agent finishes responding" />
         <BehaviorItem text="Plays a beep to notify you" />
         <BehaviorItem text="Automatically starts recording your response" />
       </View>

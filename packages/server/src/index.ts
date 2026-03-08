@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { createApp } from "./app"
 import { parseArgs } from "util"
 import diffPage from "./diff-page/index.html"

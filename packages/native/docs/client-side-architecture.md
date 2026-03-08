@@ -8,7 +8,7 @@ The native client uses three complementary state management strategies:
 |----------|----------------|-----|
 | **Expo Router (URL)** | Current project, current session | Deep-linkable, shareable, browser-like navigation |
 | **TanStack DB** | Sessions, session messages, projects, offline message queue | Synced with server, reactive queries, optimistic updates |
-| **Jotai atoms** | Voice state, connectivity, settings, music player, UI chrome | Fast ephemeral/local state, no server sync needed |
+| **Jotai atoms** | Voice state, connectivity, settings, UI chrome | Fast ephemeral/local state, no server sync needed |
 
 Settings are persisted to **AsyncStorage** via Jotai's persistence middleware so they survive app kills without needing server sync.
 
@@ -319,26 +319,6 @@ const sessionSearchQueryAtom = atom('')
 const projectSearchQueryAtom = atom('')
 ```
 
-### Music Player
-
-```typescript
-// state/music.ts
-
-interface TrackInfo {
-  name: string
-  artist: string
-  albumArtUri: string
-  durationMs: number
-}
-
-const currentTrackAtom = atom<TrackInfo | null>(null)
-const isPlayingAtom = atom(false)
-const playbackPositionAtom = atom(0)  // ms
-const isLikedAtom = atom(false)
-```
-
-These are driven by Spotify SDK event listeners in a `useMusicPlayer` hook.
-
 ---
 
 ## Component Hierarchy
@@ -415,11 +395,6 @@ ProjectsSidebar (iPhone drawer / iPad left panel)
 ├── ProjectList
 │   ├── ProjectCard            # Avatar, name, path, session count, new session button
 │   └── ProjectOverflowMenu
-└── MusicPlayerBar
-    ├── AlbumArt
-    ├── TrackInfo
-    ├── PlaybackControls
-    └── ProgressBar
 
 ChangesPanel (iPad left panel / iPhone Changes tab)
 ├── ChangesHeader              # "N files changed"
@@ -453,12 +428,12 @@ ToolDetailPanel (iPad left panel only)
 ├─────────────────────────────────────────────┤
 │  State (atoms + TanStack DB collections)     │
 │  Jotai atoms: voice, connectivity, settings, │
-│  UI chrome, music. TanStack DB: sessions,    │
+│  UI chrome. TanStack DB: sessions,            │
 │  messages, projects.                         │
 ├─────────────────────────────────────────────┤
 │  Services                                    │
 │  SyncService, VoiceRecordingService,         │
-│  TranscriptionService, SpotifyService        │
+│  TranscriptionService                        │
 │  Pure logic, no React dependency.            │
 └─────────────────────────────────────────────┘
 ```

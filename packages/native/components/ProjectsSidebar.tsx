@@ -4,7 +4,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { X, Plus } from 'lucide-react-native';
 import { ProjectCard } from './ProjectCard';
-import { MusicPlayerBar } from './MusicPlayerBar';
 import { useStateQuery, type ProjectValue } from '../lib/stream-db';
 
 interface ProjectsSidebarProps {
@@ -14,17 +13,6 @@ interface ProjectsSidebarProps {
   onSelectProject: (projectId: string) => void;
   onNewSession: (projectId: string) => void;
   onOverflow: (projectId: string) => void;
-  musicPlayer: {
-    track: { name: string; artist: string; albumArtUri: string; durationMs: number } | null;
-    isPlaying: boolean;
-    isLiked: boolean;
-    positionMs: number;
-    onPlay: () => void;
-    onPause: () => void;
-    onNext: () => void;
-    onPrevious: () => void;
-    onToggleLike: () => void;
-  };
 }
 
 export function ProjectsSidebar({
@@ -34,7 +22,6 @@ export function ProjectsSidebar({
   onSelectProject,
   onNewSession,
   onOverflow,
-  musicPlayer,
 }: ProjectsSidebarProps) {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
@@ -136,8 +123,6 @@ export function ProjectsSidebar({
         </ScrollView>
       )}
 
-      {/* Music player */}
-      <MusicPlayerBar {...musicPlayer} />
     </View>
   );
 }

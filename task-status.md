@@ -86,15 +86,12 @@ Three modes designed in requirements. **None are implemented.**
 - ❌ Auto-record loop state management
 - ❌ Exit auto-record mode gesture/button
 
-#### System Audio Integration (replaces Spotify feature)
+#### System Audio Integration
 - ❌ Detect if system audio is playing (podcast, music, etc.)
 - ❌ Pause system audio when entering hands-free recording
 - ❌ Resume system audio when recording stops / auto-record loop exits
 - ❌ Graceful hooks into iOS audio session management
-- 🗑️ `MusicPlayerBar` component — **remove** (placeholder, not a real feature)
-- 🗑️ `useMusicPlayer` hook — **remove** (fixture data only)
-- 🗑️ `state/music.ts` — **remove** (unused atoms)
-- 🗑️ `__fixtures__/music.ts` — **remove**
+- ✅ Removed `MusicPlayerBar`, `useMusicPlayer`, `state/music.ts`, `__fixtures__/music.ts`
 
 #### Audio → Server Pipeline
 - ❌ Encode recorded audio in appropriate format for upload
@@ -319,7 +316,7 @@ Based on user input, here's the suggested implementation order:
 ### P2 — Polish
 14. **Recording timeout setting** (UI + enforcement)
 15. **Error boundaries and user-facing error states**
-16. **Remove music player code** (MusicPlayerBar, useMusicPlayer, state/music, fixtures)
+16. ~~**Remove music player code**~~ ✅ Done
 17. **Clean up routing** (proper Expo Router usage)
 18. **Deep linking support**
 19. **Clean up debug code** (console.logs, type casts)
@@ -342,18 +339,18 @@ Based on user input, here's the suggested implementation order:
 | `components/SettingsScreen.tsx` | Settings UI | 🟡 Missing recording timeout |
 | `components/SessionsSidebar.tsx` | Session list | ✅ Done |
 | `components/ProjectsSidebar.tsx` | Project list | ✅ Done (retry stubbed) |
-| `components/MusicPlayerBar.tsx` | Music player | 🗑️ Remove |
+| ~~`components/MusicPlayerBar.tsx`~~ | ~~Music player~~ | Removed |
 | `hooks/useSession.ts` | Session data | ✅ Done |
 | `hooks/useSessionMessages.ts` | Message data | ✅ Done |
 | `hooks/useChanges.ts` | File changes | ✅ Done |
 | `hooks/useProjects.ts` | Project list | ✅ Done |
 | `hooks/useSettings.ts` | Settings + connection | 🟡 Connection is fixture |
-| `hooks/useMusicPlayer.ts` | Music player | 🗑️ Remove |
+| ~~`hooks/useMusicPlayer.ts`~~ | ~~Music player~~ | Removed |
 | `hooks/useLayout.ts` | iPad detection | ✅ Done |
 | ~~`hooks/useRpcTarget.ts`~~ | ~~Generic RPC hook~~ | Removed (capnweb eliminated) |
 | `state/settings.ts` | Settings atoms | 🟡 No persistence |
 | `state/ui.ts` | UI state atoms | ✅ Done |
-| `state/music.ts` | Music atoms | 🗑️ Remove |
+| ~~`state/music.ts`~~ | ~~Music atoms~~ | Removed |
 
 ### Server Key Files
 | File | Purpose | Status |
