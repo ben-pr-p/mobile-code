@@ -9,6 +9,7 @@ export async function sendPrompt(
   client: OpencodeClient,
   sessionId: string,
   parts: PromptPartInput[],
+  directory?: string,
 ): Promise<Message> {
   console.log(`[prompt] received ${parts.length} part(s):`, parts.map((p) => {
     if (p.type === "audio") {
@@ -22,7 +23,7 @@ export async function sendPrompt(
   const hasAudio = parts.some((p) => p.type === "audio")
   if (hasAudio) {
     try {
-      const res = await client.session.messages({ path: { id: sessionId } })
+      const res = await client.session.messages({ path: { id: sessionId }, query: { directory } })
       if (!res.error && res.data) {
         conversationContext = (res.data as any[]).map(mapMessage)
       }
@@ -54,6 +55,7 @@ export async function sendPrompt(
   const res = await client.session.prompt({
     path: { id: sessionId },
     body: { parts: textParts },
+    query: { directory },
   })
   if (res.error) throw new Error(`Prompt failed: ${JSON.stringify(res.error)}`)
   return mapMessage(res.data)

@@ -16,6 +16,7 @@ class StateStream implements StateStreamSink {
   #ds: DurableStreamServer
   #client: OpencodeClient
   #messages: Map<string, Message> = new Map()
+  #sessionDirectories: Map<string, string> = new Map()
 
   constructor(ds: DurableStreamServer, client: OpencodeClient) {
     this.#ds = ds
@@ -42,6 +43,9 @@ class StateStream implements StateStreamSink {
         const res = await this.#client.session.list({ query: { directory: project.worktree } })
 
         for (const session of res.data ?? []) {
+          if ((session as any).directory) {
+            this.#sessionDirectories.set(session.id, (session as any).directory)
+          }
           this.#appendEvent({
             type: "session",
             key: session.id,
@@ -57,7 +61,7 @@ class StateStream implements StateStreamSink {
 
     // Load all messages for each session
     for (const session of sessions ?? []) {
-      const msgs = await this.#client.session.messages({ path: { id: session.id } })
+      const msgs = await this.#client.session.messages({ path: { id: session.id }, query: { directory: (session as any).directory } })
       for (const raw of msgs.data ?? []) {
         const msg = mapMessage(raw)
         this.#messages.set(msg.id, msg)
@@ -74,6 +78,7 @@ class StateStream implements StateStreamSink {
   // --- StateStreamSink implementation ---
 
   sessionCreated(info: any) {
+    if (info.directory) this.#sessionDirectories.set(info.id, info.directory)
     this.#appendEvent({
       type: "session",
       key: info.id,
@@ -83,6 +88,7 @@ class StateStream implements StateStreamSink {
   }
 
   sessionUpdated(info: any) {
+    if (info.directory) this.#sessionDirectories.set(info.id, info.directory)
     this.#appendEvent({
       type: "session",
       key: info.id,
@@ -92,6 +98,7 @@ class StateStream implements StateStreamSink {
   }
 
   sessionDeleted(info: any) {
+    this.#sessionDirectories.delete(info.id)
     this.#appendEvent({
       type: "session",
       key: info.id,
@@ -221,7 +228,8 @@ class StateStream implements StateStreamSink {
 
   async #refetchSession(sessionId: string) {
     try {
-      const res = await this.#client.session.get({ path: { id: sessionId } })
+      const directory = this.#sessionDirectories.get(sessionId)
+      const res = await this.#client.session.get({ path: { id: sessionId }, query: { directory } })
       if (res.data) {
         this.#appendEvent({
           type: "session",
@@ -235,7 +243,8 @@ class StateStream implements StateStreamSink {
 
   async #fullMessageSync(sessionId: string) {
     try {
-      const res = await this.#client.session.messages({ path: { id: sessionId } })
+      const directory = this.#sessionDirectories.get(sessionId)
+      const res = await this.#client.session.messages({ path: { id: sessionId }, query: { directory } })
       if (res.error) return
       for (const raw of res.data ?? []) {
         const msg = mapMessage(raw)

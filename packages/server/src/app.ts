@@ -80,7 +80,10 @@ export function createApp(opencodeUrl: string) {
         const sessionId = c.req.param("sessionId")
         const { parts } = c.req.valid("json")
         try {
-          const message = await sendPrompt(client, sessionId, parts)
+          // Look up the session to get its directory
+          const sessionRes = await client.session.get({ path: { id: sessionId } })
+          const directory = (sessionRes.data as any)?.directory as string | undefined
+          const message = await sendPrompt(client, sessionId, parts, directory)
           return c.json(message)
         } catch (err: any) {
           console.error("[POST /api/sessions/:sessionId/prompt]", err)
@@ -89,7 +92,9 @@ export function createApp(opencodeUrl: string) {
       },
     )
 
-    // Create a new session for a project and send the first prompt atomically
+    /**
+     * Create a new session for a project and send the first prompt atomically
+     */
     .post(
       "/projects/:projectId/sessions",
       zValidator("json", PromptPartsSchema),
@@ -104,10 +109,14 @@ export function createApp(opencodeUrl: string) {
           return c.json({ error: `Project not found: ${projectId}` }, 404)
         }
 
+        console.log('Creating session')
+        console.log({ projectId, project })
+
         // Create the session in the project's worktree
         const createRes = await client.session.create({
           query: { directory: project.worktree },
         })
+        console.log(createRes.data)
         if (createRes.error) {
           return c.json({ error: "Failed to create session" }, 500)
         }
@@ -115,7 +124,7 @@ export function createApp(opencodeUrl: string) {
 
         // Send the first prompt
         try {
-          await sendPrompt(client, sessionId, parts)
+          await sendPrompt(client, sessionId, parts, project.worktree)
         } catch (err: any) {
           console.error("[POST /api/projects/:projectId/sessions] prompt failed:", err)
           // Session was created but prompt failed — still return the sessionId
@@ -151,7 +160,9 @@ export function createApp(opencodeUrl: string) {
     // File change summary for a session
     .get("/sessions/:sessionId/changes", async (c) => {
       const sessionId = c.req.param("sessionId")
-      const res = await client.session.diff({ path: { id: sessionId } })
+      const sessionRes = await client.session.get({ path: { id: sessionId } })
+      const directory = (sessionRes.data as any)?.directory as string | undefined
+      const res = await client.session.diff({ path: { id: sessionId }, query: { directory } })
       if (res.error) {
         return c.json({ error: "Failed to fetch changes" }, 500)
       }
@@ -173,7 +184,9 @@ export function createApp(opencodeUrl: string) {
       if (!sessionId || !file) {
         return c.json({ error: "Missing session or file query param" }, 400)
       }
-      const res = await client.session.diff({ path: { id: sessionId } })
+      const sessionRes = await client.session.get({ path: { id: sessionId } })
+      const directory = (sessionRes.data as any)?.directory as string | undefined
+      const res = await client.session.diff({ path: { id: sessionId }, query: { directory } })
       if (res.error) {
         return c.json({ error: "Failed to fetch diffs" }, 500)
       }
@@ -190,7 +203,9 @@ export function createApp(opencodeUrl: string) {
       if (!sessionId) {
         return c.json({ error: "Missing session query param" }, 400)
       }
-      const res = await client.session.diff({ path: { id: sessionId } })
+      const sessionRes = await client.session.get({ path: { id: sessionId } })
+      const directory = (sessionRes.data as any)?.directory as string | undefined
+      const res = await client.session.diff({ path: { id: sessionId }, query: { directory } })
       if (res.error) {
         return c.json({ error: "Failed to fetch diffs" }, 500)
       }
