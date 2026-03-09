@@ -10,3 +10,7 @@ Tracking bugs and improvements for the mobile-agents project.
 - [ ] Subsessions are not rendered under their parent session
 - [x] New session creation is broken period
 - [ ] Sessions created via tui don't seem to work like I'd hope they would
+
+## Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request.

@@ -1,10 +1,11 @@
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings';
+import { asyncStorageAdapter } from '../lib/jotai-async-storage';
 
 const DEFAULT_SERVER_URL = 'http://localhost:3000';
 
-export const serverUrlAtom = atomWithStorage('settings:serverUrl', DEFAULT_SERVER_URL);
+export const serverUrlAtom = atomWithStorage('settings:serverUrl', DEFAULT_SERVER_URL, asyncStorageAdapter<string>());
 
 /**
  * Debounced version of serverUrlAtom — updates 1 s after the last write to

@@ -1,5 +1,5 @@
 {
-  "name": "@ben-pr-p/mobilecode",
+  "name": "@bprp/mobilecode",
   "version": "0.0.1",
   "bin": {
     "mobilecode": "./src/index.ts"

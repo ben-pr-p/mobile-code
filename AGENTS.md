@@ -47,6 +47,20 @@ bun run start        # start production
 
 See `packages/server/AGENTS.md` for detailed server docs.
 
+## EAS Update (OTA Updates)
+
+Push JS/asset updates to TestFlight builds without re-submitting to App Store.
+
+```sh
+cd packages/native
+eas update --branch main --message "Your update message"
+```
+
+- No cloud build required — uploads JS bundle and assets to Expo servers
+- Uses EAS credits (free tier available, then paid)
+- Only works for JS/asset changes, not native code
+- New TestFlight builds reset OTA state (users get the new binary)
+
 ## Conventions
 
 - **iOS only** — no Android support. Do not add Android-specific code or configurations.
