@@ -2,7 +2,7 @@
   "expo": {
     "name": "mobilecode",
     "slug": "mobilecode",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
@@ -34,8 +34,19 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "xyz.bprp.mobilecode",
+      "appleTeamId": "UX4LJ86VY7",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsLocalNetworking": true,
+          "NSExceptionDomains": {
+            "ts.net": {
+              "NSIncludesSubdomains": true,
+              "NSExceptionAllowsInsecureHTTPLoads": true
+            }
+          }
+        }
       }
     },
     "android": {
@@ -45,6 +56,8 @@
       },
       "permissions": [
         "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
@@ -53,6 +66,12 @@
       "eas": {
         "projectId": "719928ca-dbdf-4b64-8cc5-8e14acaf11b9"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/719928ca-dbdf-4b64-8cc5-8e14acaf11b9"
     }
   }
 }
