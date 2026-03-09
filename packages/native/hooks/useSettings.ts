@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import * as Updates from 'expo-updates'
+import Constants from 'expo-constants'
 import {
   serverUrlAtom,
   debouncedServerUrlAtom,
@@ -41,6 +43,13 @@ export function useSettings() {
   useServerHealth(debouncedUrl)
   const connection = useAtomValue(connectionInfoAtom)
 
+  // Build version string from real app version + OTA update ID when available
+  const nativeVersion = Constants.expoConfig?.version ?? '0.0.0'
+  const updateId = Updates.updateId
+  const appVersion = updateId
+    ? `${nativeVersion} (${updateId.slice(0, 8)})`
+    : nativeVersion
+
   return {
     serverUrl,
     setServerUrl,
@@ -50,7 +59,7 @@ export function useSettings() {
     notificationSound,
     setNotificationSound,
     notificationSoundOptions: NOTIFICATION_SOUND_OPTIONS,
-    appVersion: FIXTURE_SETTINGS.appVersion,
+    appVersion,
     defaultModel: FIXTURE_SETTINGS.defaultModel,
   }
 }

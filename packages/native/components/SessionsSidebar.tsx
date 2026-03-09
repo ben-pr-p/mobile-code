@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
-import { Menu, Plus, Search, Ellipsis, Settings, Mic, HelpCircle } from 'lucide-react-native';
+import { Menu, Plus, Search, Ellipsis, Settings, Mic, HelpCircle, ChevronRight, ChevronDown, GitBranch } from 'lucide-react-native';
 import { useMemo } from 'react';
 import { useStateQuery, type SessionValue } from '../lib/stream-db';
 
@@ -105,24 +105,44 @@ interface SessionRowProps {
   isSelected: boolean;
   onPress: (sessionId: string, projectId: string) => void;
   onOverflow?: (id: string) => void;
+  hasChildren?: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
+  isSubSession?: boolean;
 }
 
-function SessionRow({ session, isSelected, onPress, onOverflow }: SessionRowProps) {
+function SessionRow({ session, isSelected, onPress, onOverflow, hasChildren, isExpanded, onToggleExpand, isSubSession }: SessionRowProps) {
   const { colorScheme } = useColorScheme();
   const overflowColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
+  const chevronColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
+  const subSessionIconColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
 
   return (
     <Pressable
       onPress={() => onPress(session.id, session.projectID)}
-      className={`flex-row items-center gap-3 rounded-lg px-3.5 py-3 ${
+      className={`flex-row items-center gap-3 rounded-lg py-3 ${
+        isSubSession ? 'pl-8 pr-3.5' : 'px-3.5'
+      } ${
         isSelected
           ? 'border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30'
           : ''
       }`}>
-      <View className="h-2 w-2 rounded-full bg-stone-400 dark:bg-stone-600" />
+      {hasChildren ? (
+        <Pressable onPress={onToggleExpand} hitSlop={8}>
+          {isExpanded ? (
+            <ChevronDown size={14} color={chevronColor} />
+          ) : (
+            <ChevronRight size={14} color={chevronColor} />
+          )}
+        </Pressable>
+      ) : isSubSession ? (
+        <GitBranch size={12} color={subSessionIconColor} />
+      ) : (
+        <View className="h-2 w-2 rounded-full bg-stone-400 dark:bg-stone-600" />
+      )}
       <View className="flex-1 gap-0.5">
         <Text
-          className="text-sm font-medium text-stone-700 dark:text-stone-400"
+          className={`font-medium text-stone-700 dark:text-stone-400 ${isSubSession ? 'text-xs' : 'text-sm'}`}
           style={{ fontFamily: 'JetBrains Mono' }}>
           {session.title}
         </Text>
@@ -141,6 +161,11 @@ function SessionRow({ session, isSelected, onPress, onOverflow }: SessionRowProp
   );
 }
 
+type SessionTree = {
+  session: SessionValue;
+  children: SessionValue[];
+};
+
 function SessionListContent({
   projectId,
   selectedSessionId,
@@ -153,20 +178,85 @@ function SessionListContent({
   onOverflowSession?: (id: string) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
 
   const { data: allSessions } = useStateQuery(
     (db, q) => q.from({ sessions: db.collections.sessions }),
   );
 
-  const filteredSessions = useMemo(() => {
+  // Build tree structure: top-level sessions with nested children
+  const sessionTree = useMemo(() => {
     const byProject = (allSessions as SessionValue[] | undefined)?.filter(
       (s) => s.projectID === projectId,
     );
-    if (!searchQuery) return byProject;
-    return byProject?.filter((s) =>
-      s.title.toLowerCase().includes(searchQuery.toLowerCase()),
-    );
+    if (!byProject) return [];
+
+    const filtered = searchQuery
+      ? byProject.filter((s) => s.title.toLowerCase().includes(searchQuery.toLowerCase()))
+      : byProject;
+
+    // When searching, show flat list so results aren't hidden inside collapsed parents
+    if (searchQuery) {
+      return filtered.map((s) => ({ session: s, children: [] }));
+    }
+
+    // Build parent->children map
+    const childrenByParent = new Map<string, SessionValue[]>();
+    const childIds = new Set<string>();
+
+    for (const s of filtered) {
+      if (s.parentID) {
+        childIds.add(s.id);
+        const existing = childrenByParent.get(s.parentID) ?? [];
+        existing.push(s);
+        childrenByParent.set(s.parentID, existing);
+      }
+    }
+
+    // Sort children by updated time (newest first)
+    for (const children of childrenByParent.values()) {
+      children.sort((a, b) => b.time.updated - a.time.updated);
+    }
+
+    // Build tree: only top-level sessions (not children) appear at root
+    const tree: SessionTree[] = [];
+    for (const s of filtered) {
+      if (childIds.has(s.id)) continue;
+      tree.push({
+        session: s,
+        children: childrenByParent.get(s.id) ?? [],
+      });
+    }
+
+    return tree;
   }, [allSessions, projectId, searchQuery]);
+
+  // Auto-expand parent if selected session is a child
+  useMemo(() => {
+    if (!selectedSessionId) return;
+    for (const node of sessionTree) {
+      if (node.children.some((c) => c.id === selectedSessionId)) {
+        setExpandedParents((prev) => {
+          if (prev.has(node.session.id)) return prev;
+          const next = new Set(prev);
+          next.add(node.session.id);
+          return next;
+        });
+      }
+    }
+  }, [selectedSessionId, sessionTree]);
+
+  const toggleExpand = (sessionId: string) => {
+    setExpandedParents((prev) => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) {
+        next.delete(sessionId);
+      } else {
+        next.add(sessionId);
+      }
+      return next;
+    });
+  };
 
   const { colorScheme } = useColorScheme();
   const searchIconColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
@@ -197,36 +287,30 @@ function SessionListContent({
         className="flex-1"
         contentContainerStyle={{ padding: 12, gap: 2 }}
         showsVerticalScrollIndicator={false}>
-        {(filteredSessions ?? []).map((session) => (
-          <SessionRow
-            key={session.id}
-            session={session}
-            isSelected={session.id === selectedSessionId}
-            onPress={onSelectSession}
-            onOverflow={onOverflowSession}
-          />
+        {sessionTree.map((node) => (
+          <React.Fragment key={node.session.id}>
+            <SessionRow
+              session={node.session}
+              isSelected={node.session.id === selectedSessionId}
+              onPress={onSelectSession}
+              onOverflow={onOverflowSession}
+              hasChildren={node.children.length > 0}
+              isExpanded={expandedParents.has(node.session.id)}
+              onToggleExpand={() => toggleExpand(node.session.id)}
+            />
+            {expandedParents.has(node.session.id) &&
+              node.children.map((child) => (
+                <SessionRow
+                  key={child.id}
+                  session={child}
+                  isSelected={child.id === selectedSessionId}
+                  onPress={onSelectSession}
+                  onOverflow={onOverflowSession}
+                  isSubSession
+                />
+              ))}
+          </React.Fragment>
         ))}
-
-        {/*{sessions.earlier.length > 0 && (
-          <>
-            <View className="px-3.5 pb-1 pt-4">
-              <Text
-                className="text-[10px] font-semibold text-stone-400 dark:text-stone-600"
-                style={{ letterSpacing: 2, fontFamily: 'JetBrains Mono' }}>
-                EARLIER
-              </Text>
-            </View>
-            {sessions.earlier.map((session) => (
-              <SessionRow
-                key={session.id}
-                session={session}
-                isSelected={session.id === selectedSessionId}
-                onPress={onSelectSession}
-                onOverflow={onOverflowSession}
-              />
-            ))}
-          </>
-        )}*/}
       </ScrollView>
     </>
   );
