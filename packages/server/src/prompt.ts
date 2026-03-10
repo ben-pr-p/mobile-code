@@ -51,7 +51,13 @@ export async function sendPrompt(
 
   const res = await client.session.prompt({
     path: { id: sessionId },
-    body: { parts: textParts },
+    body: {
+      parts: textParts,
+      // Disable the question tool — our mobile client doesn't support answering
+      // questions yet, and unanswered questions cause the session to hang.
+      // See: https://github.com/ben-pr-p/mobile-code/issues/2
+      tools: { question: false },
+    },
     query: { directory },
   })
   if (res.error) {

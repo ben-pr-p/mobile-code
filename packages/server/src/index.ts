@@ -20,6 +20,7 @@ console.log(`Server starting on port ${port} (opencode: ${opencodeUrl})`)
 
 export default {
   port,
+  idleTimeout: 255, // seconds — must exceed durable streams long-poll timeout (30s)
   routes: {
     "/diff": diffPage,
   },
