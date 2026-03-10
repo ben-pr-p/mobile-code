@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { View, Pressable, Animated, PanResponder, Alert } from 'react-native';
+import { View, Pressable, Animated, PanResponder, Alert, Dimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -64,7 +64,14 @@ export default function App() {
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_evt, gestureState) => {
-        const { dx, dy } = gestureState;
+        const { dx, dy, x0 } = gestureState;
+        // Only recognize sidebar swipes that start near the screen edges.
+        // This prevents horizontal scrolling in code blocks and diffs from
+        // being hijacked by the sidebar gesture. (GitHub issue #12)
+        const windowWidth = Dimensions.get('window').width;
+        const nearLeftEdge = x0 < EDGE_ZONE_WIDTH;
+        const nearRightEdge = x0 > windowWidth - EDGE_ZONE_WIDTH;
+        if (!nearLeftEdge && !nearRightEdge) return false;
         return Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > SWIPE_THRESHOLD;
       },
       onPanResponderRelease: (_evt, gestureState) => {
@@ -439,6 +446,7 @@ export default function App() {
 }
 
 const ANIMATION_DURATION = 280;
-const SWIPE_THRESHOLD = 10; // Minimum px to recognize as a horizontal swipe
+const EDGE_ZONE_WIDTH = 40; // px from screen edge where swipe gestures are recognized
+const SWIPE_THRESHOLD = 20; // Minimum px to recognize as a horizontal swipe
 const SWIPE_MIN_DISTANCE = 50; // Minimum px distance to trigger sidebar open
 const SWIPE_VELOCITY_THRESHOLD = 0.5; // Minimum velocity to trigger sidebar open
