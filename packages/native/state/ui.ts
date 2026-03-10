@@ -1,4 +1,13 @@
 import { atom } from 'jotai'
+import { atomWithStorage } from 'jotai/utils'
+import { asyncStorageAdapter } from '../lib/jotai-async-storage'
+
+// Pinned sessions — persisted across app restarts
+export const pinnedSessionIdsAtom = atomWithStorage<string[]>(
+  'sessions:pinned',
+  [],
+  asyncStorageAdapter<string[]>(),
+)
 
 // Sidebar overlays
 export const leftSidebarOpenAtom = atom(false)

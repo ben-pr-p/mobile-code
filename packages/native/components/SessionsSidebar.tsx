@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView, TextInput } from 'react-native';
+import { View, Text, Pressable, ScrollView, TextInput, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
-import { Menu, Plus, Search, Ellipsis, Settings, Mic, HelpCircle, ChevronRight, ChevronDown, GitBranch } from 'lucide-react-native';
-import { useMemo } from 'react';
+import { Menu, Plus, Search, Ellipsis, Settings, Mic, HelpCircle, ChevronRight, ChevronDown, GitBranch, Pin } from 'lucide-react-native';
+import { useMemo, useCallback } from 'react';
+import { useAtom } from 'jotai/react';
 import { useStateQuery, type SessionValue } from '../lib/stream-db';
+import { pinnedSessionIdsAtom } from '../state/ui';
 
 interface SessionsSidebarProps {
   projectId: string | undefined;
@@ -103,23 +105,39 @@ export function SessionsSidebar({
 interface SessionRowProps {
   session: SessionValue;
   isSelected: boolean;
+  isPinned: boolean;
   onPress: (sessionId: string, projectId: string) => void;
   onOverflow?: (id: string) => void;
+  onTogglePin: (id: string) => void;
   hasChildren?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   isSubSession?: boolean;
 }
 
-function SessionRow({ session, isSelected, onPress, onOverflow, hasChildren, isExpanded, onToggleExpand, isSubSession }: SessionRowProps) {
+function SessionRow({ session, isSelected, isPinned, onPress, onOverflow, onTogglePin, hasChildren, isExpanded, onToggleExpand, isSubSession }: SessionRowProps) {
   const { colorScheme } = useColorScheme();
   const overflowColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const chevronColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const subSessionIconColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
+  const pinColor = colorScheme === 'dark' ? '#D97706' : '#B45309';
+
+  const handleLongPress = useCallback(() => {
+    const action = isPinned ? 'Unpin' : 'Pin';
+    Alert.alert(
+      `${action} Session`,
+      `${action} "${session.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: action, onPress: () => onTogglePin(session.id) },
+      ],
+    );
+  }, [isPinned, session.id, session.title, onTogglePin]);
 
   return (
     <Pressable
       onPress={() => onPress(session.id, session.projectID)}
+      onLongPress={handleLongPress}
       className={`flex-row items-center gap-3 rounded-lg py-3 ${
         isSubSession ? 'pl-8 pr-3.5' : 'px-3.5'
       } ${
@@ -135,6 +153,8 @@ function SessionRow({ session, isSelected, onPress, onOverflow, hasChildren, isE
             <ChevronRight size={14} color={chevronColor} />
           )}
         </Pressable>
+      ) : isPinned ? (
+        <Pin size={12} color={pinColor} />
       ) : isSubSession ? (
         <GitBranch size={12} color={subSessionIconColor} />
       ) : (
@@ -179,6 +199,20 @@ function SessionListContent({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
+  const [pinnedIds, setPinnedIds] = useAtom(pinnedSessionIdsAtom);
+  const resolvedPinnedIds = pinnedIds instanceof Promise ? [] : pinnedIds;
+  const pinnedSet = useMemo(() => new Set(resolvedPinnedIds), [resolvedPinnedIds]);
+
+  const togglePin = useCallback(
+    (sessionId: string) => {
+      if (resolvedPinnedIds.includes(sessionId)) {
+        setPinnedIds(resolvedPinnedIds.filter((id: string) => id !== sessionId));
+      } else {
+        setPinnedIds([...resolvedPinnedIds, sessionId]);
+      }
+    },
+    [resolvedPinnedIds, setPinnedIds],
+  );
 
   const { data: allSessions } = useStateQuery(
     (db, q) => q.from({ sessions: db.collections.sessions }),
@@ -197,7 +231,16 @@ function SessionListContent({
 
     // When searching, show flat list so results aren't hidden inside collapsed parents
     if (searchQuery) {
-      return filtered.map((s) => ({ session: s, children: [] }));
+      const flat = filtered.map((s) => ({ session: s, children: [] as SessionValue[] }));
+      // Pinned sessions still sort to top in search results
+      flat.sort((a, b) => {
+        const aPinned = pinnedSet.has(a.session.id);
+        const bPinned = pinnedSet.has(b.session.id);
+        if (aPinned && !bPinned) return -1;
+        if (!aPinned && bPinned) return 1;
+        return b.session.time.updated - a.session.time.updated;
+      });
+      return flat;
     }
 
     // Build parent->children map
@@ -228,8 +271,17 @@ function SessionListContent({
       });
     }
 
+    // Sort: pinned sessions first, then by updated time (newest first)
+    tree.sort((a, b) => {
+      const aPinned = pinnedSet.has(a.session.id);
+      const bPinned = pinnedSet.has(b.session.id);
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      return b.session.time.updated - a.session.time.updated;
+    });
+
     return tree;
-  }, [allSessions, projectId, searchQuery]);
+  }, [allSessions, projectId, searchQuery, pinnedSet]);
 
   // Auto-expand parent if selected session is a child
   useMemo(() => {
@@ -292,8 +344,10 @@ function SessionListContent({
             <SessionRow
               session={node.session}
               isSelected={node.session.id === selectedSessionId}
+              isPinned={pinnedSet.has(node.session.id)}
               onPress={onSelectSession}
               onOverflow={onOverflowSession}
+              onTogglePin={togglePin}
               hasChildren={node.children.length > 0}
               isExpanded={expandedParents.has(node.session.id)}
               onToggleExpand={() => toggleExpand(node.session.id)}
@@ -304,8 +358,10 @@ function SessionListContent({
                   key={child.id}
                   session={child}
                   isSelected={child.id === selectedSessionId}
+                  isPinned={pinnedSet.has(child.id)}
                   onPress={onSelectSession}
                   onOverflow={onOverflowSession}
+                  onTogglePin={togglePin}
                   isSubSession
                 />
               ))}
