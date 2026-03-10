@@ -1,5 +1,11 @@
-import React, { useRef, useEffect } from 'react'
-import { View, ScrollView, Keyboard } from 'react-native'
+import React, { useRef, useEffect, useCallback } from 'react'
+import {
+  View,
+  ScrollView,
+  Keyboard,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native'
 import { ToolCallBlock } from './ToolCallBlock'
 import { ToolOutputBlock } from './ToolOutputBlock'
 import { AgentStatusIndicator } from './AgentStatusIndicator'
@@ -12,27 +18,46 @@ interface ChatThreadProps {
   onToolCallPress?: (messageId: string) => void
 }
 
+const NEAR_BOTTOM_THRESHOLD = 150 // pixels from bottom to count as "near bottom"
+
 export function ChatThread({ messages, onToolCallPress }: ChatThreadProps) {
   const scrollRef = useRef<ScrollView>(null)
   const prevCountRef = useRef(0)
+  const isNearBottomRef = useRef(true)
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, contentSize, layoutMeasurement } =
+        event.nativeEvent
+      const distanceFromBottom =
+        contentSize.height - layoutMeasurement.height - contentOffset.y
+      isNearBottomRef.current = distanceFromBottom <= NEAR_BOTTOM_THRESHOLD
+    },
+    []
+  )
 
   useEffect(() => {
     if (messages.length > 0) {
       const animated = prevCountRef.current > 0
+      const isFirstLoad = prevCountRef.current === 0
       prevCountRef.current = messages.length
-      // Small delay to ensure layout is complete
-      setTimeout(() => {
-        scrollRef.current?.scrollToEnd({ animated })
-      }, 100)
+      // Only auto-scroll if user is near the bottom (or on first load)
+      if (isFirstLoad || isNearBottomRef.current) {
+        setTimeout(() => {
+          scrollRef.current?.scrollToEnd({ animated })
+        }, 100)
+      }
     }
   }, [messages.length])
 
-  // Auto-scroll to end when keyboard appears
+  // Auto-scroll to end when keyboard appears (only if near bottom)
   useEffect(() => {
     const sub = Keyboard.addListener('keyboardDidShow', () => {
-      setTimeout(() => {
-        scrollRef.current?.scrollToEnd({ animated: true })
-      }, 100)
+      if (isNearBottomRef.current) {
+        setTimeout(() => {
+          scrollRef.current?.scrollToEnd({ animated: true })
+        }, 100)
+      }
     })
     return () => sub.remove()
   }, [])
@@ -45,6 +70,8 @@ export function ChatThread({ messages, onToolCallPress }: ChatThreadProps) {
       showsVerticalScrollIndicator={false}
       keyboardDismissMode="interactive"
       keyboardShouldPersistTaps="handled"
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
     >
       {messages.map((message) => {
         switch (message.type) {
