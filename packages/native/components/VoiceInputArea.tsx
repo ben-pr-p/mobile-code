@@ -17,6 +17,8 @@ interface VoiceInputAreaProps {
   recordingState: RecordingState
   modelName: string
   providerName: string
+  sessionStatus?: 'idle' | 'busy' | 'error'
+  onAbort?: () => void
 }
 
 export function VoiceInputArea({
@@ -31,6 +33,8 @@ export function VoiceInputArea({
   recordingState,
   modelName,
   providerName,
+  sessionStatus,
+  onAbort,
 }: VoiceInputAreaProps) {
   const insets = useSafeAreaInsets()
   const { colorScheme } = useColorScheme()
@@ -55,6 +59,15 @@ export function VoiceInputArea({
       {/* Text input row — plus and stop buttons inside */}
       <View className="px-4 mb-3">
         <View className="flex-row items-end bg-stone-100 dark:bg-stone-900 rounded-xl pl-3.5 pr-1.5 py-1.5 gap-2" style={{ minHeight: 44 }}>
+          {sessionStatus === 'busy' && onAbort && (
+            <Pressable
+              onPress={onAbort}
+              className="w-[34px] h-[34px] rounded-lg items-center justify-center self-end mb-0.5"
+              style={{ backgroundColor: '#EF4444' }}
+            >
+              <View className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#0C0A09' }} />
+            </Pressable>
+          )}
           <TextInput
             value={textValue}
             onChangeText={onTextChange}

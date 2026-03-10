@@ -31,6 +31,7 @@ interface SplitLayoutProps {
     stopRecording: () => void
     cancelRecording: () => void
   }
+  onAbort?: () => void
   settings: {
     serverUrl: string
     setServerUrl: (url: string) => void
@@ -56,6 +57,7 @@ export function SplitLayout({
   onSend,
   isSending,
   audioRecorder,
+  onAbort,
   settings,
 }: SplitLayoutProps) {
   const insets = useSafeAreaInsets()
@@ -198,6 +200,8 @@ export function SplitLayout({
             recordingState={audioRecorder.recordingState}
             modelName="Sonnet"
             providerName="Build"
+            sessionStatus={session.status}
+            onAbort={onAbort}
           />
         </KeyboardAvoidingView>
       </View>

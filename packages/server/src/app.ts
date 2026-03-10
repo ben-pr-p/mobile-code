@@ -174,6 +174,26 @@ export function createApp(opencodeUrl: string) {
       return c.json({ file: match.file as string, before: match.before as string, after: match.after as string })
     })
 
+    // Abort a currently running session
+    .post("/sessions/:sessionId/abort", async (c) => {
+      const sessionId = c.req.param("sessionId")
+      try {
+        const sessionRes = await client.session.get({ path: { id: sessionId } })
+        const directory = (sessionRes.data as any)?.directory as string | undefined
+        const res = await client.session.abort({
+          path: { id: sessionId },
+          ...(directory ? { query: { directory } } : {}),
+        })
+        if (res.error) {
+          return c.json({ error: "Failed to abort session" }, 500)
+        }
+        return c.json({ success: true })
+      } catch (err: any) {
+        console.error("[POST /api/sessions/:sessionId/abort]", err)
+        return c.json({ error: err.message ?? "Abort failed" }, 500)
+      }
+    })
+
     // Delete a session permanently
     .delete("/sessions/:sessionId", async (c) => {
       const sessionId = c.req.param("sessionId")

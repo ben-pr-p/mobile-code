@@ -28,6 +28,7 @@ interface SessionScreenProps {
     stopRecording: () => void
     cancelRecording: () => void
   }
+  onAbort?: () => void
   emptyMessage?: string
 }
 
@@ -44,6 +45,7 @@ export function SessionScreen({
   onSend,
   isSending,
   audioRecorder,
+  onAbort,
   emptyMessage,
 }: SessionScreenProps) {
   const insets = useSafeAreaInsets()
@@ -93,6 +95,8 @@ export function SessionScreen({
         recordingState={audioRecorder.recordingState}
         modelName="Sonnet"
         providerName="Build"
+        sessionStatus={session.status}
+        onAbort={onAbort}
       />
     </KeyboardAvoidingView>
   )

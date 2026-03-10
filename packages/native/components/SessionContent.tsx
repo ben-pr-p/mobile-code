@@ -56,6 +56,7 @@ interface SessionViewProps {
   settings: SessionSettings;
   onSendText: (text: string) => Promise<void>;
   onSendAudio: (base64: string, mimeType: string) => void;
+  onAbort?: () => void;
   emptyMessage?: string;
 }
 
@@ -70,6 +71,7 @@ export function SessionView({
   settings,
   onSendText,
   onSendAudio,
+  onAbort,
   emptyMessage,
 }: SessionViewProps) {
   const [activeTab, setActiveTab] = useState<'session' | 'changes'>('session');
@@ -153,6 +155,7 @@ export function SessionView({
         isSending={isSending}
         audioRecorder={audioRecorder}
         settings={settings}
+        onAbort={onAbort}
       />
     );
   }
@@ -171,6 +174,7 @@ export function SessionView({
       onSend={handleSend}
       isSending={isSending}
       audioRecorder={audioRecorder}
+      onAbort={onAbort}
       emptyMessage={emptyMessage}
     />
   );
@@ -292,6 +296,17 @@ function ExistingSessionDataLoader({
     [api, sessionId]
   );
 
+  const handleAbort = useCallback(async () => {
+    try {
+      const res = await (api.api.sessions[':sessionId'].abort as any).$post({
+        param: { sessionId },
+      });
+      if (!res.ok) console.error('[SessionContent] abort failed');
+    } catch (err) {
+      console.error('[SessionContent] abort failed:', err);
+    }
+  }, [api, sessionId]);
+
   return (
     <SessionView
       sessionId={sessionId}
@@ -304,6 +319,7 @@ function ExistingSessionDataLoader({
       settings={settings}
       onSendText={handleSendText}
       onSendAudio={handleSendAudio}
+      onAbort={handleAbort}
     />
   );
 }
@@ -355,6 +371,7 @@ export function NewSessionContent({
     projectID: projectId,
     version: '',
     time: { created: now, updated: now },
+    status: 'idle',
   };
 
   const createAndPrompt = useCallback(
