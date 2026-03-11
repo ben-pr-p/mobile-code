@@ -10,7 +10,7 @@ export async function sendPrompt(
   sessionId: string,
   parts: PromptPartInput[],
   directory?: string,
-): Promise<Message> {
+): Promise<void> {
   // Fetch conversation context for audio transcription
   let conversationContext: Message[] | undefined
   const hasAudio = parts.some((p) => p.type === "audio")
@@ -49,7 +49,7 @@ export async function sendPrompt(
   const resolvedText = textParts.map((p) => p.text.slice(0, 100)).join(" | ")
   console.log(`[prompt] session=${sessionId} forwarding to opencode: ${textParts.length} part(s), text preview: "${resolvedText.slice(0, 200)}"`)
 
-  const res = await client.session.prompt({
+  const res = await client.session.promptAsync({
     path: { id: sessionId },
     body: {
       parts: textParts,
@@ -65,8 +65,5 @@ export async function sendPrompt(
     throw new Error(`Prompt failed: ${JSON.stringify(res.error)}`)
   }
 
-  const message = mapMessage(res.data)
-  const responseSummary = message.parts.map((p) => p.type === "text" ? `text(${p.text.length})` : `${p.type}`).join(", ")
-  console.log(`[prompt] session=${sessionId} opencode responded: role=${message.role}, ${message.parts.length} part(s): ${responseSummary}`)
-  return message
+  console.log(`[prompt] session=${sessionId} prompt accepted by opencode (async)`)
 }

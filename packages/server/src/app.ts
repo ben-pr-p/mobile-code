@@ -83,8 +83,8 @@ export function createApp(opencodeUrl: string) {
           // Look up the session to get its directory
           const sessionRes = await client.session.get({ path: { id: sessionId } })
           const directory = (sessionRes.data as any)?.directory as string | undefined
-          const message = await sendPrompt(client, sessionId, parts, directory)
-          return c.json(message)
+          await sendPrompt(client, sessionId, parts, directory)
+          return c.json({ success: true })
         } catch (err: any) {
           console.error("[POST /api/sessions/:sessionId/prompt]", err)
           return c.json({ error: err.message ?? "Prompt failed" }, 500)
