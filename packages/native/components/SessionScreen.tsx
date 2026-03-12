@@ -30,6 +30,8 @@ interface SessionScreenProps {
   }
   onAbort?: () => void
   emptyMessage?: string
+  modelName: string
+  onModelPress?: () => void
 }
 
 export function SessionScreen({
@@ -47,6 +49,8 @@ export function SessionScreen({
   audioRecorder,
   onAbort,
   emptyMessage,
+  modelName,
+  onModelPress,
 }: SessionScreenProps) {
   const insets = useSafeAreaInsets()
   const [textValue, setTextValue] = useState('')
@@ -78,26 +82,28 @@ export function SessionScreen({
         <ChangesView sessionId={sessionId} changes={changes} />
       )}
 
-      <VoiceInputArea
-        textValue={textValue}
-        onTextChange={setTextValue}
-        onSend={() => {
-          const text = textValue.trim()
-          if (!text) return
-          setTextValue('')
-          onSend(text)
-        }}
-        isSending={isSending}
-        onMicPressIn={audioRecorder.startRecording}
-        onMicPressOut={audioRecorder.stopRecording}
-        onAttachPress={() => {}}
-        onStopPress={audioRecorder.cancelRecording}
-        recordingState={audioRecorder.recordingState}
-        modelName="Sonnet"
-        providerName="Build"
-        sessionStatus={session.status}
-        onAbort={onAbort}
-      />
+      {!session.parentID && (
+        <VoiceInputArea
+          textValue={textValue}
+          onTextChange={setTextValue}
+          onSend={() => {
+            const text = textValue.trim()
+            if (!text) return
+            setTextValue('')
+            onSend(text)
+          }}
+          isSending={isSending}
+          onMicPressIn={audioRecorder.startRecording}
+          onMicPressOut={audioRecorder.stopRecording}
+          onAttachPress={() => {}}
+          onStopPress={audioRecorder.cancelRecording}
+          recordingState={audioRecorder.recordingState}
+          modelName={modelName}
+          sessionStatus={session.status}
+          onAbort={onAbort}
+          onModelPress={onModelPress}
+        />
+      )}
     </KeyboardAvoidingView>
   )
 }

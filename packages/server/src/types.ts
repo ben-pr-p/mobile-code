@@ -367,6 +367,9 @@ export interface Message {
   role: "user" | "assistant"
   parts: MessagePart[]
   createdAt: number
+  // model info (present on both user and assistant messages)
+  modelID?: string
+  providerID?: string
   // assistant-specific
   cost?: number
   tokens?: {

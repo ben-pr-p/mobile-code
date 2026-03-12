@@ -24,3 +24,32 @@ export const connectionInfoAtom = atom<ConnectionInfo>({
   latencyMs: null,
   error: null,
 });
+
+// --- Model selection ---
+
+export type ModelSelection = { providerID: string; modelID: string };
+
+/**
+ * User's preferred model for the next prompt. Persisted to AsyncStorage so it
+ * survives app restarts. `null` means "use server default".
+ */
+export const selectedModelAtom = atomWithStorage<ModelSelection | null>(
+  'settings:selectedModel',
+  null,
+  asyncStorageAdapter<ModelSelection | null>(),
+);
+
+/** Model info for a single model from the provider catalog */
+export type CatalogModel = {
+  id: string;
+  name: string;
+  providerID: string;
+  providerName: string;
+  status?: string;
+};
+
+/** Provider catalog fetched from the server. `null` means not yet loaded. */
+export const modelCatalogAtom = atom<CatalogModel[] | null>(null);
+
+/** The server-reported defaults: e.g. { "": "anthropic/claude-sonnet-4-20250514" } */
+export const modelDefaultsAtom = atom<Record<string, string>>({});

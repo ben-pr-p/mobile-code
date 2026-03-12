@@ -1,5 +1,5 @@
-export { useStateQuery, flattenServerMessage };
-export type { ProjectValue, SessionValue, ChangeValue, StateDB, UIMessage };
+export { useStateQuery, useAppStateQuery, flattenServerMessage };
+export type { ProjectValue, SessionValue, ChangeValue, SessionMetaValue, StateDB, AppStateDB, UIMessage };
 export type { ChangedFile } from '../../server/src/types';
 
 import { atom } from 'jotai';
@@ -73,6 +73,26 @@ type StateDB = StreamDB<StateDef>;
 
 const stateSchema = createStateSchema(stateDef);
 
+// --- Persistent app state (archive status, etc.) ---
+
+type SessionMetaValue = {
+  sessionId: string;
+  archived: boolean;
+};
+
+const appStateDef = {
+  sessionMeta: {
+    schema: passthrough<SessionMetaValue>(),
+    type: 'sessionMeta' as const,
+    primaryKey: 'sessionId' as const,
+  },
+};
+
+type AppStateDef = typeof appStateDef;
+type AppStateDB = StreamDB<AppStateDef>;
+
+const appStateSchema = createStateSchema(appStateDef);
+
 const instanceIdAtom = atom(async (get) => {
   const serverUrl = get(debouncedServerUrlAtom).replace(/\/$/, '');
   try {
@@ -96,6 +116,21 @@ const dbAtom = atom(async (get) => {
       streamOptions: { url: `${serverUrl}/${instanceId}` },
       state: stateSchema,
     }) as StateDB;
+
+    await db.preload();
+    return { db, loading: false };
+  } catch {
+    return { db: null, loading: true };
+  }
+});
+
+const appDbAtom = atom(async (get) => {
+  const serverUrl = get(debouncedServerUrlAtom).replace(/\/$/, '');
+  try {
+    const db = createStreamDB({
+      streamOptions: { url: `${serverUrl}/app` }, // fixed URL, no instanceId
+      state: appStateSchema,
+    }) as AppStateDB;
 
     await db.preload();
     return { db, loading: false };
@@ -193,6 +228,16 @@ function useStateQuery<TContext extends Context>(
   deps: unknown[] = []
 ) {
   const { db, loading } = useAtomValue(dbAtom);
+  const result = useLiveQuery((q) => db && queryFn(db, q), [db, ...deps]);
+  if (!db) return { data: null, isLoading: true, error: null };
+  return { ...result, isLoading: loading || result.isLoading };
+}
+
+function useAppStateQuery<TContext extends Context>(
+  queryFn: (db: AppStateDB, q: InitialQueryBuilder) => QueryBuilder<TContext> | undefined | null,
+  deps: unknown[] = []
+) {
+  const { db, loading } = useAtomValue(appDbAtom);
   const result = useLiveQuery((q) => db && queryFn(db, q), [db, ...deps]);
   if (!db) return { data: null, isLoading: true, error: null };
   return { ...result, isLoading: loading || result.isLoading };

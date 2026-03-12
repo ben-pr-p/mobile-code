@@ -38,8 +38,7 @@ export function EmptySession({ onMenuPress, onProjectsPress }: EmptySessionProps
         onAttachPress={() => {}}
         onStopPress={() => {}}
         recordingState="idle"
-        modelName="Sonnet"
-        providerName="Build"
+        modelName="..."
       />
     </View>
   )

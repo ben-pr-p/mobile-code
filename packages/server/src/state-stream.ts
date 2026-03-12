@@ -137,9 +137,20 @@ class StateStream implements StateStreamSink {
   }
 
   messageUpdated(info: any) {
+    // Extract model info — user messages nest it under info.model,
+    // assistant messages have it flat on info
+    const modelID = info.role === "user"
+      ? info.model?.modelID
+      : info.modelID
+    const providerID = info.role === "user"
+      ? info.model?.providerID
+      : info.providerID
+
     const existing = this.#messages.get(info.id)
     if (existing) {
       existing.createdAt = info.time?.created ?? existing.createdAt
+      if (modelID) existing.modelID = modelID
+      if (providerID) existing.providerID = providerID
       if (info.role === "assistant") {
         existing.cost = info.cost
         existing.tokens = info.tokens
@@ -154,6 +165,8 @@ class StateStream implements StateStreamSink {
         role: info.role,
         parts: [],
         createdAt: info.time?.created ?? 0,
+        ...(modelID ? { modelID } : {}),
+        ...(providerID ? { providerID } : {}),
         ...(info.role === "assistant" ? {
           cost: info.cost,
           tokens: info.tokens

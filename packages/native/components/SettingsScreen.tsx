@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { View, Text, Pressable, ScrollView, TextInput, Switch } from 'react-native'
+import React, { useState, useCallback } from 'react'
+import { View, Text, Pressable, ScrollView, TextInput, Switch, ActivityIndicator } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useColorScheme } from 'nativewind'
 import { ArrowLeft, ChevronDown } from 'lucide-react-native'
@@ -21,6 +21,12 @@ interface SettingsScreenProps {
   appVersion: string
   defaultModel: string
 
+  // Model selection
+  onDefaultModelPress?: () => void
+
+  // Resync
+  onResyncConfig?: () => Promise<void>
+
   // Navigation
   onBack: () => void
 }
@@ -36,6 +42,8 @@ export function SettingsScreen({
   notificationSoundOptions,
   appVersion,
   defaultModel,
+  onDefaultModelPress,
+  onResyncConfig,
   onBack,
 }: SettingsScreenProps) {
   const insets = useSafeAreaInsets()
@@ -43,6 +51,17 @@ export function SettingsScreen({
   const placeholderColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E'
   const iconColor = colorScheme === 'dark' ? '#A8A29E' : '#44403C'
   const mutedIconColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E'
+  const [resyncing, setResyncing] = useState(false)
+
+  const handleResync = useCallback(async () => {
+    if (!onResyncConfig || resyncing) return
+    setResyncing(true)
+    try {
+      await onResyncConfig()
+    } finally {
+      setResyncing(false)
+    }
+  }, [onResyncConfig, resyncing])
 
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-950" style={{ paddingTop: insets.top }}>
@@ -85,6 +104,33 @@ export function SettingsScreen({
           />
           <ConnectionStatusBadge connection={connection} />
         </View>
+
+        {onResyncConfig && (
+          <View className="px-5 mt-3">
+            <Pressable
+              onPress={handleResync}
+              disabled={resyncing}
+              className="flex-row items-center justify-center gap-2 bg-white dark:bg-stone-900 rounded-lg h-10"
+              style={{ opacity: resyncing ? 0.6 : 1 }}
+            >
+              {resyncing ? (
+                <ActivityIndicator size="small" color={colorScheme === 'dark' ? '#A8A29E' : '#44403C'} />
+              ) : null}
+              <Text
+                className="text-xs font-medium text-stone-700 dark:text-stone-400"
+                style={{ fontFamily: 'JetBrains Mono' }}
+              >
+                {resyncing ? 'Resyncing...' : 'Resync Config'}
+              </Text>
+            </Pressable>
+            <Text
+              className="text-[10px] text-stone-400 dark:text-stone-600 mt-1.5 px-0.5"
+              style={{ fontFamily: 'JetBrains Mono' }}
+            >
+              Re-fetches available model options from the server.
+            </Text>
+          </View>
+        )}
 
         {/* Divider */}
         <View className="h-px bg-stone-200 dark:bg-stone-800 mx-5 mt-4" />
@@ -169,15 +215,22 @@ export function SettingsScreen({
               {appVersion}
             </Text>
           </View>
-          <View className="flex-row items-center justify-between">
+          <Pressable
+            className="flex-row items-center justify-between"
+            onPress={onDefaultModelPress}
+            disabled={!onDefaultModelPress}
+          >
             <Text className="text-sm font-medium text-stone-900 dark:text-stone-50" style={{ fontFamily: 'JetBrains Mono' }}>Default model</Text>
-            <Text
-              className="text-xs text-stone-700 dark:text-stone-400"
-              style={{ fontFamily: 'JetBrains Mono' }}
-            >
-              {defaultModel}
-            </Text>
-          </View>
+            <View className="flex-row items-center gap-1.5">
+              <Text
+                className="text-xs text-stone-700 dark:text-stone-400"
+                style={{ fontFamily: 'JetBrains Mono' }}
+              >
+                {defaultModel}
+              </Text>
+              {onDefaultModelPress && <ChevronDown size={14} color={mutedIconColor} />}
+            </View>
+          </Pressable>
         </View>
       </ScrollView>
     </View>

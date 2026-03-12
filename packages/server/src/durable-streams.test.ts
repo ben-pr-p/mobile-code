@@ -60,16 +60,16 @@ test("SSE client receives state events from the state stream", async () => {
 })
 
 describe("instance ID routing", () => {
-  function startServer() {
+  async function startServer() {
     // createApp will fail to connect to opencode, but the app + routing still works
-    const result = createApp("http://localhost:19999")
+    const result = await createApp("http://localhost:19999")
     const server = Bun.serve({ port: 0, fetch: result.app.fetch })
     const baseUrl = `http://localhost:${server.port}`
     return { ...result, server, baseUrl }
   }
 
   test("GET / returns instanceId", async () => {
-    const { server, baseUrl, instanceId } = startServer()
+    const { server, baseUrl, instanceId } = await startServer()
     try {
       const res = await fetch(`${baseUrl}/`)
       expect(res.status).toBe(200)
@@ -82,7 +82,7 @@ describe("instance ID routing", () => {
   })
 
   test("stream is accessible at /{instanceId}", async () => {
-    const { server, baseUrl, ds, instanceId } = startServer()
+    const { server, baseUrl, ds, instanceId } = await startServer()
     try {
       // Wait for StateStream.initialize to fail (it will since opencode is down),
       // then manually create the stream so we can test routing
@@ -112,7 +112,7 @@ describe("instance ID routing", () => {
   })
 
   test("stale instance ID returns 404", async () => {
-    const { server, baseUrl } = startServer()
+    const { server, baseUrl } = await startServer()
     try {
       const res = await fetch(`${baseUrl}/staleinstanceid`)
       expect(res.status).toBe(404)
@@ -121,14 +121,14 @@ describe("instance ID routing", () => {
     }
   })
 
-  test("two createApp calls produce different instanceIds", () => {
-    const a = createApp("http://localhost:19999")
-    const b = createApp("http://localhost:19999")
+  test("two createApp calls produce different instanceIds", async () => {
+    const a = await createApp("http://localhost:19999")
+    const b = await createApp("http://localhost:19999")
     expect(a.instanceId).not.toBe(b.instanceId)
   })
 
   test("SSE client receives events via /{instanceId}", async () => {
-    const { server, baseUrl, ds, instanceId } = startServer()
+    const { server, baseUrl, ds, instanceId } = await startServer()
     try {
       await new Promise((r) => setTimeout(r, 200))
       try {

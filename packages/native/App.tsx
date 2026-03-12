@@ -12,9 +12,11 @@ import { ProjectsSidebar } from './components/ProjectsSidebar';
 import { SettingsScreen } from './components/SettingsScreen';
 import { EmptySession } from './components/EmptySession';
 import { useSettings } from './hooks/useSettings';
+import { useModels } from './hooks/useModels';
 import { useLayout } from './hooks/useLayout';
 import { useStateQuery, type ProjectValue } from './lib/stream-db';
 import { apiClientAtom } from './lib/api';
+import { ModelSelectorSheet } from './components/ModelSelectorSheet';
 import { newSessionProjectIdAtom, pinnedSessionIdsAtom } from './state/ui';
 
 export default function App() {
@@ -40,7 +42,23 @@ export default function App() {
 
   // Settings (only used for phone layout; iPad handles settings in left panel)
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [settingsModelSelectorVisible, setSettingsModelSelectorVisible] = useState(false);
   const settings = useSettings();
+  const { selectedModel, setSelectedModel, catalog, getDisplayNames, getDefaultModel, refetchCatalog } = useModels();
+
+  // Compute the display name for the selected model (for settings screen)
+  const settingsDefaultModelDisplay = useMemo(() => {
+    if (selectedModel) {
+      const { modelName, providerName } = getDisplayNames(selectedModel.modelID, selectedModel.providerID);
+      return providerName ? `${providerName} / ${modelName}` : modelName;
+    }
+    const dm = getDefaultModel();
+    if (dm) {
+      const { modelName, providerName } = getDisplayNames(dm.modelID, dm.providerID);
+      return providerName ? `${providerName} / ${modelName}` : modelName;
+    }
+    return settings.defaultModel;
+  }, [selectedModel, getDisplayNames, getDefaultModel, settings.defaultModel]);
 
   // Left sidebar (sessions)
   const [leftSidebarVisible, setLeftSidebarVisible] = useState(false);
@@ -347,19 +365,31 @@ export default function App() {
     <SafeAreaProvider>
       <View className="flex-1" {...panResponder.panHandlers}>
         {settingsVisible ? (
-          <SettingsScreen
-            serverUrl={settings.serverUrl}
-            onServerUrlChange={settings.setServerUrl}
-            connection={settings.connection}
-            handsFreeAutoRecord={settings.handsFreeAutoRecord}
-            onHandsFreeAutoRecordChange={settings.setHandsFreeAutoRecord}
-            notificationSound={settings.notificationSound}
-            onNotificationSoundChange={settings.setNotificationSound}
-            notificationSoundOptions={settings.notificationSoundOptions}
-            appVersion={settings.appVersion}
-            defaultModel={settings.defaultModel}
-            onBack={closeSettings}
-          />
+          <>
+            <SettingsScreen
+              serverUrl={settings.serverUrl}
+              onServerUrlChange={settings.setServerUrl}
+              connection={settings.connection}
+              handsFreeAutoRecord={settings.handsFreeAutoRecord}
+              onHandsFreeAutoRecordChange={settings.setHandsFreeAutoRecord}
+              notificationSound={settings.notificationSound}
+              onNotificationSoundChange={settings.setNotificationSound}
+              notificationSoundOptions={settings.notificationSoundOptions}
+              appVersion={settings.appVersion}
+              defaultModel={settingsDefaultModelDisplay}
+              onDefaultModelPress={() => setSettingsModelSelectorVisible(true)}
+              onResyncConfig={refetchCatalog}
+              onBack={closeSettings}
+            />
+            <ModelSelectorSheet
+              visible={settingsModelSelectorVisible}
+              onClose={() => setSettingsModelSelectorVisible(false)}
+              catalog={catalog}
+              selectedModel={selectedModel}
+              onSelectModel={setSelectedModel}
+              defaultModel={getDefaultModel()}
+            />
+          </>
         ) : sessionId ? (
           <SessionContent
             sessionId={sessionId}

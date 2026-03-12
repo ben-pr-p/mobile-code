@@ -8,6 +8,7 @@ import { SplitLayout } from './SplitLayout';
 import { SessionHeader } from './SessionHeader';
 import { TabBar } from './TabBar';
 import { VoiceInputArea } from './VoiceInputArea';
+import { ModelSelectorSheet, type RecentModel } from './ModelSelectorSheet';
 import {
   useStateQuery,
   flattenServerMessage,
@@ -19,6 +20,8 @@ import {
 import type { Message as ServerMessage } from '../../server/src/types';
 import { apiClientAtom } from '../lib/api';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
+import { useModels } from '../hooks/useModels';
+import { selectedModelAtom } from '../state/settings';
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings';
 
 // ---------------------------------------------------------------------------
@@ -36,6 +39,7 @@ export interface SessionSettings {
   notificationSoundOptions: { label: string; value: NotificationSound }[];
   appVersion: string;
   defaultModel: string;
+  onResyncConfig?: () => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -58,6 +62,8 @@ interface SessionViewProps {
   onSendAudio: (base64: string, mimeType: string) => void;
   onAbort?: () => void;
   emptyMessage?: string;
+  /** Latest model info from the session's raw messages (for display name derivation) */
+  sessionModelInfo?: { modelID?: string; providerID?: string } | null;
 }
 
 export function SessionView({
@@ -73,11 +79,44 @@ export function SessionView({
   onSendAudio,
   onAbort,
   emptyMessage,
+  sessionModelInfo,
 }: SessionViewProps) {
   const [activeTab, setActiveTab] = useState<'session' | 'changes'>('session');
   const [isSending, setIsSending] = useState(false);
   const [pendingVoiceMessages, setPendingVoiceMessages] = useState<Message[]>([]);
   const voiceIdCounter = useRef(0);
+  const [modelSelectorVisible, setModelSelectorVisible] = useState(false);
+
+  // Model selection state
+  const { selectedModel, setSelectedModel, catalog, getDisplayNames, getDefaultModel, refetchCatalog } = useModels();
+
+  // Query all messages to derive recently used models
+  const { data: allRawMessages } = useStateQuery(
+    (db, q) => q.from({ messages: db.collections.messages }),
+  );
+  const recentModels: RecentModel[] = useMemo(() => {
+    if (!allRawMessages) return [];
+    const msgs = allRawMessages as ServerMessage[];
+    // Build a map of modelID+providerID -> latest timestamp
+    const seen = new Map<string, RecentModel>();
+    for (const m of msgs) {
+      if (m.modelID && m.providerID) {
+        const key = `${m.providerID}/${m.modelID}`;
+        const existing = seen.get(key);
+        if (!existing || m.createdAt > existing.lastUsedAt) {
+          seen.set(key, {
+            modelID: m.modelID,
+            providerID: m.providerID,
+            lastUsedAt: m.createdAt,
+          });
+        }
+      }
+    }
+    // Sort newest-first, take top 5
+    return Array.from(seen.values())
+      .sort((a, b) => b.lastUsedAt - a.lastUsedAt)
+      .slice(0, 5);
+  }, [allRawMessages]);
 
   // Merge server messages with optimistic voice messages, removing optimistic
   // ones once the server has caught up (new user message appeared)
@@ -141,42 +180,105 @@ export function SessionView({
 
   const audioRecorder = useAudioRecorder({ onSendAudio: handleSendAudio });
 
+  // Derive model display names — prefer user's explicit selection, then fall
+  // back to the session's latest model info, then the server default.
+  const modelName = useMemo(() => {
+    if (selectedModel) {
+      return getDisplayNames(selectedModel.modelID, selectedModel.providerID).modelName;
+    }
+    if (sessionModelInfo?.modelID) {
+      return getDisplayNames(sessionModelInfo.modelID, sessionModelInfo.providerID).modelName;
+    }
+    const defaultModel = getDefaultModel();
+    if (defaultModel) {
+      return getDisplayNames(defaultModel.modelID, defaultModel.providerID).modelName;
+    }
+    return 'Default';
+  }, [selectedModel, sessionModelInfo, getDisplayNames, getDefaultModel]);
+
+  // Display string for settings screen's "Default model" row
+  const settingsDefaultModel = useMemo(() => {
+    if (selectedModel) {
+      const { modelName: mn, providerName: pn } = getDisplayNames(selectedModel.modelID, selectedModel.providerID);
+      return pn ? `${pn} / ${mn}` : mn;
+    }
+    const dm = getDefaultModel();
+    if (dm) {
+      const { modelName: mn, providerName: pn } = getDisplayNames(dm.modelID, dm.providerID);
+      return pn ? `${pn} / ${mn}` : mn;
+    }
+    return settings.defaultModel;
+  }, [selectedModel, getDisplayNames, getDefaultModel, settings.defaultModel]);
+
+  const handleModelPress = useCallback(() => {
+    setModelSelectorVisible(true);
+  }, []);
+
+  const handleModelSelect = useCallback(
+    (model: { providerID: string; modelID: string } | null) => {
+      setSelectedModel(model);
+    },
+    [setSelectedModel],
+  );
+
+  const modelSheet = (
+    <ModelSelectorSheet
+      visible={modelSelectorVisible}
+      onClose={() => setModelSelectorVisible(false)}
+      catalog={catalog}
+      selectedModel={selectedModel}
+      onSelectModel={handleModelSelect}
+      defaultModel={getDefaultModel()}
+      recentModels={recentModels}
+    />
+  );
+
   if (isTabletLandscape) {
     return (
-      <SplitLayout
+      <>
+        <SplitLayout
+          sessionId={sessionId}
+          session={session}
+          messages={messages}
+          changes={changes}
+          onMenuPress={onMenuPress}
+          onProjectsPress={onProjectsPress}
+          onToolCallPress={() => {}}
+          onSend={handleSend}
+          isSending={isSending}
+          audioRecorder={audioRecorder}
+          settings={{ ...settings, defaultModel: settingsDefaultModel, onResyncConfig: refetchCatalog }}
+          onAbort={onAbort}
+          modelName={modelName}
+          onModelPress={handleModelPress}
+        />
+        {modelSheet}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <SessionScreen
         sessionId={sessionId}
         session={session}
         messages={messages}
         changes={changes}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         onMenuPress={onMenuPress}
         onProjectsPress={onProjectsPress}
         onToolCallPress={() => {}}
         onSend={handleSend}
         isSending={isSending}
         audioRecorder={audioRecorder}
-        settings={settings}
         onAbort={onAbort}
+        emptyMessage={emptyMessage}
+        modelName={modelName}
+        onModelPress={handleModelPress}
       />
-    );
-  }
-
-  return (
-    <SessionScreen
-      sessionId={sessionId}
-      session={session}
-      messages={messages}
-      changes={changes}
-      activeTab={activeTab}
-      onTabChange={setActiveTab}
-      onMenuPress={onMenuPress}
-      onProjectsPress={onProjectsPress}
-      onToolCallPress={() => {}}
-      onSend={handleSend}
-      isSending={isSending}
-      audioRecorder={audioRecorder}
-      onAbort={onAbort}
-      emptyMessage={emptyMessage}
-    />
+      {modelSheet}
+    </>
   );
 }
 
@@ -243,6 +345,7 @@ function ExistingSessionDataLoader({
   settings: SessionSettings;
 }) {
   const api = useAtomValue(apiClientAtom);
+  const currentModel = useAtomValue(selectedModelAtom);
 
   const { data: rawMessages } = useStateQuery(
     (db, q) =>
@@ -251,13 +354,27 @@ function ExistingSessionDataLoader({
         .where(({ messages }) => eq(messages.sessionId, sessionId)),
     [sessionId]
   );
-  const serverMessages = useMemo(() => {
+  const sortedRawMessages = useMemo(() => {
     if (!rawMessages) return [];
     return (rawMessages as ServerMessage[])
       .slice()
-      .sort((a, b) => a.createdAt - b.createdAt)
-      .flatMap(flattenServerMessage);
+      .sort((a, b) => a.createdAt - b.createdAt);
   }, [rawMessages]);
+
+  const serverMessages = useMemo(() => {
+    return sortedRawMessages.flatMap(flattenServerMessage);
+  }, [sortedRawMessages]);
+
+  // Derive the session's current model from the latest user message with model info
+  const sessionModelInfo = useMemo(() => {
+    for (let i = sortedRawMessages.length - 1; i >= 0; i--) {
+      const m = sortedRawMessages[i];
+      if (m.role === 'user' && m.modelID) {
+        return { modelID: m.modelID, providerID: m.providerID };
+      }
+    }
+    return null;
+  }, [sortedRawMessages]);
 
   const { data: changeResults } = useStateQuery(
     (db, q) =>
@@ -275,11 +392,14 @@ function ExistingSessionDataLoader({
     async (text: string) => {
       const res = await api.api.sessions[':sessionId'].prompt.$post({
         param: { sessionId },
-        json: { parts: [{ type: 'text' as const, text }] },
+        json: {
+          parts: [{ type: 'text' as const, text }],
+          ...(currentModel ? { model: currentModel } : {}),
+        },
       });
       if (!res.ok) throw new Error('Prompt failed');
     },
-    [api, sessionId]
+    [api, sessionId, currentModel]
   );
 
   const handleSendAudio = useCallback(
@@ -287,13 +407,16 @@ function ExistingSessionDataLoader({
       api.api.sessions[':sessionId'].prompt
         .$post({
           param: { sessionId },
-          json: { parts: [{ type: 'audio' as const, audioData: base64, mimeType }] },
+          json: {
+            parts: [{ type: 'audio' as const, audioData: base64, mimeType }],
+            ...(currentModel ? { model: currentModel } : {}),
+          },
         })
         .catch((err) => {
           console.error('[SessionContent] audio prompt failed:', err);
         });
     },
-    [api, sessionId]
+    [api, sessionId, currentModel]
   );
 
   const handleAbort = useCallback(async () => {
@@ -320,6 +443,7 @@ function ExistingSessionDataLoader({
       onSendText={handleSendText}
       onSendAudio={handleSendAudio}
       onAbort={handleAbort}
+      sessionModelInfo={sessionModelInfo}
     />
   );
 }
@@ -349,6 +473,7 @@ export function NewSessionContent({
   settings,
 }: NewSessionContentProps) {
   const api = useAtomValue(apiClientAtom);
+  const currentModel = useAtomValue(selectedModelAtom);
   // Guard against multiple simultaneous session creations
   const creatingRef = useRef(false);
 
@@ -387,7 +512,10 @@ export function NewSessionContent({
       try {
         const res = await api.api.projects[':projectId'].sessions.$post({
           param: { projectId },
-          json: { parts },
+          json: {
+            parts,
+            ...(currentModel ? { model: currentModel } : {}),
+          },
         });
         if (!res.ok) throw new Error('Create session failed');
         const data = (await res.json()) as { sessionId: string };
@@ -397,7 +525,7 @@ export function NewSessionContent({
         creatingRef.current = false;
       }
     },
-    [api, projectId, onSessionCreated]
+    [api, projectId, onSessionCreated, currentModel]
   );
 
   const handleSendText = useCallback(
@@ -471,8 +599,7 @@ function SessionLoading({
         onAttachPress={() => {}}
         onStopPress={() => {}}
         recordingState="idle"
-        modelName="Sonnet"
-        providerName="Build"
+        modelName="..."
       />
     </View>
   );

@@ -1,5 +1,8 @@
 import { Hono } from "hono"
 import { DurableStreamServer } from "durable-streams-web-standard"
+import { FileBackedStreamStore } from "@durable-streams/server"
+import { join } from "node:path"
+import { homedir } from "node:os"
 import { customAlphabet } from "nanoid"
 import { z } from "zod/v4"
 import { zValidator } from "@hono/zod-validator"
@@ -19,9 +22,13 @@ const PromptPartsSchema = z.object({
       z.object({ type: z.literal("audio"), audioData: z.string(), mimeType: z.string().optional() }),
     ])
   ),
+  model: z.object({
+    providerID: z.string(),
+    modelID: z.string(),
+  }).optional(),
 })
 
-export function createApp(opencodeUrl: string) {
+export async function createApp(opencodeUrl: string) {
   const client = createClient(opencodeUrl)
   const opencode = new Opencode(opencodeUrl)
 
@@ -35,6 +42,12 @@ export function createApp(opencodeUrl: string) {
     console.error("Failed to initialize state stream:", err)
   })
 
+  // Persistent app state stream — survives server restarts
+  const dataDir = join(homedir(), ".local", "share", "mobile-agents")
+  const appStore = new FileBackedStreamStore({ dataDir })
+  const appDs = new DurableStreamServer({ store: appStore })
+  await appDs.createStream("/", { contentType: "application/json" })
+
   // Subscribe to opencode events and route them to the state stream
   opencode.spawnListener((event) => handleOpencodeEvent(event, stateStream), opencodeUrl).catch((err) => {
     console.error("Failed to start opencode event listener:", err)
@@ -45,7 +58,7 @@ export function createApp(opencodeUrl: string) {
 
   // Returns the current instance ID so clients know where to connect
   app.get("/", (c) => {
-    return c.json({ instanceId })
+    return c.json({ instanceId, appStreamUrl: "/app" })
   })
 
   // Stream is mounted at /{instanceId} — changes on every restart
@@ -60,6 +73,18 @@ export function createApp(opencodeUrl: string) {
     url.pathname = "/"
     const rewritten = new Request(url.toString(), c.req.raw)
     return ds.fetch(rewritten)
+  })
+
+  // Persistent app state stream — fixed path, never resets
+  app.all("/app/*", (c) => {
+    const url = new URL(c.req.url)
+    url.pathname = url.pathname.slice("/app".length) || "/"
+    return appDs.fetch(new Request(url.toString(), c.req.raw))
+  })
+  app.all("/app", (c) => {
+    const url = new URL(c.req.url)
+    url.pathname = "/"
+    return appDs.fetch(new Request(url.toString(), c.req.raw))
   })
 
   app.get("/health", async (c) => {
@@ -78,12 +103,12 @@ export function createApp(opencodeUrl: string) {
       zValidator("json", PromptPartsSchema),
       async (c) => {
         const sessionId = c.req.param("sessionId")
-        const { parts } = c.req.valid("json")
+        const { parts, model } = c.req.valid("json")
         try {
           // Look up the session to get its directory
           const sessionRes = await client.session.get({ path: { id: sessionId } })
           const directory = (sessionRes.data as any)?.directory as string | undefined
-          await sendPrompt(client, sessionId, parts, directory)
+          await sendPrompt(client, sessionId, parts, directory, model)
           return c.json({ success: true })
         } catch (err: any) {
           console.error("[POST /api/sessions/:sessionId/prompt]", err)
@@ -100,7 +125,7 @@ export function createApp(opencodeUrl: string) {
       zValidator("json", PromptPartsSchema),
       async (c) => {
         const projectId = c.req.param("projectId")
-        const { parts } = c.req.valid("json")
+        const { parts, model } = c.req.valid("json")
 
         // Look up the project to get its worktree
         const projectsRes = await client.project.list()
@@ -121,7 +146,7 @@ export function createApp(opencodeUrl: string) {
         // Fire the prompt in the background — don't block the response.
         // The client navigates to the session immediately and sees streaming
         // updates via the SSE durable stream.
-        sendPrompt(client, sessionId, parts, project.worktree).catch(
+        sendPrompt(client, sessionId, parts, project.worktree, model).catch(
           (err: any) => {
             console.error("[POST /api/projects/:projectId/sessions] prompt failed:", err)
           },
@@ -241,9 +266,47 @@ export function createApp(opencodeUrl: string) {
       return c.json(diffs)
     })
 
+    // List available providers and models
+    .get("/models", async (c) => {
+      try {
+        const res = await client.provider.list()
+        if (res.error) {
+          return c.json({ error: "Failed to list providers" }, 500)
+        }
+        return c.json(res.data)
+      } catch (err: any) {
+        console.error("[GET /api/models]", err)
+        return c.json({ error: err.message ?? "Failed to list models" }, 500)
+      }
+    })
+
+    // Archive a session (persistent app state)
+    .post("/sessions/:sessionId/archive", async (c) => {
+      const sessionId = c.req.param("sessionId")
+      await appDs.appendToStream("/", JSON.stringify({
+        type: "sessionMeta",
+        key: sessionId,
+        value: { sessionId, archived: true },
+        headers: { operation: "upsert" },
+      }), { contentType: "application/json" })
+      return c.json({ success: true })
+    })
+
+    // Unarchive a session (persistent app state)
+    .post("/sessions/:sessionId/unarchive", async (c) => {
+      const sessionId = c.req.param("sessionId")
+      await appDs.appendToStream("/", JSON.stringify({
+        type: "sessionMeta",
+        key: sessionId,
+        value: { sessionId, archived: false },
+        headers: { operation: "upsert" },
+      }), { contentType: "application/json" })
+      return c.json({ success: true })
+    })
+
   const routes = app.route("/api", api)
 
-  return { app, routes, ds, stateStream, instanceId }
+  return { app, routes, ds, appDs, stateStream, instanceId }
 }
 
-export type AppType = ReturnType<typeof createApp>["routes"]
+export type AppType = Awaited<ReturnType<typeof createApp>>["routes"]

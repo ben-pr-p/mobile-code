@@ -43,7 +43,10 @@ interface SplitLayoutProps {
     notificationSoundOptions: { label: string; value: NotificationSound }[]
     appVersion: string
     defaultModel: string
+    onResyncConfig?: () => Promise<void>
   }
+  modelName: string
+  onModelPress?: () => void
 }
 
 export function SplitLayout({
@@ -59,6 +62,8 @@ export function SplitLayout({
   audioRecorder,
   onAbort,
   settings,
+  modelName,
+  onModelPress,
 }: SplitLayoutProps) {
   const insets = useSafeAreaInsets()
   const { colorScheme } = useColorScheme()
@@ -183,26 +188,28 @@ export function SplitLayout({
         >
           <TabBar activeTab={activeTab} onTabChange={handleTabChange} />
           <ChatThread messages={messages} onToolCallPress={handleToolCallPress} />
-          <VoiceInputArea
-            textValue={textValue}
-            onTextChange={setTextValue}
-            onSend={() => {
-              const text = textValue.trim()
-              if (!text) return
-              setTextValue('')
-              onSend(text)
-            }}
-            isSending={isSending}
-            onMicPressIn={audioRecorder.startRecording}
-            onMicPressOut={audioRecorder.stopRecording}
-            onAttachPress={() => {}}
-            onStopPress={audioRecorder.cancelRecording}
-            recordingState={audioRecorder.recordingState}
-            modelName="Sonnet"
-            providerName="Build"
-            sessionStatus={session.status}
-            onAbort={onAbort}
-          />
+          {!session.parentID && (
+            <VoiceInputArea
+              textValue={textValue}
+              onTextChange={setTextValue}
+              onSend={() => {
+                const text = textValue.trim()
+                if (!text) return
+                setTextValue('')
+                onSend(text)
+              }}
+              isSending={isSending}
+              onMicPressIn={audioRecorder.startRecording}
+              onMicPressOut={audioRecorder.stopRecording}
+              onAttachPress={() => {}}
+              onStopPress={audioRecorder.cancelRecording}
+              recordingState={audioRecorder.recordingState}
+              modelName={modelName}
+              sessionStatus={session.status}
+              onAbort={onAbort}
+              onModelPress={onModelPress}
+            />
+          )}
         </KeyboardAvoidingView>
       </View>
 
@@ -241,6 +248,8 @@ export function SplitLayout({
               notificationSoundOptions={settings.notificationSoundOptions}
               appVersion={settings.appVersion}
               defaultModel={settings.defaultModel}
+              onDefaultModelPress={onModelPress}
+              onResyncConfig={settings.onResyncConfig}
               onBack={handleCloseSettings}
             />
           </View>

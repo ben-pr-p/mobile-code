@@ -63,12 +63,23 @@ export function mapMessage(raw: any): Message {
   const info = raw.info
   const parts: MessagePart[] = (raw.parts ?? []).map(mapPart)
 
+  // Extract model info — user messages nest it under info.model,
+  // assistant messages have it flat on info
+  const modelID = info.role === "user"
+    ? info.model?.modelID
+    : info.modelID
+  const providerID = info.role === "user"
+    ? info.model?.providerID
+    : info.providerID
+
   const msg: Message = {
     id: info.id,
     sessionId: info.sessionID,
     role: info.role,
     parts,
     createdAt: info.time?.created ?? 0,
+    ...(modelID ? { modelID } : {}),
+    ...(providerID ? { providerID } : {}),
   }
 
   if (info.role === "assistant") {

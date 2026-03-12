@@ -10,6 +10,7 @@ export async function sendPrompt(
   sessionId: string,
   parts: PromptPartInput[],
   directory?: string,
+  model?: { providerID: string; modelID: string },
 ): Promise<void> {
   // Fetch conversation context for audio transcription
   let conversationContext: Message[] | undefined
@@ -57,6 +58,7 @@ export async function sendPrompt(
       // questions yet, and unanswered questions cause the session to hang.
       // See: https://github.com/ben-pr-p/mobile-code/issues/2
       tools: { question: false },
+      ...(model ? { model } : {}),
     },
     query: { directory },
   })

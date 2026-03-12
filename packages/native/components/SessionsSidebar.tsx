@@ -1,13 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Pressable, ScrollView, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
-import { Menu, Plus, Search, Ellipsis, Settings, Mic, HelpCircle, ChevronRight, ChevronDown, GitBranch, Pin } from 'lucide-react-native';
+import { Menu, Plus, Search, Ellipsis, Settings, Mic, HelpCircle, ChevronRight, ChevronDown, GitBranch, Pin, Archive, ArchiveRestore } from 'lucide-react-native';
 import { useMemo, useCallback } from 'react';
 import { useAtom } from 'jotai/react';
+import { useAtomValue } from 'jotai/react';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
-import { useStateQuery, type SessionValue } from '../lib/stream-db';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useStateQuery, useAppStateQuery, type SessionValue, type SessionMetaValue } from '../lib/stream-db';
 import { pinnedSessionIdsAtom } from '../state/ui';
+import { apiClientAtom } from '../lib/api';
 
 interface SessionsSidebarProps {
   projectId: string | undefined;
@@ -39,7 +43,7 @@ export function SessionsSidebar({
   const micIconColor = colorScheme === 'dark' ? '#0C0A09' : '#FFFFFF';
 
   return (
-    <View className="flex-1 bg-stone-50 dark:bg-stone-950" style={{ paddingTop: insets.top }}>
+    <GestureHandlerRootView className="flex-1 bg-stone-50 dark:bg-stone-950" style={{ paddingTop: insets.top }}>
       {/* Header */}
       <View className="h-14 flex-row items-center justify-between px-5">
         <Pressable
@@ -99,7 +103,7 @@ export function SessionsSidebar({
           <HelpCircle size={22} color={mutedIconColor} />
         </Pressable>
       </View>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
@@ -149,66 +153,93 @@ interface SessionRowProps {
   onPress: (sessionId: string, projectId: string) => void;
   onOverflow?: (id: string) => void;
   onTogglePin: (id: string) => void;
+  onArchive?: (id: string) => void;
+  isArchived?: boolean;
   hasChildren?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   isSubSession?: boolean;
 }
 
-function SessionRow({ session, isSelected, isPinned, sessionStatus, onPress, onOverflow, onTogglePin, hasChildren, isExpanded, onToggleExpand, isSubSession }: SessionRowProps) {
+function SessionRow({ session, isSelected, isPinned, sessionStatus, onPress, onOverflow, onTogglePin, onArchive, isArchived, hasChildren, isExpanded, onToggleExpand, isSubSession }: SessionRowProps) {
   const { colorScheme } = useColorScheme();
   const overflowColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const chevronColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const subSessionIconColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const pinColor = colorScheme === 'dark' ? '#D97706' : '#B45309';
+  const swipeableRef = useRef<Swipeable>(null);
 
   const handleLongPress = useCallback(() => {
     onTogglePin(session.id);
   }, [session.id, onTogglePin]);
 
-  return (
+  const renderRightActions = useCallback(() => (
     <Pressable
-      onPress={() => onPress(session.id, session.projectID)}
-      onLongPress={handleLongPress}
-      className={`flex-row items-center gap-3 rounded-lg py-3 ${
-        isSubSession ? 'pl-8 pr-3.5' : 'px-3.5'
-      } ${
-        isSelected
-          ? 'border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30'
-          : ''
-      }`}>
-      {/* Status dot — always visible */}
-      <SessionStatusDot status={sessionStatus} />
-      {/* Metadata icons */}
-      {isPinned && <Pin size={12} color={pinColor} className="-ml-1" />}
-      {isSubSession && <GitBranch size={12} color={subSessionIconColor} className="-ml-1" />}
-      {hasChildren && (
-        <Pressable onPress={onToggleExpand} hitSlop={8} className="-ml-1">
-          {isExpanded ? (
-            <ChevronDown size={14} color={chevronColor} />
-          ) : (
-            <ChevronRight size={14} color={chevronColor} />
-          )}
-        </Pressable>
+      onPress={() => {
+        onArchive?.(session.id);
+        swipeableRef.current?.close();
+      }}
+      className="items-center justify-center rounded-lg bg-amber-600 px-4">
+      {isArchived ? (
+        <ArchiveRestore size={18} color="#FFFFFF" />
+      ) : (
+        <Archive size={18} color="#FFFFFF" />
       )}
-      <View className="flex-1 gap-0.5">
-        <Text
-          className={`font-medium text-stone-700 dark:text-stone-400 ${isSubSession ? 'text-xs' : 'text-sm'}`}
-          style={{ fontFamily: 'JetBrains Mono' }}>
-          {session.title}
-        </Text>
-        <Text
-          className="text-[11px] text-stone-400 dark:text-stone-600"
-          style={{ fontFamily: 'JetBrains Mono' }}>
-          {formatRelativeTime(session.time.updated)}
-        </Text>
-      </View>
-      {onOverflow && (
-        <Pressable onPress={() => onOverflow(session.id)} hitSlop={8}>
-          <Ellipsis size={16} color={overflowColor} />
-        </Pressable>
-      )}
+      <Text className="mt-1 text-[10px] font-medium text-white"
+        style={{ fontFamily: 'JetBrains Mono' }}>
+        {isArchived ? 'Unarchive' : 'Archive'}
+      </Text>
     </Pressable>
+  ), [session.id, isArchived, onArchive]);
+
+  return (
+    <Swipeable
+      ref={swipeableRef}
+      renderRightActions={onArchive ? renderRightActions : undefined}
+      overshootRight={false}>
+      <Pressable
+        onPress={() => onPress(session.id, session.projectID)}
+        onLongPress={handleLongPress}
+        className={`flex-row items-center gap-3 rounded-lg py-3 ${
+          isSubSession ? 'pl-8 pr-3.5' : 'px-3.5'
+        } ${
+          isSelected
+            ? 'border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30'
+            : ''
+        }`}>
+        {/* Status dot — always visible */}
+        <SessionStatusDot status={sessionStatus} />
+        {/* Metadata icons */}
+        {isPinned && <Pin size={12} color={pinColor} className="-ml-1" />}
+        {isSubSession && <GitBranch size={12} color={subSessionIconColor} className="-ml-1" />}
+        {hasChildren && (
+          <Pressable onPress={onToggleExpand} hitSlop={8} className="-ml-1">
+            {isExpanded ? (
+              <ChevronDown size={14} color={chevronColor} />
+            ) : (
+              <ChevronRight size={14} color={chevronColor} />
+            )}
+          </Pressable>
+        )}
+        <View className="flex-1 gap-0.5">
+          <Text
+            className={`font-medium text-stone-700 dark:text-stone-400 ${isSubSession ? 'text-xs' : 'text-sm'}`}
+            style={{ fontFamily: 'JetBrains Mono' }}>
+            {session.title}
+          </Text>
+          <Text
+            className="text-[11px] text-stone-400 dark:text-stone-600"
+            style={{ fontFamily: 'JetBrains Mono' }}>
+            {formatRelativeTime(session.time.updated)}
+          </Text>
+        </View>
+        {onOverflow && (
+          <Pressable onPress={() => onOverflow(session.id)} hitSlop={8}>
+            <Ellipsis size={16} color={overflowColor} />
+          </Pressable>
+        )}
+      </Pressable>
+    </Swipeable>
   );
 }
 
@@ -230,9 +261,12 @@ function SessionListContent({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
+  const [showArchived, setShowArchived] = useState(false);
   const [pinnedIds, setPinnedIds] = useAtom(pinnedSessionIdsAtom);
   const resolvedPinnedIds = pinnedIds instanceof Promise ? [] : pinnedIds;
   const pinnedSet = useMemo(() => new Set(resolvedPinnedIds), [resolvedPinnedIds]);
+
+  const api = useAtomValue(apiClientAtom);
 
   const togglePin = useCallback(
     (sessionId: string) => {
@@ -245,16 +279,41 @@ function SessionListContent({
     [resolvedPinnedIds, setPinnedIds],
   );
 
+  const archiveSession = useCallback(async (sessionId: string) => {
+    await api.api.sessions[':sessionId'].archive.$post({
+      param: { sessionId },
+    });
+  }, [api]);
+
+  const unarchiveSession = useCallback(async (sessionId: string) => {
+    await api.api.sessions[':sessionId'].unarchive.$post({
+      param: { sessionId },
+    });
+  }, [api]);
+
   const { data: allSessions } = useStateQuery(
     (db, q) => q.from({ sessions: db.collections.sessions }),
   );
 
+  // Query archived session IDs from persistent app state stream
+  const { data: sessionMetas } = useAppStateQuery(
+    (db, q) => q.from({ sessionMeta: db.collections.sessionMeta }),
+  );
+  const archivedIds = useMemo(
+    () => new Set(
+      (sessionMetas as SessionMetaValue[] | undefined)
+        ?.filter(m => m.archived)
+        .map(m => m.sessionId) ?? []
+    ),
+    [sessionMetas],
+  );
+
   // Build tree structure: top-level sessions with nested children
-  const sessionTree = useMemo(() => {
+  const { activeTree, archivedTree } = useMemo(() => {
     const byProject = (allSessions as SessionValue[] | undefined)?.filter(
       (s) => s.projectID === projectId,
     );
-    if (!byProject) return [];
+    if (!byProject) return { activeTree: [], archivedTree: [] };
 
     const filtered = searchQuery
       ? byProject.filter((s) => s.title.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -271,7 +330,9 @@ function SessionListContent({
         if (!aPinned && bPinned) return 1;
         return b.session.time.updated - a.session.time.updated;
       });
-      return flat;
+      const active = flat.filter(node => !archivedIds.has(node.session.id));
+      const archived = flat.filter(node => archivedIds.has(node.session.id));
+      return { activeTree: active, archivedTree: archived };
     }
 
     // Build parent->children map
@@ -311,13 +372,17 @@ function SessionListContent({
       return b.session.time.updated - a.session.time.updated;
     });
 
-    return tree;
-  }, [allSessions, projectId, searchQuery, pinnedSet]);
+    // Split into active and archived
+    const active = tree.filter(node => !archivedIds.has(node.session.id));
+    const archived = tree.filter(node => archivedIds.has(node.session.id));
+
+    return { activeTree: active, archivedTree: archived };
+  }, [allSessions, projectId, searchQuery, pinnedSet, archivedIds]);
 
   // Auto-expand parent if selected session is a child
   useMemo(() => {
     if (!selectedSessionId) return;
-    for (const node of sessionTree) {
+    for (const node of [...activeTree, ...archivedTree]) {
       if (node.children.some((c) => c.id === selectedSessionId)) {
         setExpandedParents((prev) => {
           if (prev.has(node.session.id)) return prev;
@@ -327,7 +392,7 @@ function SessionListContent({
         });
       }
     }
-  }, [selectedSessionId, sessionTree]);
+  }, [selectedSessionId, activeTree, archivedTree]);
 
   const toggleExpand = (sessionId: string) => {
     setExpandedParents((prev) => {
@@ -344,6 +409,7 @@ function SessionListContent({
   const { colorScheme } = useColorScheme();
   const searchIconColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const placeholderColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
+  const mutedIconColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
 
   return (
     <>
@@ -370,7 +436,8 @@ function SessionListContent({
         className="flex-1"
         contentContainerStyle={{ padding: 12, gap: 2 }}
         showsVerticalScrollIndicator={false}>
-        {sessionTree.map((node) => (
+        {/* Active sessions */}
+        {activeTree.map((node) => (
           <React.Fragment key={node.session.id}>
             <SessionRow
               session={node.session}
@@ -380,6 +447,7 @@ function SessionListContent({
               onPress={onSelectSession}
               onOverflow={onOverflowSession}
               onTogglePin={togglePin}
+              onArchive={archiveSession}
               hasChildren={node.children.length > 0}
               isExpanded={expandedParents.has(node.session.id)}
               onToggleExpand={() => toggleExpand(node.session.id)}
@@ -395,11 +463,67 @@ function SessionListContent({
                   onPress={onSelectSession}
                   onOverflow={onOverflowSession}
                   onTogglePin={togglePin}
+                  onArchive={archiveSession}
                   isSubSession
                 />
               ))}
           </React.Fragment>
         ))}
+
+        {/* Archived section — only shown if there are archived sessions */}
+        {archivedTree.length > 0 && (
+          <>
+            <Pressable
+              onPress={() => setShowArchived(!showArchived)}
+              className="mt-4 flex-row items-center gap-2 px-3.5 py-2">
+              {showArchived ? (
+                <ChevronDown size={14} color={mutedIconColor} />
+              ) : (
+                <ChevronRight size={14} color={mutedIconColor} />
+              )}
+              <Text
+                className="text-xs text-stone-400 dark:text-stone-600"
+                style={{ fontFamily: 'JetBrains Mono' }}>
+                Archived ({archivedTree.length})
+              </Text>
+            </Pressable>
+
+            {showArchived && archivedTree.map((node) => (
+              <React.Fragment key={node.session.id}>
+                <SessionRow
+                  session={node.session}
+                  isSelected={node.session.id === selectedSessionId}
+                  isPinned={pinnedSet.has(node.session.id)}
+                  sessionStatus={node.session.status}
+                  onPress={onSelectSession}
+                  onOverflow={onOverflowSession}
+                  onTogglePin={togglePin}
+                  onArchive={unarchiveSession}
+                  isArchived
+                  hasChildren={node.children.length > 0}
+                  isExpanded={expandedParents.has(node.session.id)}
+                  onToggleExpand={() => toggleExpand(node.session.id)}
+                />
+                {expandedParents.has(node.session.id) &&
+                  node.children.map((child) => (
+                    <SessionRow
+                      key={child.id}
+                      session={child}
+                      isSelected={child.id === selectedSessionId}
+                      isPinned={pinnedSet.has(child.id)}
+                      sessionStatus={child.status}
+                      onPress={onSelectSession}
+                      onOverflow={onOverflowSession}
+                      onTogglePin={togglePin}
+                      onArchive={unarchiveSession}
+                      isArchived
+                      isSubSession
+                    />
+                  ))}
+              </React.Fragment>
+            ))}
+          </>
+        )}
       </ScrollView>
     </>
   );

@@ -16,9 +16,9 @@ interface VoiceInputAreaProps {
   onStopPress: () => void
   recordingState: RecordingState
   modelName: string
-  providerName: string
   sessionStatus?: 'idle' | 'busy' | 'error'
   onAbort?: () => void
+  onModelPress?: () => void
 }
 
 export function VoiceInputArea({
@@ -32,9 +32,9 @@ export function VoiceInputArea({
   onStopPress,
   recordingState,
   modelName,
-  providerName,
   sessionStatus,
   onAbort,
+  onModelPress,
 }: VoiceInputAreaProps) {
   const insets = useSafeAreaInsets()
   const { colorScheme } = useColorScheme()
@@ -106,7 +106,7 @@ export function VoiceInputArea({
       <View className="flex-row items-center justify-between px-4 mb-2">
         <Pressable className="flex-row items-center gap-1">
           <Text className="text-[11px] font-medium" style={{ fontFamily: 'JetBrains Mono', color: selectorColor }}>
-            {providerName}
+            Build
           </Text>
           <ChevronDown size={12} color={selectorColor} />
         </Pressable>
@@ -127,7 +127,7 @@ export function VoiceInputArea({
           )}
         </Pressable>
 
-        <Pressable className="flex-row items-center gap-1">
+        <Pressable className="flex-row items-center gap-1" onPress={onModelPress}>
           <Text className="text-[11px] font-medium" style={{ fontFamily: 'JetBrains Mono', color: selectorColor }}>
             {modelName}
           </Text>

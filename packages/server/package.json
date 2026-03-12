@@ -19,6 +19,7 @@
     "build:diff-page": "bun build src/diff-page/index.html --outdir=src/diff-page/dist --minify"
   },
   "dependencies": {
+    "@durable-streams/server": "0.2.1",
     "@hono/zod-validator": "^0.7.6",
     "@opencode-ai/sdk": "^1.2.10",
     "@pierre/diffs": "^1.0.11",
