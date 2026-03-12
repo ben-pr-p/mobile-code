@@ -103,13 +103,15 @@ export function VoiceInputArea({
       </View>
 
       {/* Voice control row */}
-      <View className="flex-row items-center justify-between px-4 mb-2">
-        <Pressable className="flex-row items-center gap-1">
-          <Text className="text-[11px] font-medium" style={{ fontFamily: 'JetBrains Mono', color: selectorColor }}>
-            Build
-          </Text>
-          <ChevronDown size={12} color={selectorColor} />
-        </Pressable>
+      <View className="flex-row items-center px-4 mb-2">
+        <View className="flex-1 items-start">
+          <Pressable className="flex-row items-center gap-1">
+            <Text className="text-[11px] font-medium" style={{ fontFamily: 'JetBrains Mono', color: selectorColor }}>
+              Build
+            </Text>
+            <ChevronDown size={12} color={selectorColor} />
+          </Pressable>
+        </View>
 
         {/* Mic button — hold to record, release to send */}
         <Pressable
@@ -127,12 +129,14 @@ export function VoiceInputArea({
           )}
         </Pressable>
 
-        <Pressable className="flex-row items-center gap-1" onPress={onModelPress}>
-          <Text className="text-[11px] font-medium" style={{ fontFamily: 'JetBrains Mono', color: selectorColor }}>
-            {modelName}
-          </Text>
-          <ChevronDown size={12} color={selectorColor} />
-        </Pressable>
+        <View className="flex-1 items-end">
+          <Pressable className="flex-row items-center gap-1" onPress={onModelPress}>
+            <Text numberOfLines={1} className="text-[11px] font-medium" style={{ fontFamily: 'JetBrains Mono', color: selectorColor, flexShrink: 1 }}>
+              {modelName}
+            </Text>
+            <ChevronDown size={12} color={selectorColor} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Recording state hint */}
