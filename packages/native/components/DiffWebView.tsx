@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native'
 import { WebView, type WebViewMessageEvent } from 'react-native-webview'
 import { useAtomValue } from 'jotai'
 import { eq } from '@tanstack/react-db'
+import { useColorScheme } from 'nativewind'
 import { debouncedServerUrlAtom } from '../state/settings'
 import { apiClientAtom } from '../lib/api'
 import { useStateQuery, type ChangeValue } from '../lib/stream-db'
@@ -21,6 +22,7 @@ interface DiffWebViewProps {
 export function DiffWebView({ sessionId, activeFile }: DiffWebViewProps) {
   const serverUrl = useAtomValue(debouncedServerUrlAtom)
   const api = useAtomValue(apiClientAtom)
+  const { colorScheme } = useColorScheme()
   const webViewRef = useRef<WebView>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const pendingFileRef = useRef<string | null>(null)
@@ -60,12 +62,18 @@ export function DiffWebView({ sessionId, activeFile }: DiffWebViewProps) {
       .then(async (res) => {
         if (!res.ok) return
         const diffs = await res.json()
-        sendMessage({ type: 'loadDiffs', diffs })
+        sendMessage({ type: 'loadDiffs', diffs, colorScheme: colorScheme ?? 'dark' })
       })
       .catch((err) => {
         console.error('[DiffWebView] fetch diffs failed:', err)
       })
-  }, [isLoaded, sessionId, changeValue, api, sendMessage])
+  }, [isLoaded, sessionId, changeValue, api, sendMessage, colorScheme])
+
+  // Sync color scheme changes to the WebView
+  useEffect(() => {
+    if (!isLoaded) return
+    sendMessage({ type: 'setColorScheme', colorScheme: colorScheme ?? 'dark' })
+  }, [colorScheme, isLoaded, sendMessage])
 
   // When activeFile changes, tell the WebView to show it
   useEffect(() => {

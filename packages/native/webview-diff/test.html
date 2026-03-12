@@ -4,7 +4,8 @@
   <meta charset="utf-8" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0A0F1C; font-family: monospace; overflow-x: hidden; }
+    body { background: #FAFAF9; font-family: monospace; overflow-x: hidden; }
+    @media (prefers-color-scheme: dark) { body { background: #0C0A09; } }
   </style>
 </head>
 <body>
@@ -17,7 +18,7 @@
         type: "files",
         oldFile: { name: "app.ts", contents: 'const greeting = "hello";\nconsole.log(greeting);' },
         newFile: { name: "app.ts", contents: 'const greeting = "hello world";\nconsole.log(greeting);\nconsole.log("done");' },
-        theme: "pierre-dark",
+        colorScheme: "dark",
         diffStyle: "unified"
       }), "*");
     }, 1000);
