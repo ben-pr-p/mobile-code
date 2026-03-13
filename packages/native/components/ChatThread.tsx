@@ -1,11 +1,6 @@
 import React, { useRef, useEffect, useCallback } from 'react'
-import {
-  View,
-  ScrollView,
-  Keyboard,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from 'react-native'
+import { View, Keyboard } from 'react-native'
+import { FlashList, type FlashListRef } from '@shopify/flash-list'
 import { ToolCallBlock } from './ToolCallBlock'
 import { ToolOutputBlock } from './ToolOutputBlock'
 import { AgentStatusIndicator } from './AgentStatusIndicator'
@@ -20,31 +15,40 @@ interface ChatThreadProps {
 
 const NEAR_BOTTOM_THRESHOLD = 150 // pixels from bottom to count as "near bottom"
 
+/**
+ * Virtualized chat message list.
+ * Uses an inverted FlashList so the most recent messages are at the bottom
+ * and only the visible window is rendered.
+ */
 export function ChatThread({ messages, onToolCallPress }: ChatThreadProps) {
-  const scrollRef = useRef<ScrollView>(null)
+  const listRef = useRef<FlashListRef<Message>>(null)
   const prevCountRef = useRef(0)
   const isNearBottomRef = useRef(true)
 
+  // Inverted list: data must be reversed so index 0 = newest (bottom of screen)
+  const invertedData = React.useMemo(
+    () => [...messages].reverse(),
+    [messages]
+  )
+
   const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { contentOffset, contentSize, layoutMeasurement } =
-        event.nativeEvent
-      const distanceFromBottom =
-        contentSize.height - layoutMeasurement.height - contentOffset.y
-      isNearBottomRef.current = distanceFromBottom <= NEAR_BOTTOM_THRESHOLD
+    (event: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
+      // In an inverted list, "near bottom" means near offset 0 (the top of the inverted view)
+      const { contentOffset } = event.nativeEvent
+      isNearBottomRef.current = contentOffset.y <= NEAR_BOTTOM_THRESHOLD
     },
     []
   )
 
   useEffect(() => {
     if (messages.length > 0) {
-      const animated = prevCountRef.current > 0
       const isFirstLoad = prevCountRef.current === 0
       prevCountRef.current = messages.length
       // Only auto-scroll if user is near the bottom (or on first load)
+      // In an inverted list, scrolling to bottom = scrolling to offset 0
       if (isFirstLoad || isNearBottomRef.current) {
         setTimeout(() => {
-          scrollRef.current?.scrollToEnd({ animated })
+          listRef.current?.scrollToOffset({ offset: 0, animated: !isFirstLoad })
         }, 100)
       }
     }
@@ -55,72 +59,80 @@ export function ChatThread({ messages, onToolCallPress }: ChatThreadProps) {
     const sub = Keyboard.addListener('keyboardDidShow', () => {
       if (isNearBottomRef.current) {
         setTimeout(() => {
-          scrollRef.current?.scrollToEnd({ animated: true })
+          listRef.current?.scrollToOffset({ offset: 0, animated: true })
         }, 100)
       }
     })
     return () => sub.remove()
   }, [])
 
+  const renderItem = useCallback(
+    ({ item: message }: { item: Message }) => {
+      switch (message.type) {
+        case 'tool_call':
+          return (
+            <ToolCallBlock
+              toolName={message.toolName!}
+              description={message.content}
+              onPress={() => onToolCallPress?.(message.id)}
+            />
+          )
+        case 'tool_output':
+          return <ToolOutputBlock content={message.content} />
+        case 'status':
+          return <AgentStatusIndicator status={message.content} />
+        case 'text':
+        case 'voice':
+          if (message.role === 'user') {
+            return (
+              <UserMessageBubble
+                content={message.content}
+                isVoice={message.type === 'voice'}
+                syncStatus={message.syncStatus}
+              />
+            )
+          }
+          return (
+            <AssistantMessageBubble
+              content={message.content}
+              isComplete={message.isComplete}
+            />
+          )
+        default:
+          return null
+      }
+    },
+    [onToolCallPress]
+  )
+
+  const keyExtractor = useCallback((item: Message) => item.id, [])
+
+  const getItemType = useCallback((item: Message) => {
+    if (item.type === 'text' || item.type === 'voice') {
+      return item.role === 'user' ? 'user_text' : 'assistant_text'
+    }
+    return item.type
+  }, [])
+
   return (
-    <ScrollView
-      ref={scrollRef}
-      className="flex-1"
-      contentContainerStyle={{ padding: 16, gap: 12 }}
+    <FlashList
+      ref={listRef}
+      data={invertedData}
+      renderItem={renderItem}
+      keyExtractor={keyExtractor}
+      getItemType={getItemType}
+      inverted
+      contentContainerStyle={{ padding: 16 }}
+      ItemSeparatorComponent={ItemSeparator}
       showsVerticalScrollIndicator={false}
       keyboardDismissMode="interactive"
       keyboardShouldPersistTaps="handled"
       onScroll={handleScroll}
       scrollEventThrottle={16}
-    >
-      {messages.map((message) => {
-        switch (message.type) {
-          case 'tool_call':
-            return (
-              <ToolCallBlock
-                key={message.id}
-                toolName={message.toolName!}
-                description={message.content}
-                onPress={() => onToolCallPress?.(message.id)}
-              />
-            )
-          case 'tool_output':
-            return (
-              <ToolOutputBlock
-                key={message.id}
-                content={message.content}
-              />
-            )
-          case 'status':
-            return (
-              <AgentStatusIndicator
-                key={message.id}
-                status={message.content}
-              />
-            )
-          case 'text':
-          case 'voice':
-            if (message.role === 'user') {
-              return (
-                <UserMessageBubble
-                  key={message.id}
-                  content={message.content}
-                  isVoice={message.type === 'voice'}
-                  syncStatus={message.syncStatus}
-                />
-              )
-            }
-            return (
-              <AssistantMessageBubble
-                key={message.id}
-                content={message.content}
-                isComplete={message.isComplete}
-              />
-            )
-          default:
-            return null
-        }
-      })}
-    </ScrollView>
+    />
   )
+}
+
+function ItemSeparator() {
+  return <View style={{ height: 12 }} />
 }

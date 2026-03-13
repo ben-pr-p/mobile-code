@@ -8,7 +8,7 @@ import { SplitLayout } from './SplitLayout';
 import { SessionHeader } from './SessionHeader';
 import { TabBar } from './TabBar';
 import { VoiceInputArea } from './VoiceInputArea';
-import { ModelSelectorSheet, type RecentModel } from './ModelSelectorSheet';
+import { ModelSelectorSheet } from './ModelSelectorSheet';
 import {
   useStateQuery,
   flattenServerMessage,
@@ -163,34 +163,6 @@ export function SessionView({
     refetchCatalog,
   } = useModels();
 
-  // Query all messages to derive recently used models
-  const { data: allRawMessages } = useStateQuery((db, q) =>
-    q.from({ messages: db.collections.messages })
-  );
-  const recentModels: RecentModel[] = useMemo(() => {
-    if (!allRawMessages) return [];
-    const msgs = allRawMessages as ServerMessage[];
-    // Build a map of modelID+providerID -> latest timestamp
-    const seen = new Map<string, RecentModel>();
-    for (const m of msgs) {
-      if (m.modelID && m.providerID) {
-        const key = `${m.providerID}/${m.modelID}`;
-        const existing = seen.get(key);
-        if (!existing || m.createdAt > existing.lastUsedAt) {
-          seen.set(key, {
-            modelID: m.modelID,
-            providerID: m.providerID,
-            lastUsedAt: m.createdAt,
-          });
-        }
-      }
-    }
-    // Sort newest-first, take top 5
-    return Array.from(seen.values())
-      .sort((a, b) => b.lastUsedAt - a.lastUsedAt)
-      .slice(0, 5);
-  }, [allRawMessages]);
-
   // Merge server messages with optimistic voice messages, removing optimistic
   // ones once the server has caught up (new user message appeared)
   const messages = useMemo(() => {
@@ -305,7 +277,6 @@ export function SessionView({
       selectedModel={selectedModel}
       onSelectModel={handleModelSelect}
       defaultModel={getDefaultModel()}
-      recentModels={recentModels}
     />
   );
 

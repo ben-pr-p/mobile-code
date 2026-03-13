@@ -14,6 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { Check, Search } from 'lucide-react-native';
 import type { CatalogModel, ModelSelection } from '../state/settings';
+import { useStateQuery } from '../lib/stream-db';
+import type { Message as ServerMessage } from '../../server/src/types';
 
 /** A recently-used model entry with the timestamp of its last use. */
 export type RecentModel = {
@@ -29,8 +31,6 @@ interface ModelSelectorSheetProps {
   selectedModel: ModelSelection | null;
   onSelectModel: (model: ModelSelection | null) => void;
   defaultModel: ModelSelection | null;
-  /** Up to 5 most recently used models, sorted newest-first. */
-  recentModels?: RecentModel[];
 }
 
 export function ModelSelectorSheet({
@@ -40,7 +40,6 @@ export function ModelSelectorSheet({
   selectedModel,
   onSelectModel,
   defaultModel,
-  recentModels,
 }: ModelSelectorSheetProps) {
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
@@ -48,6 +47,33 @@ export function ModelSelectorSheet({
   const slideAnim = useRef(new Animated.Value(0)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Derive recently used models from all messages — only queries when the sheet is visible
+  const { data: allRawMessages } = useStateQuery(
+    (db, q) => (visible ? q.from({ messages: db.collections.messages }) : null),
+    [visible]
+  );
+  const recentModels: RecentModel[] = useMemo(() => {
+    if (!allRawMessages) return [];
+    const msgs = allRawMessages as ServerMessage[];
+    const seen = new Map<string, RecentModel>();
+    for (const m of msgs) {
+      if (m.modelID && m.providerID) {
+        const key = `${m.providerID}/${m.modelID}`;
+        const existing = seen.get(key);
+        if (!existing || m.createdAt > existing.lastUsedAt) {
+          seen.set(key, {
+            modelID: m.modelID,
+            providerID: m.providerID,
+            lastUsedAt: m.createdAt,
+          });
+        }
+      }
+    }
+    return Array.from(seen.values())
+      .sort((a, b) => b.lastUsedAt - a.lastUsedAt)
+      .slice(0, 5);
+  }, [allRawMessages]);
 
   // Reset search when sheet opens/closes
   useEffect(() => {

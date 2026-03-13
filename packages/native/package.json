@@ -17,6 +17,7 @@
     "@pierre/diffs": "^1.0.11",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/drawer": "^7.9.4",
+    "@shopify/flash-list": "^2.3.0",
     "@tanstack/react-db": "^0.1.75",
     "expo": "^54.0.0",
     "expo-av": "^16.0.8",
