@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { View, Text, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useRouter, useGlobalSearchParams } from 'expo-router'
 import { SessionHeader } from './SessionHeader'
 import { TabBar } from './TabBar'
 import { ChatThread } from './ChatThread'
@@ -57,6 +58,16 @@ export function SessionScreen({
 }: SessionScreenProps) {
   const insets = useSafeAreaInsets()
   const [textValue, setTextValue] = useState('')
+  const router = useRouter()
+  const { projectId } = useGlobalSearchParams<{ projectId: string }>()
+
+  const handleNewSession = useCallback(() => {
+    if (!projectId) return
+    router.push({
+      pathname: '/projects/[projectId]/new-session',
+      params: { projectId },
+    })
+  }, [projectId, router])
 
   return (
     <KeyboardAvoidingView
@@ -73,7 +84,7 @@ export function SessionScreen({
         onProjectsPress={onProjectsPress}
       />
 
-      <TabBar activeTab={activeTab} onTabChange={onTabChange} />
+      <TabBar activeTab={activeTab} onTabChange={onTabChange} onNewSession={handleNewSession} />
 
       {emptyMessage ? (
         <View className="flex-1 items-center justify-center px-8">
