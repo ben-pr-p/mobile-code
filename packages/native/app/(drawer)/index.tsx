@@ -47,10 +47,12 @@ export default function IndexScreen() {
         });
         if (res.ok) {
           const sessions = (await res.json()) as any[];
-          if (sessions.length > 0) {
+          // Skip child sessions (those with a parentID) — only navigate to top-level sessions
+          const topLevel = sessions.filter((s: any) => !s.parentID);
+          if (topLevel.length > 0) {
             router.replace({
               pathname: '/projects/[projectId]/sessions/[sessionId]',
-              params: { projectId: pid, sessionId: sessions[0].id },
+              params: { projectId: pid, sessionId: topLevel[0].id },
             });
             return;
           }
