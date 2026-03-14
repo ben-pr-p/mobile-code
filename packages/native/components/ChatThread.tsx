@@ -2,7 +2,6 @@ import React, { useRef, useEffect, useCallback } from 'react'
 import { View, Keyboard } from 'react-native'
 import { FlashList, type FlashListRef } from '@shopify/flash-list'
 import { ToolCallBlock } from './ToolCallBlock'
-import { ToolOutputBlock } from './ToolOutputBlock'
 import { AgentStatusIndicator } from './AgentStatusIndicator'
 import { UserMessageBubble } from './UserMessageBubble'
 import { AssistantMessageBubble } from './AssistantMessageBubble'
@@ -74,11 +73,11 @@ export function ChatThread({ messages, onToolCallPress }: ChatThreadProps) {
             <ToolCallBlock
               toolName={message.toolName!}
               description={message.content}
+              status={message.toolMeta?.status}
+              toolMeta={message.toolMeta}
               onPress={() => onToolCallPress?.(message.id)}
             />
           )
-        case 'tool_output':
-          return <ToolOutputBlock content={message.content} />
         case 'status':
           return <AgentStatusIndicator status={message.content} />
         case 'text':

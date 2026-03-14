@@ -385,6 +385,8 @@ export interface Message {
   finish?: string
 }
 
+export type ToolCallStatus = "pending" | "running" | "completed" | "error"
+
 export type MessagePart =
   | { type: "text"; id: string; text: string }
   | {
@@ -392,10 +394,13 @@ export type MessagePart =
       id: string
       tool: string
       state: {
-        status: string
-        input?: unknown
+        status: ToolCallStatus
+        input?: Record<string, unknown>
         output?: string
         title?: string
+        error?: string
+        metadata?: Record<string, unknown>
+        time?: { start: number; end?: number; compacted?: number }
       }
     }
   | { type: "step-start"; id: string }

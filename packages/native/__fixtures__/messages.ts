@@ -1,13 +1,25 @@
+import type { ToolCallStatus } from '../../server/src/types'
+
+export interface ToolMeta {
+  status: ToolCallStatus
+  input?: Record<string, unknown>
+  output?: string
+  title?: string
+  error?: string
+  metadata?: Record<string, unknown>
+  time?: { start: number; end?: number; compacted?: number }
+}
+
 export interface Message {
   id: string
   sessionId: string
   role: 'user' | 'assistant'
-  type: 'text' | 'voice' | 'tool_call' | 'tool_output' | 'status'
+  type: 'text' | 'voice' | 'tool_call' | 'status'
   content: string
   audioUri: string | null
   transcription: string | null
   toolName: string | null
-  toolMeta: Record<string, unknown> | null
+  toolMeta: ToolMeta | null
   syncStatus: 'synced' | 'pending' | 'sending' | 'failed'
   createdAt: number
   isComplete: boolean
@@ -17,7 +29,7 @@ const NOW = Date.now()
 const MINUTE = 60_000
 
 export const FIXTURE_MESSAGES: Message[] = [
-  // Tool call: Shell
+  // Tool call: bash (completed)
   {
     id: 'msg-1',
     sessionId: 'session-1',
@@ -26,33 +38,19 @@ export const FIXTURE_MESSAGES: Message[] = [
     content: 'Pull latest changes from main branch',
     audioUri: null,
     transcription: null,
-    toolName: 'Shell',
+    toolName: 'bash',
     toolMeta: {
-      command: 'git pull origin main',
-      exitCode: 0,
-      duration: '1.2s',
-      directory: '~/dsa/opencode-rn',
+      status: 'completed',
+      input: { command: 'git pull origin main', description: 'Pull latest changes' },
+      output: 'Already up to date with origin/main.',
+      title: 'Pull latest changes from main branch',
+      time: { start: NOW - 10 * MINUTE, end: NOW - 10 * MINUTE + 1200 },
     },
     syncStatus: 'synced',
     createdAt: NOW - 10 * MINUTE,
     isComplete: true,
   },
-  // Tool output
-  {
-    id: 'msg-2',
-    sessionId: 'session-1',
-    role: 'assistant',
-    type: 'tool_output',
-    content: 'Already up to date with origin/main.',
-    audioUri: null,
-    transcription: null,
-    toolName: 'Shell',
-    toolMeta: null,
-    syncStatus: 'synced',
-    createdAt: NOW - 10 * MINUTE + 1000,
-    isComplete: true,
-  },
-  // Tool call: Explore Agent
+  // Tool call: task (completed)
   {
     id: 'msg-3',
     sessionId: 'session-1',
@@ -61,11 +59,13 @@ export const FIXTURE_MESSAGES: Message[] = [
     content: 'Explore codebase structure',
     audioUri: null,
     transcription: null,
-    toolName: 'Explore Agent',
+    toolName: 'task',
     toolMeta: {
-      status: 'running',
-      duration: '4.2s',
-      filesExplored: ['src/App.tsx', 'src/components/', 'src/hooks/'],
+      status: 'completed',
+      input: { description: 'Explore codebase structure', prompt: 'Find all components', subagent_type: 'explore' },
+      output: 'Found 12 components in src/components/',
+      title: 'Explore codebase structure',
+      time: { start: NOW - 8 * MINUTE, end: NOW - 8 * MINUTE + 4200 },
     },
     syncStatus: 'synced',
     createdAt: NOW - 8 * MINUTE,

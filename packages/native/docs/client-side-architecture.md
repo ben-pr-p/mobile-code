@@ -76,18 +76,30 @@ interface Session {
   updatedAt: number
 }
 
+type ToolCallStatus = 'pending' | 'running' | 'completed' | 'error'
+
+interface ToolMeta {
+  status: ToolCallStatus
+  input?: Record<string, unknown>
+  output?: string
+  title?: string
+  error?: string
+  metadata?: Record<string, unknown>
+  time?: { start: number; end?: number; compacted?: number }
+}
+
 interface Message {
   id: string
   sessionId: string
   role: 'user' | 'assistant'
-  type: 'text' | 'voice' | 'tool_call' | 'tool_output' | 'status'
+  type: 'text' | 'voice' | 'tool_call' | 'status'
   content: string
   // Voice-specific
   audioUri: string | null       // local file URI for queued voice recordings
   transcription: string | null
   // Tool-specific
-  toolName: string | null       // 'Shell', 'Explore Agent', etc.
-  toolMeta: Record<string, unknown> | null
+  toolName: string | null       // 'bash', 'edit', 'read', 'task', etc.
+  toolMeta: ToolMeta | null
   // Sync state
   syncStatus: 'synced' | 'pending' | 'sending' | 'failed'
   createdAt: number
@@ -354,7 +366,6 @@ projects/[projectId]/sessions/[sessionId].tsx
 │   │   ├── VoiceMessageBubble
 │   │   ├── AssistantMessageBubble
 │   │   ├── ToolCallBlock      # Collapsible, tappable (opens detail on iPad)
-│   │   ├── ToolOutputBlock
 │   │   ├── AgentStatusIndicator
 │   │   └── QueuedMessageBubble
 │   ├── VoiceInputArea

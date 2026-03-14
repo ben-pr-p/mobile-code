@@ -48,6 +48,9 @@ export function mapPart(p: any): MessagePart {
           input: p.state?.input,
           output: p.state?.output,
           title: p.state?.title,
+          error: p.state?.error,
+          metadata: p.state?.metadata,
+          time: p.state?.time,
         },
       }
     case "step-start":

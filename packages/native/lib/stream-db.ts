@@ -8,8 +8,9 @@ export type {
   StateDB,
   AppStateDB,
   UIMessage,
+  ToolMeta,
 };
-export type { ChangedFile } from '../../server/src/types';
+export type { ChangedFile, ToolCallStatus } from '../../server/src/types';
 
 import { atom } from 'jotai';
 import { useAtomValue } from 'jotai/react';
@@ -19,7 +20,7 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { useLiveQuery } from '@tanstack/react-db';
 import type { InitialQueryBuilder, Context, QueryBuilder } from '@tanstack/react-db';
 import { debouncedServerUrlAtom } from '../state/settings';
-import type { Message, ChangedFile } from '../../server/src/types';
+import type { Message, ChangedFile, ToolCallStatus } from '../../server/src/types';
 
 function passthrough<T>(): StandardSchemaV1<T> {
   return {
@@ -168,16 +169,27 @@ const appDbAtom = atom(async (get) => {
 
 // UI types derived from stream state
 
+/** Tool call state passed through to the UI via `toolMeta`. */
+type ToolMeta = {
+  status: ToolCallStatus;
+  input?: Record<string, unknown>;
+  output?: string;
+  title?: string;
+  error?: string;
+  metadata?: Record<string, unknown>;
+  time?: { start: number; end?: number; compacted?: number };
+};
+
 type UIMessage = {
   id: string;
   sessionId: string;
   role: 'user' | 'assistant';
-  type: 'text' | 'voice' | 'tool_call' | 'tool_output' | 'status';
+  type: 'text' | 'voice' | 'tool_call' | 'status';
   content: string;
   audioUri: string | null;
   transcription: string | null;
   toolName: string | null;
-  toolMeta: Record<string, unknown> | null;
+  toolMeta: ToolMeta | null;
   syncStatus: 'synced' | 'pending' | 'sending' | 'failed';
   createdAt: number;
   isComplete: boolean;
@@ -217,11 +229,11 @@ function flattenServerMessage(msg: Message): UIMessage[] {
           sessionId: msg.sessionId,
           role: msg.role,
           type: 'tool_call',
-          content: part.state.title || part.tool,
+          content: part.state.title || part.state.error || part.tool,
           audioUri: null,
           transcription: null,
           toolName: part.tool,
-          toolMeta: part.state as Record<string, unknown>,
+          toolMeta: part.state as ToolMeta,
           syncStatus: 'synced',
           createdAt: msg.createdAt,
           isComplete,
