@@ -22,8 +22,8 @@ import type { Message as ServerMessage } from '../../server/src/types';
 import { apiClientAtom } from '../lib/api';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useModels } from '../hooks/useModels';
-import { selectedModelAtom } from '../state/settings';
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings';
+import type { ModelSelection } from '../state/settings';
 
 /** Settings type shared by both wrappers. */
 export interface SessionSettings {
@@ -49,8 +49,8 @@ interface SessionViewProps {
   onMenuPress: () => void;
   onProjectsPress: () => void;
   settings: SessionSettings;
-  onSendText: (text: string) => Promise<void>;
-  onSendAudio: (base64: string, mimeType: string) => void;
+  onSendText: (text: string, model: ModelSelection | null) => Promise<void>;
+  onSendAudio: (base64: string, mimeType: string, model: ModelSelection | null) => void;
   onAbort?: () => void;
   emptyMessage?: string;
   /** Latest model info from the session's raw messages (for display name derivation) */
@@ -153,15 +153,25 @@ export function SessionView({
     return mainName;
   }, [project?.worktree, session.directory]);
 
-  // Model selection state
+  // Model selection — per-session override, not persisted globally.
+  // `null` means the user hasn't overridden the model for this session instance.
+  const [modelOverride, setModelOverride] = useState<ModelSelection | null>(null);
+
   const {
-    selectedModel,
-    setSelectedModel,
     catalog,
     getDisplayNames,
     getDefaultModel,
     refetchCatalog,
   } = useModels();
+
+  // The effective model for this session: user override > session's last-used model > server default (null).
+  const effectiveModel = useMemo<ModelSelection | null>(() => {
+    if (modelOverride) return modelOverride;
+    if (sessionModelInfo?.modelID && sessionModelInfo?.providerID) {
+      return { modelID: sessionModelInfo.modelID, providerID: sessionModelInfo.providerID };
+    }
+    return null;
+  }, [modelOverride, sessionModelInfo]);
 
   // Merge server messages with optimistic voice messages, removing optimistic
   // ones once the server has caught up (new user message appeared)
@@ -188,14 +198,14 @@ export function SessionView({
     async (text: string) => {
       setIsSending(true);
       try {
-        await onSendText(text);
+        await onSendText(text, effectiveModel);
       } catch (err) {
         console.error('[SessionView] send failed:', err);
       } finally {
         setIsSending(false);
       }
     },
-    [onSendText]
+    [onSendText, effectiveModel]
   );
 
   const handleSendAudio = useCallback(
@@ -218,35 +228,31 @@ export function SessionView({
       };
       setPendingVoiceMessages((prev) => [...prev, optimisticMsg]);
 
-      onSendAudio(base64, mimeType);
+      onSendAudio(base64, mimeType, effectiveModel);
     },
-    [sessionId, onSendAudio]
+    [sessionId, onSendAudio, effectiveModel]
   );
 
   const audioRecorder = useAudioRecorder({ onSendAudio: handleSendAudio });
 
-  // Derive model display names — prefer user's explicit selection, then fall
-  // back to the session's latest model info, then the server default.
+  // Derive model display name from the effective model for this session.
   const modelName = useMemo(() => {
-    if (selectedModel) {
-      return getDisplayNames(selectedModel.modelID, selectedModel.providerID).modelName;
-    }
-    if (sessionModelInfo?.modelID) {
-      return getDisplayNames(sessionModelInfo.modelID, sessionModelInfo.providerID).modelName;
+    if (effectiveModel) {
+      return getDisplayNames(effectiveModel.modelID, effectiveModel.providerID).modelName;
     }
     const defaultModel = getDefaultModel();
     if (defaultModel) {
       return getDisplayNames(defaultModel.modelID, defaultModel.providerID).modelName;
     }
     return 'Default';
-  }, [selectedModel, sessionModelInfo, getDisplayNames, getDefaultModel]);
+  }, [effectiveModel, getDisplayNames, getDefaultModel]);
 
   // Display string for settings screen's "Default model" row
   const settingsDefaultModel = useMemo(() => {
-    if (selectedModel) {
+    if (effectiveModel) {
       const { modelName: mn, providerName: pn } = getDisplayNames(
-        selectedModel.modelID,
-        selectedModel.providerID
+        effectiveModel.modelID,
+        effectiveModel.providerID
       );
       return pn ? `${pn} / ${mn}` : mn;
     }
@@ -256,7 +262,7 @@ export function SessionView({
       return pn ? `${pn} / ${mn}` : mn;
     }
     return settings.defaultModel;
-  }, [selectedModel, getDisplayNames, getDefaultModel, settings.defaultModel]);
+  }, [effectiveModel, getDisplayNames, getDefaultModel, settings.defaultModel]);
 
   const handleModelPress = useCallback(() => {
     setModelSelectorVisible(true);
@@ -264,9 +270,9 @@ export function SessionView({
 
   const handleModelSelect = useCallback(
     (model: { providerID: string; modelID: string } | null) => {
-      setSelectedModel(model);
+      setModelOverride(model);
     },
-    [setSelectedModel]
+    []
   );
 
   const modelSheet = (
@@ -274,7 +280,7 @@ export function SessionView({
       visible={modelSelectorVisible}
       onClose={() => setModelSelectorVisible(false)}
       catalog={catalog}
-      selectedModel={selectedModel}
+      selectedModel={effectiveModel}
       onSelectModel={handleModelSelect}
       defaultModel={getDefaultModel()}
     />
@@ -404,7 +410,6 @@ function ExistingSessionDataLoader({
   settings: SessionSettings;
 }) {
   const api = useAtomValue(apiClientAtom);
-  const currentModel = useAtomValue(selectedModelAtom);
 
   const { data: rawMessages } = useStateQuery(
     (db, q) =>
@@ -446,34 +451,34 @@ function ExistingSessionDataLoader({
   }, [changeResults]);
 
   const handleSendText = useCallback(
-    async (text: string) => {
+    async (text: string, model: ModelSelection | null) => {
       const res = await api.api.sessions[':sessionId'].prompt.$post({
         param: { sessionId },
         json: {
           parts: [{ type: 'text' as const, text }],
-          ...(currentModel ? { model: currentModel } : {}),
+          ...(model ? { model } : {}),
         },
       });
       if (!res.ok) throw new Error('Prompt failed');
     },
-    [api, sessionId, currentModel]
+    [api, sessionId]
   );
 
   const handleSendAudio = useCallback(
-    (base64: string, mimeType: string) => {
+    (base64: string, mimeType: string, model: ModelSelection | null) => {
       api.api.sessions[':sessionId'].prompt
         .$post({
           param: { sessionId },
           json: {
             parts: [{ type: 'audio' as const, audioData: base64, mimeType }],
-            ...(currentModel ? { model: currentModel } : {}),
+            ...(model ? { model } : {}),
           },
         })
         .catch((err) => {
           console.error('[SessionContent] audio prompt failed:', err);
         });
     },
-    [api, sessionId, currentModel]
+    [api, sessionId]
   );
 
   const handleAbort = useCallback(async () => {
@@ -529,7 +534,6 @@ export function NewSessionContent({
   settings,
 }: NewSessionContentProps) {
   const api = useAtomValue(apiClientAtom);
-  const currentModel = useAtomValue(selectedModelAtom);
   // Guard against multiple simultaneous session creations
   const creatingRef = useRef(false);
   // Whether to create a git worktree for this session (for parallel work)
@@ -562,7 +566,8 @@ export function NewSessionContent({
       parts: (
         | { type: 'text'; text: string }
         | { type: 'audio'; audioData: string; mimeType: string }
-      )[]
+      )[],
+      model: ModelSelection | null
     ) => {
       if (creatingRef.current) return;
       creatingRef.current = true;
@@ -572,7 +577,7 @@ export function NewSessionContent({
           param: { projectId },
           json: {
             parts,
-            ...(currentModel ? { model: currentModel } : {}),
+            ...(model ? { model } : {}),
             ...(useWorktree ? { useWorktree: true } : {}),
           } as any,
         });
@@ -584,19 +589,19 @@ export function NewSessionContent({
         creatingRef.current = false;
       }
     },
-    [api, projectId, onSessionCreated, currentModel, useWorktree]
+    [api, projectId, onSessionCreated, useWorktree]
   );
 
   const handleSendText = useCallback(
-    async (text: string) => {
-      await createAndPrompt([{ type: 'text', text }]);
+    async (text: string, model: ModelSelection | null) => {
+      await createAndPrompt([{ type: 'text', text }], model);
     },
     [createAndPrompt]
   );
 
   const handleSendAudio = useCallback(
-    (base64: string, mimeType: string) => {
-      createAndPrompt([{ type: 'audio', audioData: base64, mimeType }]).catch((err) => {
+    (base64: string, mimeType: string, model: ModelSelection | null) => {
+      createAndPrompt([{ type: 'audio', audioData: base64, mimeType }], model).catch((err) => {
         console.error('[NewSessionContent] audio create + prompt failed:', err);
       });
     },
