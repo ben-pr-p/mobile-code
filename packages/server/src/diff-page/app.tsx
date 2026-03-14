@@ -33,6 +33,138 @@ const STONE_CSS = `
   }
 `
 
+const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".ico"]
+
+function isImageFile(filename: string): boolean {
+  const lower = filename.toLowerCase()
+  return IMAGE_EXTENSIONS.some((ext) => lower.endsWith(ext))
+}
+
+function getMimeType(filename: string): string {
+  const lower = filename.toLowerCase()
+  if (lower.endsWith(".png")) return "image/png"
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg"
+  if (lower.endsWith(".gif")) return "image/gif"
+  if (lower.endsWith(".webp")) return "image/webp"
+  if (lower.endsWith(".svg")) return "image/svg+xml"
+  if (lower.endsWith(".bmp")) return "image/bmp"
+  if (lower.endsWith(".ico")) return "image/x-icon"
+  return "image/png"
+}
+
+function ImageDiff({
+  filename,
+  before,
+  after,
+  themeType,
+}: {
+  filename: string
+  before: string
+  after: string
+  themeType: ThemeType
+}) {
+  const isDark = themeType === "dark"
+  const bgColor = isDark ? "#0C0A09" : "#FAFAF9"
+  const textColor = isDark ? "#A8A29E" : "#78716C"
+  const borderColor = isDark ? "#292524" : "#E7E5E4"
+  const mimeType = getMimeType(filename)
+
+  const beforeSrc = before ? `data:${mimeType};base64,${before}` : null
+  const afterSrc = after ? `data:${mimeType};base64,${after}` : null
+
+  const isAdded = !before && after
+  const isDeleted = before && !after
+  const isModified = before && after
+
+  return (
+    <div style={{ padding: 16, background: bgColor, minHeight: "100%" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: isModified ? "row" : "column",
+          gap: 16,
+          alignItems: "flex-start",
+        }}
+      >
+        {beforeSrc && (
+          <div style={{ flex: isModified ? 1 : undefined, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 12,
+                fontFamily: "monospace",
+                color: textColor,
+                marginBottom: 8,
+                padding: "4px 8px",
+                background: isDark ? "#1C1917" : "#F5F5F4",
+                borderRadius: 4,
+                display: "inline-block",
+              }}
+            >
+              {isDeleted ? "Deleted" : "Before"}
+            </div>
+            <div
+              style={{
+                border: `1px solid ${borderColor}`,
+                borderRadius: 8,
+                overflow: "hidden",
+                background: isDark ? "#1C1917" : "#FFFFFF",
+              }}
+            >
+              <img
+                src={beforeSrc}
+                alt="Before"
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: 400,
+                  display: "block",
+                  margin: "0 auto",
+                }}
+              />
+            </div>
+          </div>
+        )}
+        {afterSrc && (
+          <div style={{ flex: isModified ? 1 : undefined, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 12,
+                fontFamily: "monospace",
+                color: textColor,
+                marginBottom: 8,
+                padding: "4px 8px",
+                background: isDark ? "#1C1917" : "#F5F5F4",
+                borderRadius: 4,
+                display: "inline-block",
+              }}
+            >
+              {isAdded ? "Added" : "After"}
+            </div>
+            <div
+              style={{
+                border: `1px solid ${borderColor}`,
+                borderRadius: 8,
+                overflow: "hidden",
+                background: isDark ? "#1C1917" : "#FFFFFF",
+              }}
+            >
+              <img
+                src={afterSrc}
+                alt="After"
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: 400,
+                  display: "block",
+                  margin: "0 auto",
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const [diffs, setDiffs] = useState<DiffData[]>([])
   const [activeFile, setActiveFile] = useState<string | null>(null)
@@ -103,6 +235,18 @@ function App() {
   const diff = diffs.find((d) => d.file === activeFile)
   if (!diff) {
     return <div style={{ padding: 16, color: "#EF4444", fontFamily: "monospace" }}>File not found: {activeFile}</div>
+  }
+
+  if (isImageFile(diff.file)) {
+    return (
+      <ImageDiff
+        key={activeFile}
+        filename={diff.file}
+        before={diff.before}
+        after={diff.after}
+        themeType={themeType}
+      />
+    )
   }
 
   return (

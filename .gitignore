@@ -3,3 +3,4 @@ node_modules/
 .env
 .maestro/
 *.crt
+packages/server/src/diff-page/dist
