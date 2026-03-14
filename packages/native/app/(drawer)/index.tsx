@@ -8,6 +8,7 @@ import { SessionHeader } from '../../components/SessionHeader';
 import { useRightDrawer } from '../../lib/drawer-context';
 import { useStateQuery, type ProjectValue } from '../../lib/stream-db';
 import { apiClientAtom } from '../../lib/api';
+import { useArchivedSessionIds } from '../../hooks/useArchivedSessionIds';
 
 /**
  * Root index route — shown when no project is selected.
@@ -31,6 +32,8 @@ export default function IndexScreen() {
     [rawProjects],
   );
 
+  const archivedIds = useArchivedSessionIds();
+
   // Auto-navigate to the most recent project on initial load
   const hasAutoNavigated = useRef(false);
   useEffect(() => {
@@ -47,8 +50,8 @@ export default function IndexScreen() {
         });
         if (res.ok) {
           const sessions = (await res.json()) as any[];
-          // Skip child sessions (those with a parentID) — only navigate to top-level sessions
-          const topLevel = sessions.filter((s: any) => !s.parentID);
+          // Skip child sessions and archived sessions — only navigate to top-level active sessions
+          const topLevel = sessions.filter((s: any) => !s.parentID && !archivedIds.has(s.id));
           if (topLevel.length > 0) {
             router.replace({
               pathname: '/projects/[projectId]/sessions/[sessionId]',
@@ -63,7 +66,7 @@ export default function IndexScreen() {
         params: { projectId: pid },
       });
     })();
-  }, [projects, api, router]);
+  }, [projects, api, router, archivedIds]);
 
   return (
     <View className="flex-1 bg-stone-50 dark:bg-stone-950" style={{ paddingTop: insets.top }}>

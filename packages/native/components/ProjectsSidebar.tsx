@@ -9,6 +9,7 @@ import { ProjectCard } from './ProjectCard';
 import { useStateQuery, type ProjectValue } from '../lib/stream-db';
 import { projectFilterAtom } from '../state/ui';
 import { apiClientAtom } from '../lib/api';
+import { useArchivedSessionIds } from '../hooks/useArchivedSessionIds';
 
 interface ProjectGroup {
   label: string;
@@ -80,6 +81,8 @@ export function ProjectsSidebar({
   const router = useRouter();
   const api = useAtomValue(apiClientAtom);
 
+  const archivedIds = useArchivedSessionIds();
+
   const groups = useMemo(() => deriveGroups(projects), [projects]);
 
   // Reset filter if it no longer matches any group (e.g. project was removed)
@@ -105,8 +108,8 @@ export function ProjectsSidebar({
         });
         if (res.ok) {
           const sessions = (await res.json()) as any[];
-          // Skip child sessions (those with a parentID) — only navigate to top-level sessions
-          const topLevel = sessions.filter((s: any) => !s.parentID);
+          // Skip child sessions and archived sessions — only navigate to top-level active sessions
+          const topLevel = sessions.filter((s: any) => !s.parentID && !archivedIds.has(s.id));
           if (topLevel.length > 0) {
             router.push({
               pathname: '/projects/[projectId]/sessions/[sessionId]',
@@ -121,7 +124,7 @@ export function ProjectsSidebar({
         params: { projectId: pid },
       });
     },
-    [api, router, onClose],
+    [api, router, onClose, archivedIds],
   );
 
   return (
