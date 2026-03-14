@@ -262,10 +262,10 @@ class StateStream implements StateStreamSink {
     }
     this.#emitMessage(part.messageID)
 
-    // Refresh uncommitted changes status when a file-editing tool completes.
-    // Edits produce staged changes, not commits, so only the uncommitted
-    // changes flag needs updating. Merge status refreshes on sessionIdle
-    // when auto-commits happen.
+    // Refresh worktree status when a file-editing tool completes.
+    // For bash, do a full refresh since it can run git commands that change
+    // the commit graph (e.g. git commit). For other edit tools that only
+    // produce staged changes, a partial uncommitted-changes refresh suffices.
     if (
       part.type === "tool" &&
       part.state?.status === "completed" &&
@@ -273,7 +273,8 @@ class StateStream implements StateStreamSink {
     ) {
       const sessionId = msg.sessionId
       if (this.#sessionWorktrees.has(sessionId)) {
-        this.#debouncedWorktreeStatusRefresh(sessionId, false)
+        const fullRefresh = part.tool === "bash"
+        this.#debouncedWorktreeStatusRefresh(sessionId, fullRefresh)
       }
     }
   }
@@ -450,11 +451,16 @@ class StateStream implements StateStreamSink {
         return
       }
 
-      const [merged, hasUnmerged, hasUncommitted] = await Promise.all([
+      const [rawMerged, hasUnmerged, hasUncommitted] = await Promise.all([
         driver.isMerged(branch, "main"),
         driver.hasUnmergedCommits(branch, "main"),
         driver.hasUncommittedChanges(worktreeInfo.worktreePath),
       ])
+
+      // A branch that git considers "merged" but has no unmerged commits never
+      // actually diverged from main — it's just sitting at the same commit.
+      // Don't report that as "merged" since no merge actually happened.
+      const merged = rawMerged && !hasUnmerged ? false : rawMerged
 
       const value = {
         sessionId,
