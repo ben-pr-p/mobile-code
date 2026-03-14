@@ -112,15 +112,15 @@ export function SessionView({
         param: { sessionId },
       });
       const data = await res.json();
-      if (res.ok) {
-        Alert.alert('Merged', 'Branch merged into main successfully.');
-      } else if (data.conflictingFiles?.length > 0) {
-        Alert.alert(
-          'Merge Conflict',
-          `Conflicts in:\n${data.conflictingFiles.join('\n')}\n\nAsk the agent to rebase onto main and resolve the conflicts, then try again.`
-        );
-      } else {
-        Alert.alert('Merge Failed', data.reason ?? data.error ?? 'Unknown error');
+      if (!res.ok) {
+        if (data.conflictingFiles?.length > 0) {
+          Alert.alert(
+            'Merge Conflict',
+            `Conflicts in:\n${data.conflictingFiles.join('\n')}\n\nAsk the agent to rebase onto main and resolve the conflicts, then try again.`
+          );
+        } else {
+          Alert.alert('Merge Failed', data.reason ?? data.error ?? 'Unknown error');
+        }
       }
     } catch (err: any) {
       Alert.alert('Merge Failed', err.message ?? 'Unknown error');
