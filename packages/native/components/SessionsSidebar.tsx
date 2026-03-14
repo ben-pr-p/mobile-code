@@ -2,14 +2,14 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { View, Text, Pressable, ScrollView, TextInput, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
-import { Menu, Plus, Search, Ellipsis, Settings, Mic, HelpCircle, ChevronRight, ChevronDown, GitBranch, Pin, Archive, ArchiveRestore } from 'lucide-react-native';
+import { Menu, Plus, Search, Ellipsis, Settings, Mic, HelpCircle, ChevronRight, ChevronDown, GitBranch, Pin, Archive, ArchiveRestore, CircleDot, Check } from 'lucide-react-native';
 import { useAtom, useAtomValue } from 'jotai/react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useStateQuery, useAppStateQuery, type SessionValue, type SessionMetaValue } from '../lib/stream-db';
+import { useStateQuery, useAppStateQuery, type SessionValue, type SessionMetaValue, type WorktreeStatusValue } from '../lib/stream-db';
 import { pinnedSessionIdsAtom } from '../state/ui';
 import { apiClientAtom } from '../lib/api';
 
@@ -164,11 +164,53 @@ function SessionStatusDot({ status }: { status: SessionValue['status'] }) {
   return <View className={`h-2 w-2 rounded-full ${colorClass}`} />;
 }
 
+function SessionWorktreeBadge({ worktreeStatus }: { worktreeStatus: WorktreeStatusValue }) {
+  const { colorScheme } = useColorScheme();
+
+  if (!worktreeStatus.isWorktreeSession || worktreeStatus.error) return null;
+
+  if (worktreeStatus.hasUncommittedChanges) {
+    return (
+      <View className="flex-row items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30">
+        <CircleDot size={8} color={colorScheme === 'dark' ? '#fbbf24' : '#d97706'} />
+        <Text className="text-[9px] text-amber-700 dark:text-amber-400" style={{ fontFamily: 'JetBrains Mono' }}>
+          Uncommitted
+        </Text>
+      </View>
+    );
+  }
+
+  if (worktreeStatus.hasUnmergedCommits) {
+    return (
+      <View className="flex-row items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30">
+        <GitBranch size={8} color={colorScheme === 'dark' ? '#60a5fa' : '#2563eb'} />
+        <Text className="text-[9px] text-blue-700 dark:text-blue-400" style={{ fontFamily: 'JetBrains Mono' }}>
+          Awaiting merge
+        </Text>
+      </View>
+    );
+  }
+
+  if (worktreeStatus.merged) {
+    return (
+      <View className="flex-row items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30">
+        <Check size={8} color={colorScheme === 'dark' ? '#4ade80' : '#16a34a'} />
+        <Text className="text-[9px] text-green-700 dark:text-green-400" style={{ fontFamily: 'JetBrains Mono' }}>
+          Merged
+        </Text>
+      </View>
+    );
+  }
+
+  return null;
+}
+
 interface SessionRowProps {
   session: SessionValue;
   isSelected: boolean;
   isPinned: boolean;
   sessionStatus: SessionValue['status'];
+  worktreeStatus?: WorktreeStatusValue;
   onPress: (sessionId: string, projectId: string) => void;
   onOverflow?: (id: string) => void;
   onTogglePin: (id: string) => void;
@@ -180,7 +222,7 @@ interface SessionRowProps {
   isSubSession?: boolean;
 }
 
-function SessionRow({ session, isSelected, isPinned, sessionStatus, onPress, onOverflow, onTogglePin, onArchive, isArchived, hasChildren, isExpanded, onToggleExpand, isSubSession }: SessionRowProps) {
+function SessionRow({ session, isSelected, isPinned, sessionStatus, worktreeStatus, onPress, onOverflow, onTogglePin, onArchive, isArchived, hasChildren, isExpanded, onToggleExpand, isSubSession }: SessionRowProps) {
   const { colorScheme } = useColorScheme();
   const overflowColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const chevronColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
@@ -246,11 +288,14 @@ function SessionRow({ session, isSelected, isPinned, sessionStatus, onPress, onO
             style={{ fontFamily: 'JetBrains Mono' }}>
             {session.title}
           </Text>
-          <Text
-            className="text-[11px] text-stone-400 dark:text-stone-600"
-            style={{ fontFamily: 'JetBrains Mono' }}>
-            {formatRelativeTime(session.time.updated)}
-          </Text>
+          <View className="flex-row items-center gap-1.5">
+            <Text
+              className="text-[11px] text-stone-400 dark:text-stone-600"
+              style={{ fontFamily: 'JetBrains Mono' }}>
+              {formatRelativeTime(session.time.updated)}
+            </Text>
+            {worktreeStatus && <SessionWorktreeBadge worktreeStatus={worktreeStatus} />}
+          </View>
         </View>
         {onOverflow && (
           <Pressable onPress={() => onOverflow(session.id)} hitSlop={8}>
@@ -379,6 +424,17 @@ function SessionListContent({
   const { data: allSessions } = useStateQuery(
     (db, q) => q.from({ sessions: db.collections.sessions }),
   );
+
+  const { data: worktreeStatusResults } = useStateQuery(
+    (db, q) => q.from({ worktreeStatuses: db.collections.worktreeStatuses }),
+  );
+  const worktreeStatusBySession = useMemo(() => {
+    const map = new Map<string, WorktreeStatusValue>();
+    for (const ws of (worktreeStatusResults as WorktreeStatusValue[] | undefined) ?? []) {
+      map.set(ws.sessionId, ws);
+    }
+    return map;
+  }, [worktreeStatusResults]);
 
   // Query archived session IDs from persistent app state stream
   const { data: sessionMetas } = useAppStateQuery(
@@ -529,6 +585,7 @@ function SessionListContent({
               isSelected={node.session.id === selectedSessionId}
               isPinned={pinnedSet.has(node.session.id)}
               sessionStatus={node.session.status}
+              worktreeStatus={worktreeStatusBySession.get(node.session.id)}
               onPress={onSelectSession}
               onOverflow={handleOverflow}
               onTogglePin={togglePin}
@@ -545,6 +602,7 @@ function SessionListContent({
                   isSelected={child.id === selectedSessionId}
                   isPinned={pinnedSet.has(child.id)}
                   sessionStatus={child.status}
+                  worktreeStatus={worktreeStatusBySession.get(child.id)}
                   onPress={onSelectSession}
                   onOverflow={handleOverflow}
                   onTogglePin={togglePin}
@@ -580,6 +638,7 @@ function SessionListContent({
                   isSelected={node.session.id === selectedSessionId}
                   isPinned={pinnedSet.has(node.session.id)}
                   sessionStatus={node.session.status}
+                  worktreeStatus={worktreeStatusBySession.get(node.session.id)}
                   onPress={onSelectSession}
                   onOverflow={handleOverflow}
                   onTogglePin={togglePin}
@@ -597,6 +656,7 @@ function SessionListContent({
                       isSelected={child.id === selectedSessionId}
                       isPinned={pinnedSet.has(child.id)}
                       sessionStatus={child.status}
+                      worktreeStatus={worktreeStatusBySession.get(child.id)}
                       onPress={onSelectSession}
                       onOverflow={handleOverflow}
                       onTogglePin={togglePin}
