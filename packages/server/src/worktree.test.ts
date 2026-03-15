@@ -97,7 +97,19 @@ describe("list", () => {
 // ---------------------------------------------------------------------------
 
 describe("create", () => {
+  test("throws when no post_checkout hook is configured", async () => {
+    const driver = await WorktreeDriver.open(repoDir);
+    const wtPath = join(tempBase, "no-config");
+    await expect(driver.create("no-config", { path: wtPath })).rejects.toThrow(
+      "No post_checkout hook configured",
+    );
+  });
+
   test("creates a worktree with a new branch", async () => {
+    await Bun.write(
+      join(repoDir, "worktree.toml"),
+      '[hooks]\npost_checkout = "echo setup"',
+    );
     const driver = await WorktreeDriver.open(repoDir);
     const wtPath = join(tempBase, "feat-branch");
     const entry = await driver.create("feat-branch", { path: wtPath });
@@ -115,6 +127,10 @@ describe("create", () => {
   });
 
   test("creates worktree from a specific base", async () => {
+    await Bun.write(
+      join(repoDir, "worktree.toml"),
+      '[hooks]\npost_checkout = "echo setup"',
+    );
     const driver = await WorktreeDriver.open(repoDir);
 
     // Make a second commit on main
@@ -167,7 +183,23 @@ describe("create", () => {
     expect(markerExists).toBe(false);
   });
 
+  test("allows creation without config when skipHooks is true", async () => {
+    const driver = await WorktreeDriver.open(repoDir);
+    const wtPath = join(tempBase, "skip-hooks-no-config");
+    const entry = await driver.create("skip-hooks-no-config", {
+      path: wtPath,
+      skipHooks: true,
+    });
+
+    expect(entry.path).toBe(wtPath);
+    expect(entry.branch).toBe("refs/heads/skip-hooks-no-config");
+  });
+
   test("throws when branch already exists", async () => {
+    await Bun.write(
+      join(repoDir, "worktree.toml"),
+      '[hooks]\npost_checkout = "echo setup"',
+    );
     const driver = await WorktreeDriver.open(repoDir);
     const wtPath1 = join(tempBase, "dup1");
     await driver.create("dup-branch", { path: wtPath1 });
@@ -182,6 +214,14 @@ describe("create", () => {
 // ---------------------------------------------------------------------------
 
 describe("merge", () => {
+  beforeEach(async () => {
+    await Bun.write(
+      join(repoDir, "worktree.toml"),
+      '[hooks]\npost_checkout = "echo setup"',
+    );
+    await $`git add worktree.toml && git commit -m "add worktree config"`.quiet().cwd(repoDir);
+  });
+
   test("merges a worktree branch into current branch", async () => {
     const driver = await WorktreeDriver.open(repoDir);
     const wtPath = join(tempBase, "merge-src");
@@ -216,9 +256,9 @@ describe("merge", () => {
     // The individual messages shouldn't appear as separate commits on main
     const log = await $`git log --oneline`.quiet().cwd(repoDir);
     const lines = log.text().trim().split("\n");
-    // Should have: initial commit + the squash merge commit = 2
-    // (not 4: initial + A + B + merge)
-    expect(lines.length).toBe(2);
+    // Should have: initial commit + worktree config + the squash merge commit = 3
+    // (not 5: initial + config + A + B + merge)
+    expect(lines.length).toBe(3);
   });
 });
 
@@ -227,6 +267,14 @@ describe("merge", () => {
 // ---------------------------------------------------------------------------
 
 describe("branchForPath", () => {
+  beforeEach(async () => {
+    await Bun.write(
+      join(repoDir, "worktree.toml"),
+      '[hooks]\npost_checkout = "echo setup"',
+    );
+    await $`git add worktree.toml && git commit -m "add worktree config"`.quiet().cwd(repoDir);
+  });
+
   test("resolves the branch name for a worktree path", async () => {
     const driver = await WorktreeDriver.open(repoDir);
     const wtPath = join(tempBase, "branch-lookup");
@@ -248,6 +296,14 @@ describe("branchForPath", () => {
 // ---------------------------------------------------------------------------
 
 describe("isMerged", () => {
+  beforeEach(async () => {
+    await Bun.write(
+      join(repoDir, "worktree.toml"),
+      '[hooks]\npost_checkout = "echo setup"',
+    );
+    await $`git add worktree.toml && git commit -m "add worktree config"`.quiet().cwd(repoDir);
+  });
+
   test("returns false before merge", async () => {
     const driver = await WorktreeDriver.open(repoDir);
     const wtPath = join(tempBase, "unmerged");
@@ -270,6 +326,14 @@ describe("isMerged", () => {
 });
 
 describe("hasUnmergedCommits", () => {
+  beforeEach(async () => {
+    await Bun.write(
+      join(repoDir, "worktree.toml"),
+      '[hooks]\npost_checkout = "echo setup"',
+    );
+    await $`git add worktree.toml && git commit -m "add worktree config"`.quiet().cwd(repoDir);
+  });
+
   test("returns true when branch has commits not in main", async () => {
     const driver = await WorktreeDriver.open(repoDir);
     const wtPath = join(tempBase, "has-unmerged");
@@ -309,6 +373,14 @@ describe("hasUnmergedCommits", () => {
 // ---------------------------------------------------------------------------
 
 describe("canMerge", () => {
+  beforeEach(async () => {
+    await Bun.write(
+      join(repoDir, "worktree.toml"),
+      '[hooks]\npost_checkout = "echo setup"',
+    );
+    await $`git add worktree.toml && git commit -m "add worktree config"`.quiet().cwd(repoDir);
+  });
+
   test("returns ok:true for a clean merge", async () => {
     const driver = await WorktreeDriver.open(repoDir);
     const wtPath = join(tempBase, "clean-merge");
@@ -361,6 +433,14 @@ describe("canMerge", () => {
 // ---------------------------------------------------------------------------
 
 describe("hasUncommittedChanges", () => {
+  beforeEach(async () => {
+    await Bun.write(
+      join(repoDir, "worktree.toml"),
+      '[hooks]\npost_checkout = "echo setup"',
+    );
+    await $`git add worktree.toml && git commit -m "add worktree config"`.quiet().cwd(repoDir);
+  });
+
   test("returns false for a clean worktree", async () => {
     const driver = await WorktreeDriver.open(repoDir);
     const wtPath = join(tempBase, "clean-wt");
@@ -412,6 +492,14 @@ describe("hasUncommittedChanges", () => {
 // ---------------------------------------------------------------------------
 
 describe("remove", () => {
+  beforeEach(async () => {
+    await Bun.write(
+      join(repoDir, "worktree.toml"),
+      '[hooks]\npost_checkout = "echo setup"',
+    );
+    await $`git add worktree.toml && git commit -m "add worktree config"`.quiet().cwd(repoDir);
+  });
+
   test("removes a worktree by branch name", async () => {
     const driver = await WorktreeDriver.open(repoDir);
     const wtPath = join(tempBase, "to-remove");

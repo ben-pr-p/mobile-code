@@ -133,10 +133,19 @@ export class WorktreeDriver {
    *
    * Runs `git worktree add -b <branch> <path> [base]`, then executes the
    * `post_checkout` hook from `worktree.toml` inside the new worktree directory.
+   *
+   * @throws {Error} If `skipHooks` is false and no `post_checkout` hook is configured.
    */
   async create(branch: string, options: CreateOptions = {}): Promise<WorktreeEntry> {
     const { base, skipHooks = false } = options;
     const worktreePath = options.path ?? this.#defaultPath(branch);
+
+    if (!skipHooks && !this.#config.hooks?.post_checkout) {
+      throw new Error(
+        "No post_checkout hook configured. Add a [hooks] section with post_checkout to worktree.toml, " +
+          "or pass { skipHooks: true } to skip the hook.",
+      );
+    }
 
     // Build the git command
     const args = ["git", "worktree", "add", "-b", branch, worktreePath];
