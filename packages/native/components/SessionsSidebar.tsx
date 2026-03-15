@@ -9,8 +9,8 @@ import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useStateQuery, useAppStateQuery, type SessionValue, type SessionMetaValue, type WorktreeStatusValue } from '../lib/stream-db';
-import { pinnedSessionIdsAtom } from '../state/ui';
+import { useStateQuery, useAppStateQuery, type SessionValue, type SessionMetaValue, type WorktreeStatusValue, type ProjectValue } from '../lib/stream-db';
+import { pinnedSessionIdsAtom, pinnedProjectIdsAtom } from '../state/ui';
 import { apiClientAtom } from '../lib/api';
 
 interface SessionsSidebarProps {
@@ -37,11 +37,12 @@ export function SessionsSidebar({
     drawerNavigation.closeDrawer();
   }, [drawerNavigation]);
 
-  const handleNewSession = useCallback(() => {
-    if (!projectId) return;
+  const handleNewSession = useCallback((pid?: string) => {
+    const targetProjectId = pid ?? projectId;
+    if (!targetProjectId) return;
     router.push({
       pathname: '/projects/[projectId]/new-session',
-      params: { projectId },
+      params: { projectId: targetProjectId },
     });
     closeDrawer();
   }, [projectId, router, closeDrawer]);
@@ -79,7 +80,7 @@ export function SessionsSidebar({
         </Text>
 
         <Pressable
-          onPress={handleNewSession}
+          onPress={() => handleNewSession()}
           className="h-10 w-10 items-center justify-center rounded-lg bg-white dark:bg-stone-900">
           <Plus size={20} color={iconColor} />
         </Pressable>
@@ -93,6 +94,7 @@ export function SessionsSidebar({
           projectId={projectId}
           selectedSessionId={selectedSessionId}
           onSelectSession={handleSelectSession}
+          onNewSession={handleNewSession}
         />
       ) : (
         <View className="flex-1 items-center justify-center px-8">
@@ -316,17 +318,27 @@ function SessionListContent({
   projectId,
   selectedSessionId,
   onSelectSession,
+  onNewSession,
 }: {
   projectId: string;
   selectedSessionId: string | null;
   onSelectSession: (sessionId: string, projectId: string) => void;
+  /** Create a new session for the given project ID. */
+  onNewSession: (projectId: string) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const [showArchived, setShowArchived] = useState(false);
+  // Pinned project groups are collapsed by default
+  const [expandedPinnedProjects, setExpandedPinnedProjects] = useState<Set<string>>(new Set());
   const [pinnedIds, setPinnedIds] = useAtom(pinnedSessionIdsAtom);
   const resolvedPinnedIds = pinnedIds instanceof Promise ? [] : pinnedIds;
   const pinnedSet = useMemo(() => new Set(resolvedPinnedIds), [resolvedPinnedIds]);
+
+  // Pinned projects — sessions from these show at the top regardless of selected project
+  const [pinnedProjectIds] = useAtom(pinnedProjectIdsAtom);
+  const resolvedPinnedProjectIds = pinnedProjectIds instanceof Promise ? [] : pinnedProjectIds;
+  const pinnedProjectSet = useMemo(() => new Set(resolvedPinnedProjectIds), [resolvedPinnedProjectIds]);
 
   const api = useAtomValue(apiClientAtom);
   const router = useRouter();
@@ -448,6 +460,71 @@ function SessionListContent({
     ),
     [sessionMetas],
   );
+
+  // Query all projects so we can show project names for pinned-project sessions
+  const { data: allProjects } = useStateQuery(
+    (db, q) => q.from({ projects: db.collections.projects }),
+  );
+  const projectNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of (allProjects as ProjectValue[] | undefined) ?? []) {
+      const name = p.worktree === '/' ? 'global' : (p.worktree.split('/').pop() || p.worktree);
+      map.set(p.id, name);
+    }
+    return map;
+  }, [allProjects]);
+
+  // Build pinned-project sessions: most recent non-archived session from each pinned project
+  // (excluding the currently selected project since those already show in the main list)
+  type PinnedProjectGroup = {
+    projectId: string;
+    projectName: string;
+    sessions: SessionTree[];
+  };
+
+  const pinnedProjectGroups = useMemo((): PinnedProjectGroup[] => {
+    if (resolvedPinnedProjectIds.length === 0) return [];
+    const sessions = allSessions as SessionValue[] | undefined;
+    if (!sessions) return [];
+
+    // Only show pinned projects that are NOT the current project
+    const otherPinnedProjectIds = resolvedPinnedProjectIds.filter(pid => pid !== projectId);
+    if (otherPinnedProjectIds.length === 0) return [];
+
+    const groups: PinnedProjectGroup[] = [];
+
+    for (const pid of otherPinnedProjectIds) {
+      let projectSessions = sessions.filter(
+        s => s.projectID === pid && !s.parentID && !archivedIds.has(s.id),
+      );
+
+      // Apply search filter if active
+      if (searchQuery) {
+        projectSessions = projectSessions.filter(s =>
+          s.title.toLowerCase().includes(searchQuery.toLowerCase()),
+        );
+      }
+
+      if (projectSessions.length === 0) continue;
+
+      // Sort by updated time, take the most recent sessions
+      projectSessions.sort((a, b) => b.time.updated - a.time.updated);
+
+      // Show up to 3 most recent sessions per pinned project
+      const topSessions = projectSessions.slice(0, 3).map(s => ({
+        session: s,
+        children: [] as SessionValue[],
+      }));
+
+      groups.push({
+        projectId: pid,
+        projectName: projectNameById.get(pid) ?? pid.slice(0, 8),
+        sessions: topSessions,
+      });
+    }
+
+    return groups;
+  }, [resolvedPinnedProjectIds, allSessions, projectId, archivedIds, searchQuery, projectNameById]);
 
   // Build tree structure: top-level sessions with nested children
   const { activeTree, archivedTree } = useMemo(() => {
@@ -577,6 +654,67 @@ function SessionListContent({
         className="flex-1"
         contentContainerStyle={{ padding: 12, gap: 2 }}
         showsVerticalScrollIndicator={false}>
+        {/* Pinned project sessions — from other projects, always visible */}
+        {pinnedProjectGroups.map((group) => {
+          const isExpanded = expandedPinnedProjects.has(group.projectId);
+          return (
+            <View key={group.projectId} className="mb-1">
+              {/* Collapsible header row: chevron + pin icon + name + new session button */}
+              <View className="flex-row items-center px-3.5 pb-1 pt-2">
+                <Pressable
+                  onPress={() => {
+                    setExpandedPinnedProjects(prev => {
+                      const next = new Set(prev);
+                      if (next.has(group.projectId)) {
+                        next.delete(group.projectId);
+                      } else {
+                        next.add(group.projectId);
+                      }
+                      return next;
+                    });
+                  }}
+                  hitSlop={8}
+                  className="flex-row items-center gap-1.5 flex-1">
+                  {isExpanded ? (
+                    <ChevronDown size={12} color={colorScheme === 'dark' ? '#D97706' : '#B45309'} />
+                  ) : (
+                    <ChevronRight size={12} color={colorScheme === 'dark' ? '#D97706' : '#B45309'} />
+                  )}
+                  <Pin size={10} color={colorScheme === 'dark' ? '#D97706' : '#B45309'} />
+                  <Text
+                    className="text-[11px] font-semibold text-amber-700 dark:text-amber-500"
+                    style={{ fontFamily: 'JetBrains Mono' }}>
+                    {group.projectName}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => onNewSession(group.projectId)}
+                  hitSlop={8}>
+                  <Plus size={14} color={colorScheme === 'dark' ? '#D97706' : '#B45309'} />
+                </Pressable>
+              </View>
+              {isExpanded && group.sessions.map((node) => (
+                <SessionRow
+                  key={node.session.id}
+                  session={node.session}
+                  isSelected={node.session.id === selectedSessionId}
+                  isPinned={pinnedSet.has(node.session.id)}
+                  sessionStatus={node.session.status}
+                  worktreeStatus={worktreeStatusBySession.get(node.session.id)}
+                  onPress={onSelectSession}
+                  onOverflow={handleOverflow}
+                  onTogglePin={togglePin}
+                />
+              ))}
+            </View>
+          );
+        })}
+
+        {/* Divider between pinned projects and current project sessions */}
+        {pinnedProjectGroups.length > 0 && activeTree.length > 0 && (
+          <View className="mx-3.5 mb-1 mt-1 h-px bg-stone-200 dark:bg-stone-800" />
+        )}
+
         {/* Active sessions */}
         {activeTree.map((node) => (
           <React.Fragment key={node.session.id}>
