@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { ActivityIndicator, View, Text, Pressable, ScrollView, TextInput } from 'react-native';
+import { ActivityIndicator, View, Text, Pressable, ScrollView, TextInput, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { useAtom, useAtomValue } from 'jotai';
@@ -7,7 +7,7 @@ import { X, Plus } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { ProjectCard } from './ProjectCard';
 import { useStateQuery, type ProjectValue } from '../lib/stream-db';
-import { projectFilterAtom } from '../state/ui';
+import { projectFilterAtom, pinnedProjectIdsAtom } from '../state/ui';
 import { apiClientAtom } from '../lib/api';
 import { useArchivedSessionIds } from '../hooks/useArchivedSessionIds';
 
@@ -83,6 +83,39 @@ export function ProjectsSidebar({
 
   const archivedIds = useArchivedSessionIds();
 
+  const [pinnedProjectIds, setPinnedProjectIds] = useAtom(pinnedProjectIdsAtom);
+  const resolvedPinnedProjectIds = pinnedProjectIds instanceof Promise ? [] : pinnedProjectIds;
+  const pinnedProjectSet = useMemo(() => new Set(resolvedPinnedProjectIds), [resolvedPinnedProjectIds]);
+
+  const toggleProjectPin = useCallback(
+    (projectId: string) => {
+      if (resolvedPinnedProjectIds.includes(projectId)) {
+        setPinnedProjectIds(resolvedPinnedProjectIds.filter((id: string) => id !== projectId));
+      } else {
+        setPinnedProjectIds([...resolvedPinnedProjectIds, projectId]);
+      }
+    },
+    [resolvedPinnedProjectIds, setPinnedProjectIds],
+  );
+
+  const handleProjectOverflow = useCallback(
+    (projectId: string) => {
+      const isPinned = resolvedPinnedProjectIds.includes(projectId);
+      Alert.alert(
+        'Project Options',
+        undefined,
+        [
+          {
+            text: isPinned ? 'Unpin Project' : 'Pin Project',
+            onPress: () => toggleProjectPin(projectId),
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+      );
+    },
+    [resolvedPinnedProjectIds, toggleProjectPin],
+  );
+
   const groups = useMemo(() => deriveGroups(projects), [projects]);
 
   // Reset filter if it no longer matches any group (e.g. project was removed)
@@ -90,13 +123,22 @@ export function ProjectsSidebar({
     activeFilter && groups.some((g) => g.prefix === activeFilter) ? activeFilter : null;
   if (validFilter !== activeFilter) setActiveFilter(validFilter);
 
-  // Apply group filter, then text search
+  // Apply group filter (pinned projects always pass), then text search, then sort pinned to top
   const groupFiltered = validFilter
-    ? projects.filter((p) => p.worktree.startsWith(validFilter))
+    ? projects.filter((p) => pinnedProjectSet.has(p.id) || p.worktree.startsWith(validFilter))
     : projects;
-  const filtered = searchQuery
+  const searchFiltered = searchQuery
     ? groupFiltered.filter((p) => p.worktree.toLowerCase().includes(searchQuery.toLowerCase()))
     : groupFiltered;
+  const filtered = useMemo(() => {
+    return [...searchFiltered].sort((a, b) => {
+      const aPinned = pinnedProjectSet.has(a.id);
+      const bPinned = pinnedProjectSet.has(b.id);
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      return 0; // preserve existing sort order within groups
+    });
+  }, [searchFiltered, pinnedProjectSet]);
 
   const handleSelectProject = useCallback(
     async (pid: string) => {
@@ -243,8 +285,10 @@ export function ProjectsSidebar({
               project={project}
               index={index}
               isSelected={project.id === selectedProjectId}
+              isPinned={pinnedProjectSet.has(project.id)}
               onPress={handleSelectProject}
-              onOverflow={() => {}}
+              onOverflow={handleProjectOverflow}
+              onLongPress={toggleProjectPin}
             />
           ))}
         </ScrollView>

@@ -1,30 +1,39 @@
 import React from 'react'
 import { View, Text, Pressable } from 'react-native'
+import { Pin } from 'lucide-react-native'
+import { useColorScheme } from 'nativewind'
 import type { Project } from '../../server/src/types'
 
 interface ProjectCardProps {
   project: Project
   index: number
   isSelected: boolean
+  isPinned?: boolean
   onPress: (projectId: string) => void
   onOverflow: (projectId: string) => void
+  onLongPress?: (projectId: string) => void
 }
 
 export function ProjectCard({
   project,
   index,
   isSelected,
+  isPinned,
   onPress,
   onOverflow,
+  onLongPress,
 }: ProjectCardProps) {
   const name = projectName(project.worktree)
   const avatarColor = isSelected ? '#F59E0B' : (AVATAR_COLORS[index % AVATAR_COLORS.length] ?? '#78716C')
   const initial = name.charAt(0).toUpperCase()
   const lastActiveAt = (project.time as any).updated ?? project.time.created
+  const { colorScheme } = useColorScheme()
+  const pinColor = colorScheme === 'dark' ? '#D97706' : '#B45309'
 
   return (
     <Pressable
       onPress={() => onPress(project.id)}
+      onLongPress={() => onLongPress?.(project.id)}
       className={`rounded-xl p-4 gap-2.5 ${
         isSelected
           ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700'
@@ -41,7 +50,10 @@ export function ProjectCard({
         </View>
 
         <View className="flex-1 gap-0.5">
-          <Text className="text-[15px] font-semibold text-stone-900 dark:text-stone-50" style={{ fontFamily: 'JetBrains Mono' }}>{name}</Text>
+          <View className="flex-row items-center gap-1.5">
+            <Text className="text-[15px] font-semibold text-stone-900 dark:text-stone-50" style={{ fontFamily: 'JetBrains Mono' }}>{name}</Text>
+            {isPinned && <Pin size={12} color={pinColor} />}
+          </View>
           <Text className="text-[11px] text-stone-500 font-normal" style={{ fontFamily: 'JetBrains Mono' }}>
             {project.worktree}
           </Text>
