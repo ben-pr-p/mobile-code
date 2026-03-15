@@ -375,6 +375,8 @@ export interface Message {
   // model info (present on both user and assistant messages)
   modelID?: string
   providerID?: string
+  // agent used for this message (present on user messages, optional on assistant)
+  agent?: string
   // assistant-specific
   cost?: number
   tokens?: {

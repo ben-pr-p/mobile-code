@@ -9,6 +9,7 @@ import { SessionHeader } from './SessionHeader';
 import { TabBar } from './TabBar';
 import { VoiceInputArea } from './VoiceInputArea';
 import { ModelSelectorSheet } from './ModelSelectorSheet';
+import { AgentCommandSheet } from './AgentCommandSheet';
 import {
   useStateQuery,
   flattenServerMessage,
@@ -22,8 +23,10 @@ import type { Message as ServerMessage } from '../../server/src/types';
 import { apiClientAtom } from '../lib/api';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useModels } from '../hooks/useModels';
+import { useAgents } from '../hooks/useAgents';
+import { useCommands } from '../hooks/useCommands';
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings';
-import type { ModelSelection } from '../state/settings';
+import type { ModelSelection, PendingCommand } from '../state/settings';
 
 /** Settings type shared by both wrappers. */
 export interface SessionSettings {
@@ -49,9 +52,12 @@ interface SessionViewProps {
   onMenuPress: () => void;
   onProjectsPress: () => void;
   settings: SessionSettings;
-  onSendText: (text: string, model: ModelSelection | null) => Promise<void>;
+  onSendText: (text: string, model: ModelSelection | null, agent?: string) => Promise<void>;
   onSendAudio: (base64: string, mimeType: string, model: ModelSelection | null) => void;
+  onExecuteCommand?: (command: string, args: string, model: ModelSelection | null) => Promise<void>;
   onAbort?: () => void;
+  /** Whether this is a new session (no session ID yet). Commands are disabled for new sessions. */
+  isNewSession?: boolean;
   emptyMessage?: string;
   /** Latest model info from the session's raw messages (for display name derivation) */
   sessionModelInfo?: { modelID?: string; providerID?: string } | null;
@@ -76,17 +82,36 @@ export function SessionView({
   settings,
   onSendText,
   onSendAudio,
+  onExecuteCommand,
   onAbort,
   emptyMessage,
   sessionModelInfo,
   worktreeToggle,
+  isNewSession,
 }: SessionViewProps) {
   const [activeTab, setActiveTab] = useState<'session' | 'changes'>('session');
   const [isSending, setIsSending] = useState(false);
   const [pendingVoiceMessages, setPendingVoiceMessages] = useState<Message[]>([]);
   const voiceIdCounter = useRef(0);
   const [modelSelectorVisible, setModelSelectorVisible] = useState(false);
+  const [agentCommandSheetVisible, setAgentCommandSheetVisible] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
+
+  // Agent & command state
+  const [agentOverride, setAgentOverride] = useState<string | null>(null);
+  const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(null);
+
+  const { agents } = useAgents();
+  const { commands } = useCommands();
+
+  // Effective agent: user override > "build"
+  const effectiveAgent = agentOverride ?? 'build';
+
+  // Agent display name
+  const agentDisplayName = useMemo(() => {
+    const agent = agents?.find((a) => a.name === effectiveAgent);
+    return agent?.name ?? effectiveAgent;
+  }, [agents, effectiveAgent]);
 
   // Worktree status (merge state + uncommitted changes) from the session stream
   const { data: worktreeStatusResults } = useStateQuery(
@@ -198,14 +223,20 @@ export function SessionView({
     async (text: string) => {
       setIsSending(true);
       try {
-        await onSendText(text, effectiveModel);
+        if (pendingCommand && onExecuteCommand) {
+          // Execute as a command — text becomes the arguments
+          await onExecuteCommand(pendingCommand.name, text, effectiveModel);
+          setPendingCommand(null);
+        } else {
+          await onSendText(text, effectiveModel, effectiveAgent);
+        }
       } catch (err) {
         console.error('[SessionView] send failed:', err);
       } finally {
         setIsSending(false);
       }
     },
-    [onSendText, effectiveModel]
+    [onSendText, onExecuteCommand, effectiveModel, effectiveAgent, pendingCommand]
   );
 
   const handleSendAudio = useCallback(
@@ -275,6 +306,18 @@ export function SessionView({
     []
   );
 
+  const handleAgentPress = useCallback(() => {
+    setAgentCommandSheetVisible(true);
+  }, []);
+
+  const handleAgentSelect = useCallback((name: string) => {
+    setAgentOverride(name);
+  }, []);
+
+  const handleCommandSelect = useCallback((cmd: PendingCommand) => {
+    setPendingCommand(cmd);
+  }, []);
+
   const modelSheet = (
     <ModelSelectorSheet
       visible={modelSelectorVisible}
@@ -283,6 +326,21 @@ export function SessionView({
       selectedModel={effectiveModel}
       onSelectModel={handleModelSelect}
       defaultModel={getDefaultModel()}
+    />
+  );
+
+  // Only show commands in the selector when on an existing session
+  const sheetCommands = isNewSession ? null : commands;
+
+  const agentCommandSheet = (
+    <AgentCommandSheet
+      visible={agentCommandSheetVisible}
+      onClose={() => setAgentCommandSheetVisible(false)}
+      agents={agents}
+      commands={sheetCommands}
+      currentAgent={effectiveAgent}
+      onSelectAgent={handleAgentSelect}
+      onSelectCommand={handleCommandSelect}
     />
   );
 
@@ -311,11 +369,16 @@ export function SessionView({
           onAbort={onAbort}
           modelName={modelName}
           onModelPress={handleModelPress}
+          agentName={agentDisplayName}
+          onAgentPress={handleAgentPress}
+          pendingCommand={pendingCommand}
+          onClearCommand={() => setPendingCommand(null)}
           worktreeStatus={worktreeStatus}
           isMerging={isMerging}
           onMerge={handleMerge}
         />
         {modelSheet}
+        {agentCommandSheet}
       </>
     );
   }
@@ -340,12 +403,17 @@ export function SessionView({
         emptyMessage={emptyMessage}
         modelName={modelName}
         onModelPress={handleModelPress}
+        agentName={agentDisplayName}
+        onAgentPress={handleAgentPress}
+        pendingCommand={pendingCommand}
+        onClearCommand={() => setPendingCommand(null)}
         worktreeToggle={worktreeToggle}
         worktreeStatus={worktreeStatus}
         isMerging={isMerging}
         onMerge={handleMerge}
       />
       {modelSheet}
+      {agentCommandSheet}
     </>
   );
 }
@@ -453,12 +521,13 @@ function ExistingSessionDataLoader({
   }, [changeResults]);
 
   const handleSendText = useCallback(
-    async (text: string, model: ModelSelection | null) => {
+    async (text: string, model: ModelSelection | null, agent?: string) => {
       const res = await api.api.sessions[':sessionId'].prompt.$post({
         param: { sessionId },
         json: {
           parts: [{ type: 'text' as const, text }],
           ...(model ? { model } : {}),
+          ...(agent ? { agent } : {}),
         },
       });
       if (!res.ok) throw new Error('Prompt failed');
@@ -479,6 +548,21 @@ function ExistingSessionDataLoader({
         .catch((err) => {
           console.error('[SessionContent] audio prompt failed:', err);
         });
+    },
+    [api, sessionId]
+  );
+
+  const handleExecuteCommand = useCallback(
+    async (command: string, args: string, model: ModelSelection | null) => {
+      const res = await (api.api.sessions[':sessionId'].command as any).$post({
+        param: { sessionId },
+        json: {
+          command,
+          arguments: args,
+          ...(model ? { model } : {}),
+        },
+      });
+      if (!res.ok) throw new Error('Command failed');
     },
     [api, sessionId]
   );
@@ -506,6 +590,7 @@ function ExistingSessionDataLoader({
       settings={settings}
       onSendText={handleSendText}
       onSendAudio={handleSendAudio}
+      onExecuteCommand={handleExecuteCommand}
       onAbort={handleAbort}
       sessionModelInfo={sessionModelInfo}
     />
@@ -622,6 +707,7 @@ export function NewSessionContent({
       settings={settings}
       onSendText={handleSendText}
       onSendAudio={handleSendAudio}
+      isNewSession
       emptyMessage="Send a message to start a new session"
       worktreeToggle={
         <Pressable

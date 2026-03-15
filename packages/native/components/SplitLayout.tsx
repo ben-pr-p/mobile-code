@@ -25,6 +25,7 @@ import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings
 import type { LeftPanelContent } from '../state/ui';
 import type { RecordingState } from '../hooks/useAudioRecorder';
 import type { WorktreeStatusValue } from '../lib/stream-db';
+import type { PendingCommand } from '../state/settings';
 
 interface SplitLayoutProps {
   sessionId: string;
@@ -60,6 +61,14 @@ interface SplitLayoutProps {
   };
   modelName: string;
   onModelPress?: () => void;
+  /** Current agent name for the bottom-left selector button. */
+  agentName?: string;
+  /** Opens the agent & command selector sheet. */
+  onAgentPress?: () => void;
+  /** Currently queued command. */
+  pendingCommand?: PendingCommand | null;
+  /** Dismiss the queued command. */
+  onClearCommand?: () => void;
   /** Worktree status for worktree sessions. */
   worktreeStatus?: WorktreeStatusValue;
   /** Whether a merge operation is in progress. */
@@ -84,6 +93,10 @@ export function SplitLayout({
   settings,
   modelName,
   onModelPress,
+  agentName,
+  onAgentPress,
+  pendingCommand,
+  onClearCommand,
   worktreeStatus,
   isMerging,
   onMerge,
@@ -224,6 +237,10 @@ export function SplitLayout({
               sessionStatus={session.status}
               onAbort={onAbort}
               onModelPress={onModelPress}
+              agentName={agentName}
+              onAgentPress={onAgentPress}
+              pendingCommand={pendingCommand}
+              onClearCommand={onClearCommand}
             />
           )}
         </KeyboardAvoidingView>

@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useColorScheme } from 'nativewind'
 import { Mic, Plus, ChevronDown } from 'lucide-react-native'
 import type { RecordingState } from '../hooks/useAudioRecorder'
+import type { PendingCommand } from '../state/settings'
 
 interface VoiceInputAreaProps {
   textValue: string
@@ -19,6 +20,14 @@ interface VoiceInputAreaProps {
   sessionStatus?: 'idle' | 'busy' | 'error'
   onAbort?: () => void
   onModelPress?: () => void
+  /** Current agent name displayed on the bottom-left button. */
+  agentName?: string
+  /** Opens the agent & command selector sheet. */
+  onAgentPress?: () => void
+  /** Currently queued command (shown as a badge in the text input). */
+  pendingCommand?: PendingCommand | null
+  /** Dismiss the queued command. */
+  onClearCommand?: () => void
 }
 
 export function VoiceInputArea({
@@ -35,6 +44,10 @@ export function VoiceInputArea({
   sessionStatus,
   onAbort,
   onModelPress,
+  agentName,
+  onAgentPress,
+  pendingCommand,
+  onClearCommand,
 }: VoiceInputAreaProps) {
   const insets = useSafeAreaInsets()
   const { colorScheme } = useColorScheme()
@@ -67,6 +80,19 @@ export function VoiceInputArea({
             >
               <View className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#0C0A09' }} />
             </Pressable>
+          )}
+          {pendingCommand && (
+            <View className="flex-row items-center bg-amber-500/15 rounded-md px-2 py-1 gap-1 self-end mb-0.5">
+              <Text
+                className="text-[10px] font-semibold text-amber-600 dark:text-amber-400"
+                style={{ fontFamily: 'JetBrains Mono' }}
+              >
+                /{pendingCommand.name}
+              </Text>
+              <Pressable onPress={onClearCommand} hitSlop={8}>
+                <Text className="text-[10px] text-amber-600 dark:text-amber-400">{'\u2715'}</Text>
+              </Pressable>
+            </View>
           )}
           <TextInput
             value={textValue}
@@ -105,9 +131,9 @@ export function VoiceInputArea({
       {/* Voice control row */}
       <View className="flex-row items-center px-4 mb-2">
         <View className="flex-1 items-start">
-          <Pressable className="flex-row items-center gap-1">
+          <Pressable className="flex-row items-center gap-1" onPress={onAgentPress}>
             <Text className="text-[11px] font-medium" style={{ fontFamily: 'JetBrains Mono', color: selectorColor }}>
-              Build
+              {agentName ?? 'Build'}
             </Text>
             <ChevronDown size={12} color={selectorColor} />
           </Pressable>

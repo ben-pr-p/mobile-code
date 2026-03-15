@@ -11,6 +11,7 @@ export async function sendPrompt(
   parts: PromptPartInput[],
   directory?: string,
   model?: { providerID: string; modelID: string },
+  agent?: string,
 ): Promise<void> {
   // Fetch conversation context for audio transcription
   let conversationContext: Message[] | undefined
@@ -59,6 +60,7 @@ export async function sendPrompt(
       // See: https://github.com/ben-pr-p/mobile-code/issues/2
       tools: { question: false },
       ...(model ? { model } : {}),
+      ...(agent ? { agent } : {}),
     },
     query: { directory },
   })

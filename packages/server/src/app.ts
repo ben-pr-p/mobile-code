@@ -28,6 +28,7 @@ const PromptPartsSchema = z.object({
     providerID: z.string(),
     modelID: z.string(),
   }).optional(),
+  agent: z.string().optional(),
 })
 
 // Extended schema for session creation — adds optional worktree flag
@@ -130,12 +131,12 @@ export async function createApp(opencodeUrl: string) {
       zValidator("json", PromptPartsSchema),
       async (c) => {
         const sessionId = c.req.param("sessionId")
-        const { parts, model } = c.req.valid("json")
+        const { parts, model, agent } = c.req.valid("json")
         try {
           // Look up the session to get its directory
           const sessionRes = await client.session.get({ path: { id: sessionId } })
           const directory = (sessionRes.data as any)?.directory as string | undefined
-          await sendPrompt(client, sessionId, parts, directory, model)
+          await sendPrompt(client, sessionId, parts, directory, model, agent)
           return c.json({ success: true })
         } catch (err: any) {
           console.error("[POST /api/sessions/:sessionId/prompt]", err)
@@ -154,7 +155,7 @@ export async function createApp(opencodeUrl: string) {
       zValidator("json", CreateSessionSchema),
       async (c) => {
         const projectId = c.req.param("projectId")
-        const { parts, model, useWorktree } = c.req.valid("json")
+        const { parts, model, useWorktree, agent } = c.req.valid("json")
 
         // Look up the project to get its worktree
         const projectsRes = await client.project.list()
@@ -209,7 +210,7 @@ export async function createApp(opencodeUrl: string) {
         // Fire the prompt in the background — don't block the response.
         // The client navigates to the session immediately and sees streaming
         // updates via the SSE durable stream.
-        sendPrompt(client, sessionId, parts, directory, model).catch(
+        sendPrompt(client, sessionId, parts, directory, model, agent).catch(
           (err: any) => {
             console.error("[POST /api/projects/:projectId/sessions] prompt failed:", err)
           },
@@ -369,6 +370,67 @@ export async function createApp(opencodeUrl: string) {
         return c.json({ error: err.message ?? "Failed to list models" }, 500)
       }
     })
+
+    // List available agents
+    .get("/agents", async (c) => {
+      try {
+        const res = await (client.app as any).agents()
+        if (res.error) return c.json({ error: "Failed to list agents" }, 500)
+        return c.json(res.data)
+      } catch (err: any) {
+        console.error("[GET /api/agents]", err)
+        return c.json({ error: err.message ?? "Failed to list agents" }, 500)
+      }
+    })
+
+    // List available commands
+    .get("/commands", async (c) => {
+      try {
+        const res = await (client.command as any).list()
+        if (res.error) return c.json({ error: "Failed to list commands" }, 500)
+        return c.json(res.data)
+      } catch (err: any) {
+        console.error("[GET /api/commands]", err)
+        return c.json({ error: err.message ?? "Failed to list commands" }, 500)
+      }
+    })
+
+    // Execute a command on a session
+    .post(
+      "/sessions/:sessionId/command",
+      zValidator("json", z.object({
+        command: z.string(),
+        arguments: z.string(),
+        agent: z.string().optional(),
+        model: z.object({
+          providerID: z.string(),
+          modelID: z.string(),
+        }).optional(),
+      })),
+      async (c) => {
+        const sessionId = c.req.param("sessionId")
+        const { command, arguments: args, agent, model } = c.req.valid("json")
+        try {
+          const sessionRes = await client.session.get({ path: { id: sessionId } })
+          const directory = (sessionRes.data as any)?.directory as string | undefined
+          const res = await (client.session as any).command({
+            path: { id: sessionId },
+            body: {
+              command,
+              arguments: args,
+              ...(agent ? { agent } : {}),
+              ...(model ? { model: `${model.providerID}/${model.modelID}` } : {}),
+            },
+            query: { directory },
+          })
+          if (res.error) return c.json({ error: "Command failed" }, 500)
+          return c.json({ success: true })
+        } catch (err: any) {
+          console.error("[POST /api/sessions/:sessionId/command]", err)
+          return c.json({ error: err.message ?? "Command failed" }, 500)
+        }
+      },
+    )
 
     // Archive a session (persistent app state)
     .post("/sessions/:sessionId/archive", async (c) => {

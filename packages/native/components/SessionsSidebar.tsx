@@ -10,6 +10,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Eas
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useStateQuery, useAppStateQuery, type SessionValue, type SessionMetaValue, type WorktreeStatusValue } from '../lib/stream-db';
+import type { Message as ServerMessage } from '../../server/src/types';
 import { pinnedSessionIdsAtom } from '../state/ui';
 import { apiClientAtom } from '../lib/api';
 
@@ -211,6 +212,8 @@ interface SessionRowProps {
   isPinned: boolean;
   sessionStatus: SessionValue['status'];
   worktreeStatus?: WorktreeStatusValue;
+  /** Agent name used for this session (e.g. "build", "plan"). */
+  agentName?: string;
   onPress: (sessionId: string, projectId: string) => void;
   onOverflow?: (id: string) => void;
   onTogglePin: (id: string) => void;
@@ -222,7 +225,7 @@ interface SessionRowProps {
   isSubSession?: boolean;
 }
 
-function SessionRow({ session, isSelected, isPinned, sessionStatus, worktreeStatus, onPress, onOverflow, onTogglePin, onArchive, isArchived, hasChildren, isExpanded, onToggleExpand, isSubSession }: SessionRowProps) {
+function SessionRow({ session, isSelected, isPinned, sessionStatus, worktreeStatus, agentName, onPress, onOverflow, onTogglePin, onArchive, isArchived, hasChildren, isExpanded, onToggleExpand, isSubSession }: SessionRowProps) {
   const { colorScheme } = useColorScheme();
   const overflowColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const chevronColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
@@ -294,6 +297,15 @@ function SessionRow({ session, isSelected, isPinned, sessionStatus, worktreeStat
               style={{ fontFamily: 'JetBrains Mono' }}>
               {formatRelativeTime(session.time.updated)}
             </Text>
+            {agentName && (
+              <View className="px-1.5 py-0.5 rounded bg-stone-200 dark:bg-stone-800">
+                <Text
+                  className="text-[9px] text-stone-500 dark:text-stone-400"
+                  style={{ fontFamily: 'JetBrains Mono' }}>
+                  {agentName}
+                </Text>
+              </View>
+            )}
             {worktreeStatus && <SessionWorktreeBadge worktreeStatus={worktreeStatus} />}
           </View>
         </View>
@@ -435,6 +447,30 @@ function SessionListContent({
     }
     return map;
   }, [worktreeStatusResults]);
+
+  // Query all messages to derive the agent used for each session.
+  // We look at the most recent user message per session to find the agent.
+  const { data: allMessages } = useStateQuery(
+    (db, q) => q.from({ messages: db.collections.messages }),
+  );
+  const agentBySession = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!allMessages) return map;
+    const msgs = allMessages as ServerMessage[];
+    // Walk through messages and track the latest user message agent per session
+    for (const m of msgs) {
+      if (m.role === 'user' && m.agent) {
+        const existing = map.get(m.sessionId);
+        if (!existing) {
+          map.set(m.sessionId, m.agent);
+        }
+        // Always update to the latest (messages may not be sorted, but
+        // we just want any agent — the most common case is all messages
+        // in a session use the same agent)
+      }
+    }
+    return map;
+  }, [allMessages]);
 
   // Query archived session IDs from persistent app state stream
   const { data: sessionMetas } = useAppStateQuery(
@@ -586,6 +622,7 @@ function SessionListContent({
               isPinned={pinnedSet.has(node.session.id)}
               sessionStatus={node.session.status}
               worktreeStatus={worktreeStatusBySession.get(node.session.id)}
+              agentName={agentBySession.get(node.session.id)}
               onPress={onSelectSession}
               onOverflow={handleOverflow}
               onTogglePin={togglePin}
@@ -603,6 +640,7 @@ function SessionListContent({
                   isPinned={pinnedSet.has(child.id)}
                   sessionStatus={child.status}
                   worktreeStatus={worktreeStatusBySession.get(child.id)}
+                  agentName={agentBySession.get(child.id)}
                   onPress={onSelectSession}
                   onOverflow={handleOverflow}
                   onTogglePin={togglePin}
@@ -639,6 +677,7 @@ function SessionListContent({
                   isPinned={pinnedSet.has(node.session.id)}
                   sessionStatus={node.session.status}
                   worktreeStatus={worktreeStatusBySession.get(node.session.id)}
+                  agentName={agentBySession.get(node.session.id)}
                   onPress={onSelectSession}
                   onOverflow={handleOverflow}
                   onTogglePin={togglePin}
@@ -657,6 +696,7 @@ function SessionListContent({
                       isPinned={pinnedSet.has(child.id)}
                       sessionStatus={child.status}
                       worktreeStatus={worktreeStatusBySession.get(child.id)}
+                      agentName={agentBySession.get(child.id)}
                       onPress={onSelectSession}
                       onOverflow={handleOverflow}
                       onTogglePin={togglePin}

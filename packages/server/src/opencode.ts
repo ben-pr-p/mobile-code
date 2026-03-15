@@ -77,6 +77,8 @@ export function mapMessage(raw: any): Message {
     ? info.model?.providerID
     : info.providerID
 
+  const agent = info.agent as string | undefined
+
   const msg: Message = {
     id: info.id,
     sessionId: info.sessionID,
@@ -85,6 +87,7 @@ export function mapMessage(raw: any): Message {
     createdAt: info.time?.created ?? 0,
     ...(modelID ? { modelID } : {}),
     ...(providerID ? { providerID } : {}),
+    ...(agent ? { agent } : {}),
   }
 
   if (info.role === "assistant") {

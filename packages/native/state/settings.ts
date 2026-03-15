@@ -52,3 +52,31 @@ export const modelCatalogAtom = atom<CatalogModel[] | null>(null);
 
 /** The server-reported defaults: e.g. { "": "anthropic/claude-sonnet-4-20250514" } */
 export const modelDefaultsAtom = atom<Record<string, string>>({});
+
+/** Agent from the OpenCode server. */
+export type AgentInfo = {
+  name: string;
+  description?: string;
+  mode: 'subagent' | 'primary' | 'all';
+  color?: string;
+};
+
+/** Command from the OpenCode server. */
+export type CommandInfo = {
+  name: string;
+  description?: string;
+  agent?: string;
+  template: string;
+};
+
+/** A pending command queued for the next message. */
+export type PendingCommand = {
+  name: string;
+  description?: string;
+};
+
+/** Agent catalog fetched from the server. `null` means not yet loaded. */
+export const agentCatalogAtom = atom<AgentInfo[] | null>(null);
+
+/** Command catalog fetched from the server. `null` means not yet loaded. */
+export const commandCatalogAtom = atom<CommandInfo[] | null>(null);

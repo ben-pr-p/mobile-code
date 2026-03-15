@@ -199,11 +199,14 @@ class StateStream implements StateStreamSink {
       ? info.model?.providerID
       : info.providerID
 
+    const agent = info.agent as string | undefined
+
     const existing = this.#messages.get(info.id)
     if (existing) {
       existing.createdAt = info.time?.created ?? existing.createdAt
       if (modelID) existing.modelID = modelID
       if (providerID) existing.providerID = providerID
+      if (agent) existing.agent = agent
       if (info.role === "assistant") {
         existing.cost = info.cost
         existing.tokens = info.tokens
@@ -220,6 +223,7 @@ class StateStream implements StateStreamSink {
         createdAt: info.time?.created ?? 0,
         ...(modelID ? { modelID } : {}),
         ...(providerID ? { providerID } : {}),
+        ...(agent ? { agent } : {}),
         ...(info.role === "assistant" ? {
           cost: info.cost,
           tokens: info.tokens
