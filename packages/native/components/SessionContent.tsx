@@ -673,6 +673,7 @@ export function NewSessionContent({
         onSessionCreated(data.sessionId, projectId);
       } catch (err) {
         console.error('[NewSessionContent] createSessionWithPrompt failed:', err);
+      } finally {
         creatingRef.current = false;
       }
     },
