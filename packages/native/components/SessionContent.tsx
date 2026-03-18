@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, Text, Pressable, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAtomValue } from 'jotai';
@@ -208,13 +208,34 @@ export function SessionView({
     setModelSelectorVisible(true);
   }, []);
 
+  // Clear pending voice messages once corresponding server messages arrive.
+  // When a voice message is transcribed, the server returns a real user message
+  // with a different ID. We detect this by checking for server-side user
+  // messages that were created after our optimistic placeholder.
+  useEffect(() => {
+    if (pendingVoiceMessages.length === 0) return;
+
+    const serverUserMessages = serverMessagesList.filter((m) => m.role === 'user');
+    const latestServerUserTime = serverUserMessages.length > 0
+      ? Math.max(...serverUserMessages.map((m) => m.createdAt))
+      : 0;
+
+    // Remove pending voice messages whose timestamp is at or before the latest
+    // server user message — the server has caught up.
+    const remaining = pendingVoiceMessages.filter(
+      (vm) => vm.createdAt > latestServerUserTime
+    );
+
+    if (remaining.length < pendingVoiceMessages.length) {
+      setPendingVoiceMessages(remaining);
+    }
+  }, [serverMessagesList, pendingVoiceMessages]);
+
   // Merge optimistic voice messages with server messages
   const allMessages = useMemo(() => {
     const merged = [...serverMessagesList];
     for (const vm of pendingVoiceMessages) {
-      if (!merged.some((m) => m.id === vm.id)) {
-        merged.push(vm);
-      }
+      merged.push(vm);
     }
     return merged;
   }, [serverMessagesList, pendingVoiceMessages]);
