@@ -115,8 +115,6 @@ class StateStream implements StateStreamSink {
       }
     }
 
-    console.log({ worktreePathToProject, sessionWorktrees: this.#sessionWorktrees})
-
     // Load file changes for sessions that have diffs
     for (const session of sessions ?? []) {
       if ((session as any).summary?.files > 0) {

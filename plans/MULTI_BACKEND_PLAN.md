@@ -71,8 +71,8 @@ When the server runs on a Fly Sprite (publicly accessible), it needs auth. Add
 optional bearer token middleware:
 
 ```typescript
-// If MOBILE_AGENTS_AUTH_TOKEN is set, require it on all requests
-const authToken = process.env.MOBILE_AGENTS_AUTH_TOKEN;
+// If FLOCK_AUTH_TOKEN is set, require it on all requests
+const authToken = process.env.FLOCK_AUTH_TOKEN;
 if (authToken) {
   app.use('*', async (c, next) => {
     const header = c.req.header('Authorization');
@@ -591,7 +591,7 @@ If the current project exists on multiple backends, show which backends have it:
 
 ```
 ┌──────────────────────────────────┐
-│ mobile-agents  🖥 ☁              │
+│ flock  🖥 ☁                      │
 │ ──────────────────────────────── │
 │ Sessions:                        │
 │ ...                              │
@@ -729,9 +729,9 @@ curl -fsSL https://bun.sh/install | bash
 # Install git (usually pre-installed on Sprites)
 sudo apt-get update && sudo apt-get install -y git
 
-# Clone the mobile-agents repo
-git clone https://github.com/ben-pr-p/mobile-code.git ~/mobile-agents
-cd ~/mobile-agents && bun install
+# Clone the flock repo
+git clone https://github.com/ben-pr-p/flockcode.git ~/flockcode
+cd ~/flockcode && bun install
 
 # Set up git credentials
 # Option A: SSH key (copy from local or generate)
@@ -740,8 +740,8 @@ git config --global credential.helper store
 echo "https://oauth2:${GITHUB_TOKEN}@github.com" > ~/.git-credentials
 
 # Set up environment
-export MOBILE_AGENTS_AUTH_TOKEN="your-secret-token"
-export MOBILE_AGENTS_SERVER_NAME="Fly Sprite"
+export FLOCK_AUTH_TOKEN="your-secret-token"
+export FLOCK_SERVER_NAME="Fly Sprite"
 
 # Clone project repos
 git clone https://github.com/you/your-project.git ~/projects/your-project
@@ -759,9 +759,9 @@ sprite-env services create opencode \
   --working-dir ~/projects/your-project
 
 # Register the Hono server as a service
-sprite-env services create mobile-agents-server \
+sprite-env services create flock-server \
   --command "bun run start" \
-  --working-dir ~/mobile-agents/packages/server
+  --working-dir ~/flockcode/packages/server
 ```
 
 ### 8.3 Checkpoint After Setup

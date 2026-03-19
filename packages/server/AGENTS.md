@@ -1,6 +1,6 @@
-# @mobile-agents/server — Agent Guide
+# @flockcode/server — Agent Guide
 
-Hono API server running on Bun. Backend for the mobile-agents native client.
+Hono API server running on Bun. Backend for the flock native client.
 
 ## Stack
 

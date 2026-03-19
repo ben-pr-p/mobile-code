@@ -12,14 +12,14 @@ Add a second durable stream to the server for mobile-app-specific state that per
 
 **File: `packages/server/src/app.ts`**
 
-Create a second `DurableStreamServer` instance backed by `FileBackedStreamStore`, storing data at `~/.local/share/mobile-agents/` (XDG convention, matches OpenCode's `~/.local/share/opencode/`).
+Create a second `DurableStreamServer` instance backed by `FileBackedStreamStore`, storing data at `~/.local/share/flockcode/` (XDG convention, matches OpenCode's `~/.local/share/opencode/`).
 
 ```typescript
 import { FileBackedStreamStore } from "@durable-streams/server"
 import { join } from "path"
 import { homedir } from "os"
 
-const dataDir = join(homedir(), ".local", "share", "mobile-agents")
+const dataDir = join(homedir(), ".local", "share", "flockcode")
 
 const appStore = new FileBackedStreamStore({ dir: dataDir })
 const appDs = new DurableStreamServer({ store: appStore })
@@ -282,7 +282,7 @@ For archived rows, the swipe action calls `unarchiveSession` instead of `archive
 
 | Concern | Location | Persistence |
 |---------|----------|-------------|
-| Archive status | `FileBackedStreamStore` at `~/.local/share/mobile-agents/` | Survives server restarts |
+| Archive status | `FileBackedStreamStore` at `~/.local/share/flockcode/` | Survives server restarts |
 | Pinned sessions | `AsyncStorage` on device (existing `pinnedSessionIdsAtom`) | Client-side only, unchanged |
 | Sessions, messages, projects, changes | In-memory `StreamStore`, rebuilt from OpenCode on boot | Ephemeral |
 

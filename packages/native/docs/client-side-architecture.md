@@ -61,7 +61,7 @@ TanStack DB manages all data that comes from or syncs with the opencode server.
 interface Project {
   id: string
   name: string
-  path: string           // e.g. ~/projects/opencode-rn
+  path: string           // e.g. ~/projects/flockcode
   sessionCount: number
   activeSessionCount: number
 }

@@ -57,7 +57,7 @@ export async function sendPrompt(
       parts: textParts,
       // Disable the question tool — our mobile client doesn't support answering
       // questions yet, and unanswered questions cause the session to hang.
-      // See: https://github.com/ben-pr-p/mobile-code/issues/2
+      // See: https://github.com/ben-pr-p/flockcode/issues/2
       tools: { question: false },
       ...(model ? { model } : {}),
       ...(agent ? { agent } : {}),

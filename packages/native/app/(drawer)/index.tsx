@@ -57,8 +57,6 @@ function IndexContent({
     [rawProjects]
   );
 
-  console.log({ location: '/', projects });
-
   // Auto-navigate to the most recent project's index, which will in turn
   // resolve the most recent non-archived session or fall back to new-session.
   const hasAutoNavigated = useRef(false);

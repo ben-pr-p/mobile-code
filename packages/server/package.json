@@ -1,8 +1,8 @@
 {
-  "name": "@bprp/mobilecode",
+  "name": "@flockcode/server",
   "version": "0.0.1",
   "bin": {
-    "mobilecode": "./src/index.ts"
+    "flockcode": "./src/index.ts"
   },
   "files": [
     "src",

@@ -113,9 +113,7 @@ export function useBackendManager() {
     // Compute action buckets against the ref now (inside the effect, always current)
     const toTearDown = [...stateRef.current.keys()].filter((url) => !enabledUrls.has(url));
     const toStart = enabledBackends.filter((b) => !stateRef.current.has(b.url));
-    const alreadyRunning = enabledBackends.filter((b) => stateRef.current.has(b.url));
-
-    console.log({ toStart, toTearDown, alreadyRunning });
+    const _alreadyRunning = enabledBackends.filter((b) => stateRef.current.has(b.url));
 
     // --- Tear down removed backends ---
     for (const url of toTearDown) {
@@ -177,9 +175,9 @@ export function useBackendManager() {
 
       startPolling(backend, perBackend, setConnections, setResources);
     }
-  // backendsLoadable changes identity each render when state is 'loading';
-  // only re-run when it transitions to hasData or the data itself changes.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // backendsLoadable changes identity each render when state is 'loading';
+    // only re-run when it transitions to hasData or the data itself changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backendsLoadable.state === 'hasData' ? backendsLoadable.data : null]);
 
   // Tear down all backends only on unmount
@@ -242,7 +240,11 @@ function startPolling(
       const data = await res.json();
       const newInstanceId = data.instanceId as string | undefined;
 
-      console.log('[poll]', { newInstanceId, currentInstanceId: state.instanceId, willCreateDB: !!(newInstanceId && newInstanceId !== state.instanceId) });
+      console.log('[poll]', {
+        newInstanceId,
+        currentInstanceId: state.instanceId,
+        willCreateDB: !!(newInstanceId && newInstanceId !== state.instanceId),
+      });
 
       // Detect instanceId change (server restart)
       if (newInstanceId && newInstanceId !== state.instanceId) {

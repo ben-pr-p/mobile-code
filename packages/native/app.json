@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobilecode",
-    "slug": "mobilecode",
+    "name": "flockcode",
+    "slug": "flockcode",
     "version": "1.1.1",
     "web": {
       "favicon": "./assets/favicon.png",
@@ -10,7 +10,7 @@
     "experiments": {
       "tsconfigPaths": true
     },
-    "scheme": "mobilecode",
+    "scheme": "flockcode",
     "plugins": [
       "expo-router",
       [
@@ -32,7 +32,7 @@
     "ios": {
       "supportsTablet": true,
       "buildNumber": "6",
-      "bundleIdentifier": "xyz.bprp.mobilecode",
+      "bundleIdentifier": "xyz.bprp.flockcode",
       "appleTeamId": "UX4LJ86VY7",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,

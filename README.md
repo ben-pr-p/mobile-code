@@ -1,6 +1,6 @@
 # Issues
 
-Tracking bugs and improvements for the mobile-agents project.
+Tracking bugs and improvements for the flockcode project.
 
 - [ ] Project sidebar date is not updated when I start a session
 - [x] Creating a new session starts it in the root directory

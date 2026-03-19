@@ -1,6 +1,6 @@
 # Sprite Setup
 
-One-time setup for the Fly Sprite used by `mobilecode sync`.
+One-time setup for the Fly Sprite used by `flockcode sync`.
 
 ## Prerequisites
 
@@ -46,7 +46,7 @@ sprite exec -- ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 ## 3. Environment variables
 
-The `mobilecode sync` command requires these environment variables on the machine running the server (your local machine, not the Sprite):
+The `flockcode sync` command requires these environment variables on the machine running the server (your local machine, not the Sprite):
 
 | Variable | Required | Description |
 |----------|----------|-------------|

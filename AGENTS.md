@@ -1,11 +1,11 @@
-# mobile-agents — Agent Guide
+# flockcode — Agent Guide
 
 A monorepo for a mobile AI coding agent client and its backend server.
 
 ## Monorepo Structure
 
 ```
-mobile-agents/
+flockcode/
 ├── packages/
 │   ├── native/    # React Native (Expo) mobile client
 │   └── server/    # Hono API server (Bun runtime)
@@ -23,7 +23,7 @@ bun install          # install all workspace dependencies from root
 
 ## Packages
 
-### `@mobile-agents/native` — Mobile Client
+### `@flockcode/native` — Mobile Client
 
 React Native (Expo 54) app with NativeWind styling. Voice-first interface for interacting with an AI coding agent.
 
@@ -35,7 +35,7 @@ bun run start        # start Expo dev server
 
 See `packages/native/AGENTS.md` for detailed native app docs.
 
-### `@mobile-agents/server` — API Server
+### `@flockcode/server` — API Server
 
 Hono HTTP server running on Bun.
 
@@ -70,12 +70,12 @@ The `gh` CLI is installed via Homebrew. Use the full path since it may not be on
 /opt/homebrew/bin/gh
 ```
 
-Use this for issue management, PR creation, and other GitHub operations. The repo is `ben-pr-p/mobile-code`.
+Use this for issue management, PR creation, and other GitHub operations. The repo is `ben-pr-p/flockcode`.
 
 ```sh
-/opt/homebrew/bin/gh issue list --repo ben-pr-p/mobile-code
-/opt/homebrew/bin/gh issue create --repo ben-pr-p/mobile-code --title "Title" --body "Body"
-/opt/homebrew/bin/gh issue close 123 --repo ben-pr-p/mobile-code --reason completed
+/opt/homebrew/bin/gh issue list --repo ben-pr-p/flockcode
+/opt/homebrew/bin/gh issue create --repo ben-pr-p/flockcode --title "Title" --body "Body"
+/opt/homebrew/bin/gh issue close 123 --repo ben-pr-p/flockcode --reason completed
 ```
 
 ## Conventions

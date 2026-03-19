@@ -175,10 +175,10 @@ No changes to `app.ts` for now — the API endpoint can be added later by callin
 
 ```sh
 # Run sync
-mobilecode sync
+flockcode sync
 
 # Dry run — show what would happen without making changes
-mobilecode sync --dry-run
+flockcode sync --dry-run
 ```
 
 Output:

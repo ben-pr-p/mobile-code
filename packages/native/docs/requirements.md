@@ -1,4 +1,4 @@
-# opencode-rn — Product Requirements
+# flockcode — Product Requirements
 
 A React Native mobile client for [opencode](https://github.com/sst/opencode), the AI coding agent. The app provides a voice-first interface for interacting with the opencode agent while coding, designed for use away from the keyboard (e.g. walking, commuting, with headphones).
 
@@ -22,7 +22,7 @@ A slide-in panel from the left edge. Lists all past and active sessions.
 - Each row shows:
   - Status dot (green = active, grey = idle)
   - Session name (derived from first message or git branch context)
-  - Project name + relative timestamp (e.g. `opencode-rn · 2m ago`)
+  - Project name + relative timestamp (e.g. `flockcode · 2m ago`)
   - `···` overflow menu on the active/hovered row
 - Section divider: "EARLIER" groups older sessions
 
@@ -39,7 +39,7 @@ The primary screen. Shows the active session's chat and voice input.
 
 **Header**
 - Hamburger icon (left) — opens Sessions sidebar
-- Session/project indicator: green dot + project name (e.g. `opencode-rn`)
+- Session/project indicator: green dot + project name (e.g. `flockcode`)
 - Folder/project icon (right) — opens Projects sidebar
 
 **Session Info Bar**
@@ -81,7 +81,7 @@ A slide-in panel from the right edge. Lists all projects.
 - Each project card shows:
   - Colored avatar with initial letter
   - Project name
-  - Filesystem path (e.g. `~/projects/opencode-rn`)
+  - Filesystem path (e.g. `~/projects/flockcode`)
   - Session count + active badge (e.g. `3 sessions · 1 active`)
   - `+ New session` button (shown on the active/selected project)
   - `···` overflow menu
@@ -254,7 +254,7 @@ On iPad Mini (and larger iPads) in landscape orientation, the app switches to a 
 
 - **Left panel**: ~50% width. Shows contextual content: diff view, tool detail, or Settings.
 - **Right panel**: ~50% width. Always shows the active chat session (Session tab + Changes tab) and the voice input area.
-- **Global header**: Spans full width. Left: hamburger menu icon + project name (`opencode-rn`). Right: notification bell icon + settings gear icon.
+- **Global header**: Spans full width. Left: hamburger menu icon + project name (`flockcode`). Right: notification bell icon + settings gear icon.
 - **Subheader bar**: Below header, shows branch + timestamp (e.g. `Pull from main · 2m ago`) and a close/collapse button (`×`) for the left panel.
 
 ### Sidebar Overlays (iPad)

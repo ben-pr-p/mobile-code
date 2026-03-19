@@ -63,11 +63,6 @@ function ProjectIndexContent({
   const { openRightDrawer } = useRightDrawer();
   const hasNavigated = useRef(false);
 
-  console.log({
-    projectId,
-    sessions,
-  });
-
   useEffect(() => {
     if (hasNavigated.current) return;
     // Wait until we have a definitive answer from the streams

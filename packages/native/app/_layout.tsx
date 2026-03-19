@@ -38,7 +38,6 @@ export default function RootLayout() {
   // useGlobalSearchParams reads params from the currently focused child route,
   // since this root layout is a parent of all routes that define projectId.
   const params = useGlobalSearchParams<{ projectId?: string }>();
-  console.log({ params });
   const settings = useSettings();
 
   // Right drawer (projects) state

@@ -1,5 +1,5 @@
 {
-  "name": "@mobile-agents/native",
+  "name": "@flockcode/native",
   "version": "1.1.1",
   "scripts": {
     "android": "expo run:android",

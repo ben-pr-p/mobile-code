@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
 /**
- * CLI entrypoint for the mobilecode tool.
+ * CLI entrypoint for the flockcode tool.
  *
  * Usage:
- *   mobilecode start     [--opencode-url <url>] [--port <port>]         — start the HTTP server
- *   mobilecode sync      [--opencode-url <url>] [--dry-run]             — sync projects to Fly Sprite
- *   mobilecode configure-services [--dry-run]                            — register opencode-serve service on Sprite
+ *   flockcode start     [--opencode-url <url>] [--port <port>]         — start the HTTP server
+ *   flockcode sync      [--opencode-url <url>] [--dry-run]             — sync projects to Fly Sprite
+ *   flockcode configure-services [--dry-run]                            — register opencode-serve service on Sprite
  *                        [--opencode-port <port>] [--opencode-dir <dir>]
  */
 
@@ -126,12 +126,12 @@ if (subcommand === "start") {
   // -------------------------------------------------------------------------
   // No subcommand or unknown subcommand — print usage
   // -------------------------------------------------------------------------
-  console.log(`mobilecode — mobile AI coding agent server
+  console.log(`flockcode — mobile AI coding agent server
 
 Usage:
-  mobilecode start     [options]   Start the HTTP server
-  mobilecode sync      [options]   Sync projects to Fly Sprite
-  mobilecode configure-services [options]   Register opencode-serve service on Sprite
+  flockcode start     [options]   Start the HTTP server
+  flockcode sync      [options]   Sync projects to Fly Sprite
+  flockcode configure-services [options]   Register opencode-serve service on Sprite
 
 start options:
   --opencode-url <url>       OpenCode server URL (default: $OPENCODE_URL or http://localhost:4096)

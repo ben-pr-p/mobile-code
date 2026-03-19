@@ -6,7 +6,7 @@ const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
 
 export const FIXTURE_PROJECTS: ProjectValue[] = [
-  { id: 'proj-1', worktree: '/Users/me/dsa/opencode-rn', vcs: 'git', time: { created: NOW - 30 * DAY } },
+  { id: 'proj-1', worktree: '/Users/me/dsa/flockcode', vcs: 'git', time: { created: NOW - 30 * DAY } },
   { id: 'proj-7', worktree: '/Users/me/dsa/design-system', vcs: 'git', time: { created: NOW - 60 * DAY } },
   { id: 'proj-2', worktree: '/Users/me/dsa/canvass-map', vcs: 'git', time: { created: NOW - 90 * DAY } },
   { id: 'proj-3', worktree: '/Users/me/projects/api-server', vcs: 'git', time: { created: NOW - 20 * DAY } },

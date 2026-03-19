@@ -17,7 +17,7 @@ export const env = cleanEnv(process.env, {
 
   // --- Auth ---
   /** Bearer token for authenticating mobile clients. Optional when running locally. */
-  MOBILE_AGENTS_AUTH_TOKEN: str({ default: "" }),
+  FLOCK_AUTH_TOKEN: str({ default: "" }),
 
   // --- Gemini (transcription) ---
   /** Google / Gemini API key for audio transcription. Read by @tanstack/ai-gemini. */

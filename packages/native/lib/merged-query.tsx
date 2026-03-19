@@ -48,8 +48,6 @@ export function MergedStateQuery<T>({ query, deps = [], children }: MergedStateQ
   const resourceMap = useAtomValue(backendResourcesAtom);
   const backends = Object.values(resourceMap).filter((r) => r.db != null);
 
-  console.log({ backends, resourceMap });
-
   if (backends.length === 0) {
     return <>{children({ data: null, isLoading: true })}</>;
   }
@@ -90,7 +88,6 @@ function StateQueryAccumulator<T>({
   const db = backend.db!;
 
   const result = useLiveQuery((q) => query(db, q), [db, ...deps]);
-  console.log({ backend, result });
   const rawData = (result.data as T[] | null) ?? [];
   const tagged = rawData.map((item) => ({ ...item, backendUrl: backend.url }));
   const merged = [...accumulated, ...tagged];

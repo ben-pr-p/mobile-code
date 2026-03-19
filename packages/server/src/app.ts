@@ -45,7 +45,7 @@ export async function createApp(opencodeUrl: string) {
   const instanceId = generateInstanceId()
 
   // Persistent app state stream — survives server restarts
-  const dataDir = join(homedir(), ".local", "share", "mobile-agents")
+  const dataDir = join(homedir(), ".local", "share", "flockcode")
   const appStore = new FileBackedStreamStore({ dataDir })
   const appDs = new DurableStreamServer({ store: appStore })
   await appDs.createStream("/", { contentType: "application/json" })
@@ -85,9 +85,9 @@ export async function createApp(opencodeUrl: string) {
   const app = new Hono()
   app.use(logger())
 
-  // Optional bearer token auth — required when MOBILE_AGENTS_AUTH_TOKEN is set
+  // Optional bearer token auth — required when FLOCK_AUTH_TOKEN is set
   // (e.g., on a publicly accessible Fly Sprite). No-op when running locally.
-  const authToken = env.MOBILE_AGENTS_AUTH_TOKEN
+  const authToken = env.FLOCK_AUTH_TOKEN
   if (authToken) {
     app.use('*', async (c, next) => {
       const header = c.req.header('Authorization')

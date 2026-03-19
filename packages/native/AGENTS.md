@@ -1,4 +1,4 @@
-# opencode-rn — Agent Guide
+# flockcode — Agent Guide
 
 A React Native (Expo) mobile client for [opencode](https://github.com/sst/opencode), the AI coding agent. Voice-first interface for interacting with the opencode agent away from the keyboard.
 
@@ -33,7 +33,7 @@ bun run format       # eslint --fix + prettier --write
 ## Project Structure
 
 ```
-opencode-rn/
+flockcode/
 ├── App.tsx                  # root component
 ├── components/              # shared UI components
 ├── assets/                  # images, fonts, icons
