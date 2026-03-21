@@ -1,31 +1,26 @@
 import React, { useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MultiFileDiff, PatchDiff } from '@pierre/diffs/react'
-
-type ThemeType = 'system' | 'light' | 'dark'
-
-type DiffPayload =
-  | {
-      type: 'files'
-      oldFile: { name: string; contents: string }
-      newFile: { name: string; contents: string }
-      colorScheme?: 'light' | 'dark'
-      diffStyle?: 'split' | 'unified'
-    }
-  | {
-      type: 'patch'
-      patch: string
-      colorScheme?: 'light' | 'dark'
-      diffStyle?: 'split' | 'unified'
-    }
+import { MultiFileDiff } from '@pierre/diffs/react'
 
 declare global {
   interface Window {
     ReactNativeWebView?: {
       postMessage(data: string): void
     }
+    __INITIAL_DIFFS__?: {
+      diffs: DiffData[]
+      colorScheme?: 'light' | 'dark'
+    }
   }
 }
+
+type DiffData = {
+  file: string
+  before: string
+  after: string
+}
+
+type ThemeType = 'system' | 'light' | 'dark'
 
 const THEME = { dark: 'github-dark' as const, light: 'github-light' as const }
 
@@ -55,6 +50,10 @@ function getMimeType(filename: string): string {
   if (lower.endsWith('.bmp')) return 'image/bmp'
   if (lower.endsWith('.ico')) return 'image/x-icon'
   return 'image/png'
+}
+
+function postToNative(data: Record<string, unknown>) {
+  window.ReactNativeWebView?.postMessage(JSON.stringify(data))
 }
 
 function ImageDiff({
@@ -170,41 +169,81 @@ function ImageDiff({
   )
 }
 
+/** Renders a single diff. Mounted once and kept alive — visibility controlled by parent. */
+function FileDiffPanel({ diff, themeType }: { diff: DiffData; themeType: ThemeType }) {
+  if (isImageFile(diff.file)) {
+    return <ImageDiff filename={diff.file} before={diff.before} after={diff.after} themeType={themeType} />
+  }
+
+  return (
+    <MultiFileDiff
+      oldFile={{ name: diff.file, contents: diff.before }}
+      newFile={{ name: diff.file, contents: diff.after }}
+      options={{
+        theme: THEME,
+        themeType,
+        diffStyle: 'unified',
+        disableFileHeader: true,
+        unsafeCSS: STONE_CSS,
+      }}
+    />
+  )
+}
+
 function App() {
-  const [payload, setPayload] = useState<DiffPayload | null>(null)
+  const [diffs, setDiffs] = useState<DiffData[]>([])
+  const [activeFile, setActiveFile] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
   const [themeType, setThemeType] = useState<ThemeType>('system')
 
+  // On mount, check for pre-injected data from injectedJavaScriptBeforeContentLoaded
+  useEffect(() => {
+    const initialData = window.__INITIAL_DIFFS__
+    if (initialData) {
+      setDiffs(initialData.diffs)
+      setThemeType(initialData.colorScheme ?? 'dark')
+      setLoaded(true)
+      postToNative({ type: 'loaded', files: initialData.diffs.map((d) => d.file) })
+    }
+  }, [])
+
+  // Listen for messages from React Native
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       try {
-        const data = JSON.parse(event.data)
-        if (data.type === 'setColorScheme') {
-          if (data.colorScheme === 'light' || data.colorScheme === 'dark') {
-            setThemeType(data.colorScheme)
+        const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+
+        if (msg.type === 'loadDiffs') {
+          setDiffs(msg.diffs)
+          if (msg.colorScheme === 'light' || msg.colorScheme === 'dark') {
+            setThemeType(msg.colorScheme)
           }
-        } else {
-          setPayload(data as DiffPayload)
-          if (data.colorScheme === 'light' || data.colorScheme === 'dark') {
-            setThemeType(data.colorScheme)
+          setLoaded(true)
+          postToNative({ type: 'loaded', files: (msg.diffs as DiffData[]).map((d) => d.file) })
+        } else if (msg.type === 'showFile') {
+          setActiveFile(msg.file)
+        } else if (msg.type === 'hide') {
+          setActiveFile(null)
+        } else if (msg.type === 'setColorScheme') {
+          if (msg.colorScheme === 'light' || msg.colorScheme === 'dark') {
+            setThemeType(msg.colorScheme)
           }
         }
       } catch {
-        // ignore non-JSON messages
+        // ignore parse errors
       }
     }
-
     window.addEventListener('message', handler)
-    document.addEventListener('message', handler as EventListener)
+    return () => window.removeEventListener('message', handler)
+  }, [])
 
-    // Signal to React Native that the WebView is ready
-    if (window.ReactNativeWebView) {
-      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }))
-    }
-
-    return () => {
-      window.removeEventListener('message', handler)
-      document.removeEventListener('message', handler as EventListener)
-    }
+  // Post height changes back to native for auto-resizing
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      postToNative({ type: 'resize', height: document.body.scrollHeight })
+    })
+    observer.observe(document.body)
+    return () => observer.disconnect()
   }, [])
 
   // Keep the body background in sync with the active color scheme
@@ -218,50 +257,30 @@ function App() {
     }
   }, [themeType])
 
-  // Post height changes back to native for auto-resizing
+  // Signal readiness to React Native (for cases without pre-injected data)
   useEffect(() => {
-    const observer = new ResizeObserver(() => {
-      window.ReactNativeWebView?.postMessage(
-        JSON.stringify({ type: 'resize', height: document.body.scrollHeight }),
-      )
-    })
-    observer.observe(document.body)
-    return () => observer.disconnect()
+    postToNative({ type: 'ready' })
   }, [])
 
-  if (!payload) {
-    return <div style={{ padding: 16, color: '#888' }}>Waiting for diff data...</div>
+  if (!loaded) {
+    return <div style={{ padding: 16, color: '#64748B', fontFamily: 'monospace' }}>Waiting for diffs...</div>
   }
 
-  const diffStyle = payload.diffStyle ?? 'unified'
-  const options = {
-    theme: THEME,
-    themeType,
-    diffStyle,
-    unsafeCSS: STONE_CSS,
-  } as const
-
-  if (payload.type === 'patch') {
-    return <PatchDiff patch={payload.patch} options={options} />
-  }
-
-  if (isImageFile(payload.oldFile.name)) {
-    return (
-      <ImageDiff
-        filename={payload.oldFile.name}
-        before={payload.oldFile.contents}
-        after={payload.newFile.contents}
-        themeType={themeType}
-      />
-    )
-  }
-
+  // Render ALL diffs at once. Each one is wrapped in a div that is either
+  // display:block (active) or display:none (hidden). This avoids the ~300ms
+  // React teardown/rebuild cycle when switching between files — toggling
+  // CSS display is nearly instant.
   return (
-    <MultiFileDiff
-      oldFile={payload.oldFile}
-      newFile={payload.newFile}
-      options={options}
-    />
+    <>
+      {diffs.map((diff) => (
+        <div
+          key={diff.file}
+          style={{ display: activeFile === diff.file ? 'block' : 'none' }}
+        >
+          <FileDiffPanel diff={diff} themeType={themeType} />
+        </div>
+      ))}
+    </>
   )
 }
 

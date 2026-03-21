@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useEffect, useState } from 'react'
+import React, { useCallback, useRef, useEffect, useState, useMemo } from 'react'
 import { View, StyleSheet } from 'react-native'
 import { WebView, type WebViewMessageEvent } from 'react-native-webview'
 import { useAtomValue } from 'jotai'
@@ -8,6 +8,7 @@ import type { BackendUrl } from '../state/backends'
 import { backendResourcesAtom } from '../lib/backend-streams'
 import { useBackendStateQuery } from '../lib/merged-query'
 import type { ChangeValue } from '../lib/stream-db'
+import diffViewerHtml from '../assets/diff-viewer'
 
 interface DiffWebViewProps {
   sessionId: string
@@ -17,23 +18,22 @@ interface DiffWebViewProps {
 }
 
 /**
- * A persistent WebView that loads the diff viewer shell once.
- * Diff data is fetched by the native wrapper and sent via postMessage.
- * Switch between files by changing `activeFile` — no additional network request needed.
+ * A persistent WebView that loads a locally bundled diff viewer.
+ * Initial diff data is injected before the page loads for instant rendering.
+ * Subsequent updates are sent via postMessage — no network requests or reloads.
  */
 export function DiffWebView({ sessionId, backendUrl, activeFile }: DiffWebViewProps) {
   const resources = useAtomValue(backendResourcesAtom)
   const backendRes = resources[backendUrl]
   const api = backendRes?.api
-  const serverUrl = backendUrl.replace(/\/$/, '')
   const { colorScheme } = useColorScheme()
   const webViewRef = useRef<WebView>(null)
   const [isLoaded, setIsLoaded] = useState(false)
   const pendingFileRef = useRef<string | null>(null)
   const lastFetchedSessionRef = useRef<string | null>(null)
-
-  // Static shell — no session param
-  const uri = `${serverUrl}/diff`
+  const [diffs, setDiffs] = useState<Array<{ file: string; before: string; after: string }> | null>(
+    null
+  )
 
   // Watch changes from the stream to know when to refetch diffs
   const { data: changeResults } = useBackendStateQuery<ChangeValue>(
@@ -51,27 +51,46 @@ export function DiffWebView({ sessionId, backendUrl, activeFile }: DiffWebViewPr
     webViewRef.current?.injectJavaScript(js)
   }, [])
 
-  // Fetch full diff content and send to WebView whenever changes update
+  // Fetch full diff content whenever changes update
   useEffect(() => {
-    if (!isLoaded || !sessionId || sessionId === 'new' || !api) return
+    if (!sessionId || sessionId === 'new' || !api) return
 
-    const filesKey = changeValue?.files
-      ?.map((f) => `${f.path}:${f.status}:${f.added}:${f.removed}`)
-      .join(',') ?? ''
+    // Build a cache key from the files summary so any change triggers a refetch
+    const filesKey =
+      changeValue?.files
+        ?.map((f) => `${f.path}:${f.status}:${f.added}:${f.removed}`)
+        .join(',') ?? ''
     const cacheKey = `${sessionId}:${filesKey}`
     if (lastFetchedSessionRef.current === cacheKey) return
     lastFetchedSessionRef.current = cacheKey
 
-    api.api.diffs.$get({ query: { session: sessionId } })
-      .then(async (res) => {
+    api.api.diffs
+      .$get({ query: { session: sessionId } })
+      .then(async (res: Response) => {
         if (!res.ok) return
-        const diffs = await res.json()
-        sendMessage({ type: 'loadDiffs', diffs, colorScheme: colorScheme ?? 'dark' })
+        const fetchedDiffs = await res.json()
+        setDiffs(fetchedDiffs as Array<{ file: string; before: string; after: string }>)
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error('[DiffWebView] fetch diffs failed:', err)
       })
-  }, [isLoaded, sessionId, changeValue, api, sendMessage, colorScheme])
+  }, [sessionId, changeValue, api])
+
+  // When diffs change and WebView is loaded, send them via postMessage
+  useEffect(() => {
+    if (isLoaded && diffs) {
+      sendMessage({ type: 'loadDiffs', diffs, colorScheme: colorScheme ?? 'dark' })
+    }
+  }, [diffs, isLoaded, sendMessage, colorScheme])
+
+  // Inject initial diffs before page load for instant rendering
+  const injectedJs = useMemo(() => {
+    if (!diffs) return undefined
+    return `window.__INITIAL_DIFFS__ = ${JSON.stringify({
+      diffs,
+      colorScheme: colorScheme ?? 'dark',
+    })}; true;`
+  }, [diffs, colorScheme])
 
   // Sync color scheme changes to the WebView
   useEffect(() => {
@@ -112,8 +131,9 @@ export function DiffWebView({ sessionId, backendUrl, activeFile }: DiffWebViewPr
     <View style={styles.container}>
       <WebView
         ref={webViewRef}
-        source={{ uri }}
+        source={{ html: diffViewerHtml }}
         originWhitelist={['*']}
+        injectedJavaScriptBeforeContentLoaded={injectedJs}
         onMessage={onMessage}
         javaScriptEnabled
         scrollEnabled

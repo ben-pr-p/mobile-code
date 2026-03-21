@@ -1,15 +1,37 @@
 /**
  * Build the WebView diff viewer bundle.
  *
- * Produces a TypeScript module that exports the self-contained HTML string
- * used by DiffWebView. Run with: bun scripts/build-webview-html.ts
+ * Bundles webview-diff/index.tsx into a single self-contained HTML file with
+ * all JS inlined, then exports it as a TypeScript string constant. The output
+ * at assets/diff-viewer.ts is gitignored and imported by DiffWebView.
+ *
+ * Uses a Bun plugin to alias "shiki" to a slim shim (webview-diff/slim-shiki.js)
+ * that only includes the languages and themes we need, reducing the bundle
+ * from ~10MB to ~3MB.
+ *
+ * Run with: bun scripts/build-webview-html.ts
  */
+
+import { resolve } from 'path'
+
+const shimPath = resolve(import.meta.dir, '../webview-diff/slim-shiki.js')
 
 const result = await Bun.build({
   entrypoints: ['webview-diff/index.tsx'],
-  outdir: 'webview-diff/dist',
   target: 'browser',
   minify: true,
+  plugins: [
+    {
+      name: 'slim-shiki',
+      setup(build) {
+        build.onResolve({ filter: /^shiki$/ }, (args) => {
+          // Don't redirect when imported from the shim itself
+          if (args.importer?.includes('slim-shiki')) return
+          return { path: shimPath }
+        })
+      },
+    },
+  ],
 })
 
 if (!result.success) {
@@ -20,7 +42,7 @@ if (!result.success) {
   process.exit(1)
 }
 
-const rawJs = await Bun.file('webview-diff/dist/index.js').text()
+const rawJs = await result.outputs[0].text()
 
 // Escape </script> inside the JS so it doesn't break the enclosing <script> tag
 const js = rawJs.replaceAll('</script>', '<\\/script>')
@@ -32,7 +54,7 @@ const html = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #FAFAF9; font-family: monospace; overflow-x: hidden; }
+    body { background: #FAFAF9; font-family: monospace; overflow-x: hidden; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     @media (prefers-color-scheme: dark) { body { background: #0C0A09; } }
   </style>
 </head>
@@ -43,8 +65,9 @@ const html = `<!DOCTYPE html>
 </html>`
 
 await Bun.write(
-  'webview-diff/dist/diff-viewer.ts',
+  'assets/diff-viewer.ts',
   `// Auto-generated — do not edit. Run: bun scripts/build-webview-html.ts\nexport default ${JSON.stringify(html)};\n`,
 )
 
-console.log('Built webview-diff/dist/diff-viewer.ts')
+const sizeMB = (html.length / 1024 / 1024).toFixed(1)
+console.log(`Built assets/diff-viewer.ts (${sizeMB} MB)`)
