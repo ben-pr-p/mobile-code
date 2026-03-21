@@ -4,3 +4,4 @@ node_modules/
 .maestro/
 *.crt
 packages/server/src/diff-page/dist
+branding/
