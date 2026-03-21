@@ -24,3 +24,6 @@ android
 
 # Maestro screenshots
 .maestro/screenshots/*.png
+
+# Built WebView diff viewer bundle (run: bun scripts/build-webview-html.ts)
+assets/diff-viewer.ts
