@@ -9,7 +9,8 @@
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
     "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
     "web": "expo start --web",
-    "build:webview": "bun scripts/build-webview-html.ts"
+    "build:webview": "bun scripts/build-webview-html.ts",
+    "eas-build-post-install": "bun scripts/build-webview-html.ts"
   },
   "dependencies": {
     "@durable-streams/state": "^0.2.2",

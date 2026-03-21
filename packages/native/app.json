@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "flockcode",
-    "slug": "flockcode",
+    "slug": "mobilecode",
     "version": "1.1.1",
     "web": {
       "favicon": "./assets/favicon.png",
@@ -28,7 +28,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "buildNumber": "7",
@@ -55,8 +57,6 @@
       },
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
@@ -71,6 +71,7 @@
     },
     "updates": {
       "url": "https://u.expo.dev/719928ca-dbdf-4b64-8cc5-8e14acaf11b9"
-    }
+    },
+    "owner": "bprp"
   }
 }
