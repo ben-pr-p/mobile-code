@@ -20,6 +20,7 @@ import {
   Check,
   Monitor,
   Cloud,
+  AlertTriangle,
 } from 'lucide-react-native';
 import { useAtom, useAtomValue } from 'jotai/react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -40,6 +41,7 @@ import type {
   SessionStatusValue,
   SessionMetaValue,
   WorktreeStatusValue,
+  PermissionRequestValue,
   ProjectValue,
 } from '../lib/stream-db';
 import type { Message as ServerMessage } from '../../server/src/types';
@@ -156,18 +158,26 @@ export function SessionsSidebar({
                                 q.from({ sessionMeta: db.collections.sessionMeta })
                               }>
                               {({ data: sessionMetas }) => (
-                                <SessionListContent
-                                  projectId={projectId}
-                                  selectedSessionId={selectedSessionId}
-                                  onSelectSession={handleSelectSession}
-                                  onNewSession={handleNewSession}
-                                  allSessions={allSessions}
-                                  sessionStatuses={sessionStatuses}
-                                  worktreeStatuses={worktreeStatuses}
-                                  allMessages={allMessages}
-                                  allProjects={allProjects}
-                                  sessionMetas={sessionMetas}
-                                />
+                                <MergedEphemeralStateQuery<PermissionRequestValue>
+                                  query={(db, q) =>
+                                    q.from({ permissionRequests: db.collections.permissionRequests })
+                                  }>
+                                  {({ data: pendingPermissions }) => (
+                                    <SessionListContent
+                                      projectId={projectId}
+                                      selectedSessionId={selectedSessionId}
+                                      onSelectSession={handleSelectSession}
+                                      onNewSession={handleNewSession}
+                                      allSessions={allSessions}
+                                      sessionStatuses={sessionStatuses}
+                                      worktreeStatuses={worktreeStatuses}
+                                      allMessages={allMessages}
+                                      allProjects={allProjects}
+                                      sessionMetas={sessionMetas}
+                                      pendingPermissions={pendingPermissions}
+                                    />
+                                  )}
+                                </MergedEphemeralStateQuery>
                               )}
                             </MergedAppStateQuery>
                           )}
@@ -212,11 +222,17 @@ export function SessionsSidebar({
   );
 }
 
-function SessionStatusDot({ status }: { status: SessionStatusValue['status'] }) {
+function SessionStatusDot({
+  status,
+  hasPendingPermission,
+}: {
+  status: SessionStatusValue['status'];
+  hasPendingPermission?: boolean;
+}) {
   const opacity = useSharedValue(1);
 
   useEffect(() => {
-    if (status === 'busy') {
+    if (hasPendingPermission || status === 'busy') {
       opacity.value = withRepeat(
         withTiming(0.4, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
         -1,
@@ -225,11 +241,20 @@ function SessionStatusDot({ status }: { status: SessionStatusValue['status'] }) 
     } else {
       opacity.value = withTiming(1, { duration: 200 });
     }
-  }, [status, opacity]);
+  }, [status, hasPendingPermission, opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
   }));
+
+  // Pending permission takes priority — pulsing amber warning triangle
+  if (hasPendingPermission) {
+    return (
+      <Animated.View style={[animatedStyle, { width: 8, height: 8, alignItems: 'center', justifyContent: 'center' }]}>
+        <AlertTriangle size={10} color="#F59E0B" fill="#F59E0B" />
+      </Animated.View>
+    );
+  }
 
   const colorClass =
     status === 'busy'
@@ -299,6 +324,8 @@ interface SessionRowProps {
   isSelected: boolean;
   isPinned: boolean;
   sessionStatus: SessionStatusValue['status'];
+  /** Whether this session has a pending permission request requiring user attention. */
+  hasPendingPermission?: boolean;
   worktreeStatus?: WorktreeStatusValue;
   /** Agent name used for this session (e.g. "build", "plan"). */
   agentName?: string;
@@ -369,6 +396,7 @@ function SessionRow({
   isSelected,
   isPinned,
   sessionStatus,
+  hasPendingPermission,
   worktreeStatus,
   agentName,
   onPress,
@@ -456,7 +484,7 @@ function SessionRow({
             : ''
         }`}>
         {/* Status dot — always visible */}
-        <SessionStatusDot status={sessionStatus} />
+        <SessionStatusDot status={sessionStatus} hasPendingPermission={hasPendingPermission} />
         {/* Metadata icons */}
         {isPinned && <Pin size={12} color={pinColor} className="-ml-1" />}
         {isSubSession && <GitBranch size={12} color={subSessionIconColor} className="-ml-1" />}
@@ -525,6 +553,7 @@ function SessionListContent({
   allMessages,
   allProjects,
   sessionMetas,
+  pendingPermissions,
 }: {
   projectId: string;
   selectedSessionId: string | null;
@@ -537,6 +566,7 @@ function SessionListContent({
   allMessages: WithBackendUrl<ServerMessage>[] | null;
   allProjects: WithBackendUrl<ProjectValue>[] | null;
   sessionMetas: WithBackendUrl<SessionMetaValue>[] | null;
+  pendingPermissions: WithBackendUrl<PermissionRequestValue>[] | null;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
@@ -661,6 +691,14 @@ function SessionListContent({
     }
     return map;
   }, [worktreeStatuses]);
+
+  const permissionSessionIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const pr of pendingPermissions ?? []) {
+      set.add(pr.sessionId);
+    }
+    return set;
+  }, [pendingPermissions]);
 
   const agentBySession = useMemo(() => {
     const map = new Map<string, string>();
@@ -910,6 +948,7 @@ function SessionListContent({
                     isSelected={node.session.id === selectedSessionId}
                     isPinned={pinnedSet.has(node.session.id)}
                     sessionStatus={sessionStatusBySession.get(node.session.id) ?? 'idle'}
+                    hasPendingPermission={permissionSessionIds.has(node.session.id)}
                     worktreeStatus={worktreeStatusBySession.get(node.session.id)}
                     onPress={onSelectSession}
                     onOverflow={handleOverflow}
@@ -936,6 +975,7 @@ function SessionListContent({
               isSelected={node.session.id === selectedSessionId}
               isPinned={pinnedSet.has(node.session.id)}
               sessionStatus={sessionStatusBySession.get(node.session.id) ?? 'idle'}
+              hasPendingPermission={permissionSessionIds.has(node.session.id)}
               worktreeStatus={worktreeStatusBySession.get(node.session.id)}
               agentName={agentBySession.get(node.session.id)}
               onPress={onSelectSession}
@@ -956,6 +996,7 @@ function SessionListContent({
                   isSelected={child.id === selectedSessionId}
                   isPinned={pinnedSet.has(child.id)}
                   sessionStatus={sessionStatusBySession.get(child.id) ?? 'idle'}
+                  hasPendingPermission={permissionSessionIds.has(child.id)}
                   worktreeStatus={worktreeStatusBySession.get(child.id)}
                   agentName={agentBySession.get(child.id)}
                   onPress={onSelectSession}
@@ -996,6 +1037,7 @@ function SessionListContent({
                     isSelected={node.session.id === selectedSessionId}
                     isPinned={pinnedSet.has(node.session.id)}
                     sessionStatus={sessionStatusBySession.get(node.session.id) ?? 'idle'}
+                    hasPendingPermission={permissionSessionIds.has(node.session.id)}
                     worktreeStatus={worktreeStatusBySession.get(node.session.id)}
                     agentName={agentBySession.get(node.session.id)}
                     onPress={onSelectSession}
@@ -1017,6 +1059,7 @@ function SessionListContent({
                         isSelected={child.id === selectedSessionId}
                         isPinned={pinnedSet.has(child.id)}
                         sessionStatus={sessionStatusBySession.get(child.id) ?? 'idle'}
+                        hasPendingPermission={permissionSessionIds.has(child.id)}
                         worktreeStatus={worktreeStatusBySession.get(child.id)}
                         agentName={agentBySession.get(child.id)}
                         onPress={onSelectSession}
