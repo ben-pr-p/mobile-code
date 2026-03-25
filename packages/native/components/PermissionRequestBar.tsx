@@ -35,6 +35,7 @@ export function PermissionRequestBar({ permission, backendUrl }: PermissionReque
       try {
         await api.permissions.reply({
           requestId: permission.requestId,
+          sessionId: permission.sessionId,
           reply,
         });
       } catch (err) {
