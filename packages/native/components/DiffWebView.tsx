@@ -6,7 +6,7 @@ import { eq } from '@tanstack/react-db'
 import { useColorScheme } from 'nativewind'
 import type { BackendUrl } from '../state/backends'
 import { backendResourcesAtom } from '../lib/backend-streams'
-import { useBackendStateQuery } from '../lib/merged-query'
+import { useBackendEphemeralStateQuery } from '../lib/merged-query'
 import type { ChangeValue } from '../lib/stream-db'
 import { lineSelectionAtom } from '../state/line-selection'
 import diffViewerHtml from '../assets/diff-viewer'
@@ -41,8 +41,8 @@ export function DiffWebView({ sessionId, backendUrl, activeFile }: DiffWebViewPr
   const lineSelection = useAtomValue(lineSelectionAtom)
   const prevLineSelectionRef = useRef(lineSelection)
 
-  // Watch changes from the stream to know when to refetch diffs
-  const { data: changeResults } = useBackendStateQuery<ChangeValue>(
+  // Watch changes from the ephemeral stream to know when to refetch diffs
+  const { data: changeResults } = useBackendEphemeralStateQuery<ChangeValue>(
     backendUrl,
     (db, q) =>
       q

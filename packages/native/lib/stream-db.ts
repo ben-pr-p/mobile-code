@@ -1,15 +1,18 @@
 export {
   flattenServerMessage,
   stateSchema,
+  ephemeralStateSchema,
   appStateSchema,
 };
 export type {
   ProjectValue,
   SessionValue,
+  SessionStatusValue,
   ChangeValue,
   WorktreeStatusValue,
   SessionMetaValue,
   StateDB,
+  EphemeralStateDB,
   AppStateDB,
   UIMessage,
   ToolMeta,
@@ -49,6 +52,10 @@ type SessionValue = {
   summary?: { additions: number; deletions: number; files: number };
   share?: { url: string };
   time: { created: number; updated: number };
+};
+
+type SessionStatusValue = {
+  sessionId: string;
   status: 'idle' | 'busy' | 'error';
   error?: string;
 };
@@ -83,6 +90,26 @@ const stateDef = {
     primaryKey: 'id' as const,
   },
   messages: { schema: passthrough<Message>(), type: 'message' as const, primaryKey: 'id' as const },
+};
+
+type StateDef = typeof stateDef;
+type StateDB = StreamDB<StateDef>;
+
+const stateSchema = createStateSchema(stateDef);
+
+// --- Ephemeral state (session status, in-progress messages, worktree status) ---
+
+const ephemeralStateDef = {
+  sessionStatuses: {
+    schema: passthrough<SessionStatusValue>(),
+    type: 'sessionStatus' as const,
+    primaryKey: 'sessionId' as const,
+  },
+  messages: {
+    schema: passthrough<Message>(),
+    type: 'message' as const,
+    primaryKey: 'id' as const,
+  },
   changes: {
     schema: passthrough<ChangeValue>(),
     type: 'change' as const,
@@ -95,10 +122,10 @@ const stateDef = {
   },
 };
 
-type StateDef = typeof stateDef;
-type StateDB = StreamDB<StateDef>;
+type EphemeralStateDef = typeof ephemeralStateDef;
+type EphemeralStateDB = StreamDB<EphemeralStateDef>;
 
-const stateSchema = createStateSchema(stateDef);
+const ephemeralStateSchema = createStateSchema(ephemeralStateDef);
 
 // --- Persistent app state (archive status, etc.) ---
 

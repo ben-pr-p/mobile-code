@@ -22,6 +22,7 @@ const client = createClient("http://localhost:4096")
 const context: RouterContext = {
   client,
   appDs: {} as any,
+  ephemeralDs: {} as any,
   sessionWorktrees: new Map(),
   stateStream: {} as any,
 }
@@ -112,5 +113,35 @@ describe("diffs.list", () => {
       expect(typeof diff.before).toBe("string")
       expect(typeof diff.after).toBe("string")
     }
+  })
+})
+
+describe("snapshot.ephemeral", () => {
+  test("returns { offset, sessionStatuses, worktreeStatuses }", async () => {
+    // The snapshot procedure reads from the in-memory StateStream,
+    // not the OpenCode API. Use a mock with getEphemeralSnapshot.
+    const snapshotContext: RouterContext = {
+      client,
+      appDs: {} as any,
+      ephemeralDs: {} as any,
+      sessionWorktrees: new Map(),
+      stateStream: {
+        getEphemeralSnapshot: () => ({
+          offset: 0,
+          sessionStatuses: {},
+          worktreeStatuses: {},
+        }),
+      } as any,
+    }
+
+    const snapshotApi = createRouterClient(router, { context: snapshotContext })
+    const result = await snapshotApi.snapshot.ephemeral()
+
+    expect(result).toHaveProperty("offset")
+    expect(result).toHaveProperty("sessionStatuses")
+    expect(result).toHaveProperty("worktreeStatuses")
+    expect(typeof result.offset).toBe("number")
+    expect(typeof result.sessionStatuses).toBe("object")
+    expect(typeof result.worktreeStatuses).toBe("object")
   })
 })

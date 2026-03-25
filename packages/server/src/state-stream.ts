@@ -6,8 +6,11 @@ import { mapMessage, mapPart } from "./opencode"
 import type { Message, MessagePart, ChangedFile } from "./types"
 import { WorktreeDriver } from "./worktree"
 
+type InstanceEventType = "project" | "session" | "message"
+type EphemeralEventType = "sessionStatus" | "message" | "change" | "worktreeStatus"
+
 type StateEvent = {
-  type: "project" | "session" | "message" | "change" | "worktreeStatus"
+  type: InstanceEventType | EphemeralEventType
   key: string
   value?: unknown
   headers: { operation: "insert" | "update" | "upsert" | "delete" }
@@ -19,7 +22,8 @@ export type SessionWorktreeMap = Map<string, { worktreePath: string; projectWork
 type SessionStatus = "idle" | "busy" | "error"
 
 class StateStream implements StateStreamSink {
-  #ds: DurableStreamServer
+  #instanceDs: DurableStreamServer
+  #ephemeralDs: DurableStreamServer
   #client: OpencodeClient
   #messages: Map<string, Message> = new Map()
   #sessionDirectories: Map<string, string> = new Map()
@@ -27,19 +31,21 @@ class StateStream implements StateStreamSink {
   #lastEmittedSessions: Map<string, any> = new Map()
   #sessionWorktrees: SessionWorktreeMap
 
-  constructor(ds: DurableStreamServer, client: OpencodeClient, sessionWorktrees: SessionWorktreeMap) {
-    this.#ds = ds
+  constructor(instanceDs: DurableStreamServer, ephemeralDs: DurableStreamServer, client: OpencodeClient, sessionWorktrees: SessionWorktreeMap) {
+    this.#instanceDs = instanceDs
+    this.#ephemeralDs = ephemeralDs
     this.#client = client
     this.#sessionWorktrees = sessionWorktrees
   }
 
   async initialize() {
-    await this.#ds.createStream("/", { contentType: "application/json" })
+    await this.#instanceDs.createStream("/", { contentType: "application/json" })
+    await this.#ephemeralDs.createStream("/", { contentType: "application/json" })
 
     // Load all projects
     const projects = await this.#client.project.list()
     for (const project of projects.data ?? []) {
-      this.#appendEvent({
+      this.#appendInstanceEvent({
         type: "project",
         key: project.id,
         value: mapProject(project),
@@ -92,7 +98,7 @@ class StateStream implements StateStreamSink {
       for (const raw of msgs.data ?? []) {
         const msg = mapMessage(raw)
         this.#messages.set(msg.id, msg)
-        this.#appendEvent({
+        this.#appendInstanceEvent({
           type: "message",
           key: msg.id,
           value: msg,
@@ -144,7 +150,7 @@ class StateStream implements StateStreamSink {
     this.#sessionDirectories.delete(info.id)
     this.#sessionStatuses.delete(info.id)
     this.#lastEmittedSessions.delete(info.id)
-    this.#appendEvent({
+    this.#appendInstanceEvent({
       type: "session",
       key: info.id,
       headers: { operation: "delete" },
@@ -172,7 +178,8 @@ class StateStream implements StateStreamSink {
   }
 
   sessionDiff(sessionId: string, diff: any[]) {
-    this.#appendEvent({
+    // Live diff during active work — ephemeral, not finalized
+    this.#appendEphemeralEvent({
       type: "change",
       key: sessionId,
       value: { sessionId, files: this.#mapChanges(diff) },
@@ -240,12 +247,16 @@ class StateStream implements StateStreamSink {
         this.#setSessionStatus(info.sessionID, "busy")
       }
     }
-    this.#emitMessage(info.id)
+
+    // Finalized messages (user messages, or assistant messages with finish signal)
+    // go to the instance stream. In-progress assistant messages go to ephemeral.
+    const isFinalized = info.role === "user" || !!info.finish
+    this.#emitMessage(info.id, isFinalized ? "instance" : "ephemeral")
   }
 
   messageRemoved(_sessionId: string, messageId: string) {
     this.#messages.delete(messageId)
-    this.#appendEvent({
+    this.#appendInstanceEvent({
       type: "message",
       key: messageId,
       headers: { operation: "delete" },
@@ -262,7 +273,8 @@ class StateStream implements StateStreamSink {
     } else {
       msg.parts.push(mapped)
     }
-    this.#emitMessage(part.messageID)
+    // Part updates are in-progress — ephemeral
+    this.#emitMessage(part.messageID, "ephemeral")
 
     // Refresh worktree status when a file-editing tool completes.
     // For bash, do a full refresh since it can run git commands that change
@@ -287,7 +299,8 @@ class StateStream implements StateStreamSink {
     const part = msg.parts.find((p) => p.id === partId)
     if (part && field === "text" && "text" in part) {
       ;(part as { text: string }).text = (part.text ?? "") + delta
-      this.#emitMessage(messageId)
+      // Streaming deltas — ephemeral
+      this.#emitMessage(messageId, "ephemeral")
     }
   }
 
@@ -295,7 +308,8 @@ class StateStream implements StateStreamSink {
     const msg = this.#messages.get(messageId)
     if (!msg) return
     msg.parts = msg.parts.filter((p) => p.id !== partId)
-    this.#emitMessage(messageId)
+    // Part removal — ephemeral
+    this.#emitMessage(messageId, "ephemeral")
   }
 
   permissionUpdated(_permission: any) {
@@ -314,42 +328,66 @@ class StateStream implements StateStreamSink {
     // No-op for now
   }
 
+  // --- Snapshot ---
+
+  /**
+   * Returns the materialized ephemeral state for client bootstrapping.
+   *
+   * The client fetches this before subscribing to the ephemeral stream,
+   * then subscribes from the returned offset to avoid missing events.
+   * Since Bun is single-threaded, the offset and map reads are consistent.
+   */
+  getEphemeralSnapshot(): {
+    offset: number
+    sessionStatuses: Record<string, { status: SessionStatus; error?: string }>
+    worktreeStatuses: Record<string, any>
+  } {
+    const { messages } = this.#ephemeralDs.readStream("/")
+    return {
+      offset: messages.length,
+      sessionStatuses: Object.fromEntries(this.#sessionStatuses),
+      worktreeStatuses: Object.fromEntries(this.#lastWorktreeStatus),
+    }
+  }
+
   // --- Internal helpers ---
 
-  #emitMessage(messageId: string) {
+  #emitMessage(messageId: string, target: "instance" | "ephemeral") {
     const msg = this.#messages.get(messageId)
     if (!msg) return
-    this.#appendEvent({
+    const event: StateEvent = {
       type: "message",
       key: messageId,
       value: msg,
       headers: { operation: "upsert" },
-    })
+    }
+    if (target === "instance") {
+      this.#appendInstanceEvent(event)
+    } else {
+      this.#appendEphemeralEvent(event)
+    }
   }
 
+  /** Emit session metadata to the instance stream (no status — that's ephemeral). */
   #emitSession(sessionId: string, sessionData: any, operation: "insert" | "update") {
-    const statusInfo = this.#sessionStatuses.get(sessionId)
-    const value = {
-      ...sessionData,
-      status: statusInfo?.status ?? "idle",
-      ...(statusInfo?.error ? { error: statusInfo.error } : {}),
-    }
     this.#lastEmittedSessions.set(sessionId, sessionData)
-    this.#appendEvent({
+    this.#appendInstanceEvent({
       type: "session",
       key: sessionId,
-      value,
+      value: sessionData,
       headers: { operation },
     })
   }
 
+  /** Emit session status to the ephemeral stream. */
   #setSessionStatus(sessionId: string, status: SessionStatus, error?: string) {
     this.#sessionStatuses.set(sessionId, { status, ...(error ? { error } : {}) })
-    // Re-emit the session with the updated status using the last known session data
-    const lastSession = this.#lastEmittedSessions.get(sessionId)
-    if (lastSession) {
-      this.#emitSession(sessionId, lastSession, "update")
-    }
+    this.#appendEphemeralEvent({
+      type: "sessionStatus",
+      key: sessionId,
+      value: { sessionId, status, ...(error ? { error } : {}) },
+      headers: { operation: "upsert" },
+    })
   }
 
   async #fullMessageSync(sessionId: string) {
@@ -360,7 +398,8 @@ class StateStream implements StateStreamSink {
       for (const raw of res.data ?? []) {
         const msg = mapMessage(raw)
         this.#messages.set(msg.id, msg)
-        this.#appendEvent({
+        // Reconciliation writes finalized messages to the instance stream
+        this.#appendInstanceEvent({
           type: "message",
           key: msg.id,
           value: msg,
@@ -386,7 +425,8 @@ class StateStream implements StateStreamSink {
       const directory = this.#sessionDirectories.get(sessionId)
       const res = await this.#client.session.diff({ path: { id: sessionId }, ...(directory ? { query: { directory } } : {}) })
       if (res.error) return
-      this.#appendEvent({
+      // Finalized changes go to the ephemeral stream — only the latest matters
+      this.#appendEphemeralEvent({
         type: "change",
         key: sessionId,
         value: { sessionId, files: this.#mapChanges(res.data ?? []) },
@@ -429,7 +469,7 @@ class StateStream implements StateStreamSink {
     if (!worktreeInfo) {
       const value = { sessionId, isWorktreeSession: false }
       this.#lastWorktreeStatus.set(sessionId, value)
-      this.#appendEvent({
+      this.#appendEphemeralEvent({
         type: "worktreeStatus",
         key: sessionId,
         value,
@@ -444,7 +484,7 @@ class StateStream implements StateStreamSink {
       if (!branch) {
         const value = { sessionId, isWorktreeSession: true, error: "Could not resolve branch for worktree" }
         this.#lastWorktreeStatus.set(sessionId, value)
-        this.#appendEvent({
+        this.#appendEphemeralEvent({
           type: "worktreeStatus",
           key: sessionId,
           value,
@@ -473,7 +513,7 @@ class StateStream implements StateStreamSink {
         hasUncommittedChanges: hasUncommitted,
       }
       this.#lastWorktreeStatus.set(sessionId, value)
-      this.#appendEvent({
+      this.#appendEphemeralEvent({
         type: "worktreeStatus",
         key: sessionId,
         value,
@@ -482,7 +522,7 @@ class StateStream implements StateStreamSink {
     } catch (err: any) {
       const value = { sessionId, isWorktreeSession: true, error: err.message ?? "Failed to check worktree status" }
       this.#lastWorktreeStatus.set(sessionId, value)
-      this.#appendEvent({
+      this.#appendEphemeralEvent({
         type: "worktreeStatus",
         key: sessionId,
         value,
@@ -508,7 +548,7 @@ class StateStream implements StateStreamSink {
       const last = this.#lastWorktreeStatus.get(sessionId) ?? { sessionId, isWorktreeSession: true }
       const value = { ...last, hasUncommittedChanges: hasUncommitted }
       this.#lastWorktreeStatus.set(sessionId, value)
-      this.#appendEvent({
+      this.#appendEphemeralEvent({
         type: "worktreeStatus",
         key: sessionId,
         value,
@@ -529,9 +569,14 @@ class StateStream implements StateStreamSink {
     })
   }
 
-  #appendEvent(event: StateEvent) {
-    // console.log('Appending ', event)
-    this.#ds.appendToStream("/", JSON.stringify(event), {
+  #appendInstanceEvent(event: StateEvent) {
+    this.#instanceDs.appendToStream("/", JSON.stringify(event), {
+      contentType: "application/json",
+    })
+  }
+
+  #appendEphemeralEvent(event: StateEvent) {
+    this.#ephemeralDs.appendToStream("/", JSON.stringify(event), {
       contentType: "application/json",
     })
   }

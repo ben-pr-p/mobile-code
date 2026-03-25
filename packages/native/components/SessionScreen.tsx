@@ -11,6 +11,7 @@ import type { SessionValue, UIMessage as Message, ChangedFile, WorktreeStatusVal
 import type { RecordingState } from '../hooks/useAudioRecorder'
 import type { PendingCommand } from '../state/settings'
 import type { BackendUrl } from '../state/backends'
+import { useSessionStatus } from '../hooks/useSessionStatus'
 
 interface SessionScreenProps {
   sessionId: string
@@ -92,6 +93,7 @@ export function SessionScreen({
   onHandsFreeToggle,
   onHandsFreeLongPress,
 }: SessionScreenProps) {
+  const sessionStatus = useSessionStatus(backendUrl, sessionId)
   const insets = useSafeAreaInsets()
   const [textValue, setTextValue] = useState('')
   const router = useRouter()
@@ -155,7 +157,7 @@ export function SessionScreen({
           onStopPress={audioRecorder.cancelRecording}
           recordingState={audioRecorder.recordingState}
           modelName={modelName}
-          sessionStatus={session.status}
+          sessionStatus={sessionStatus}
           onAbort={onAbort}
           onModelPress={onModelPress}
           agentName={agentName}

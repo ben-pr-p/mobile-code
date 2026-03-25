@@ -9,9 +9,9 @@ import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate, Easing, type SharedValue } from 'react-native-reanimated';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import type { SessionValue, SessionMetaValue, WorktreeStatusValue, ProjectValue } from '../lib/stream-db';
+import type { SessionValue, SessionStatusValue, SessionMetaValue, WorktreeStatusValue, ProjectValue } from '../lib/stream-db';
 import type { Message as ServerMessage } from '../../server/src/types';
-import { MergedStateQuery, MergedAppStateQuery, type WithBackendUrl } from '../lib/merged-query';
+import { MergedStateQuery, MergedEphemeralStateQuery, MergedAppStateQuery, type WithBackendUrl } from '../lib/merged-query';
 import { backendResourcesAtom } from '../lib/backend-streams';
 import { pinnedSessionIdsAtom, pinnedProjectIdsAtom } from '../state/ui';
 import { backendsAtom, type BackendUrl, type BackendType } from '../state/backends';
@@ -98,41 +98,48 @@ export function SessionsSidebar({
           query={(db, q) => q.from({ sessions: db.collections.sessions })}
         >
           {({ data: allSessions }) => (
-            <MergedStateQuery<WorktreeStatusValue>
-              query={(db, q) => q.from({ worktreeStatuses: db.collections.worktreeStatuses })}
+            <MergedEphemeralStateQuery<SessionStatusValue>
+              query={(db, q) => q.from({ sessionStatuses: db.collections.sessionStatuses })}
             >
-              {({ data: worktreeStatuses }) => (
-                <MergedStateQuery<ServerMessage>
-                  query={(db, q) => q.from({ messages: db.collections.messages })}
+              {({ data: sessionStatuses }) => (
+                <MergedEphemeralStateQuery<WorktreeStatusValue>
+                  query={(db, q) => q.from({ worktreeStatuses: db.collections.worktreeStatuses })}
                 >
-                  {({ data: allMessages }) => (
-                    <MergedStateQuery<ProjectValue>
-                      query={(db, q) => q.from({ projects: db.collections.projects })}
+                  {({ data: worktreeStatuses }) => (
+                    <MergedStateQuery<ServerMessage>
+                      query={(db, q) => q.from({ messages: db.collections.messages })}
                     >
-                      {({ data: allProjects }) => (
-                        <MergedAppStateQuery<SessionMetaValue>
-                          query={(db, q) => q.from({ sessionMeta: db.collections.sessionMeta })}
+                      {({ data: allMessages }) => (
+                        <MergedStateQuery<ProjectValue>
+                          query={(db, q) => q.from({ projects: db.collections.projects })}
                         >
-                          {({ data: sessionMetas }) => (
-                            <SessionListContent
-                              projectId={projectId}
-                              selectedSessionId={selectedSessionId}
-                              onSelectSession={handleSelectSession}
-                              onNewSession={handleNewSession}
-                              allSessions={allSessions}
-                              worktreeStatuses={worktreeStatuses}
-                              allMessages={allMessages}
-                              allProjects={allProjects}
-                              sessionMetas={sessionMetas}
-                            />
+                          {({ data: allProjects }) => (
+                            <MergedAppStateQuery<SessionMetaValue>
+                              query={(db, q) => q.from({ sessionMeta: db.collections.sessionMeta })}
+                            >
+                              {({ data: sessionMetas }) => (
+                                <SessionListContent
+                                  projectId={projectId}
+                                  selectedSessionId={selectedSessionId}
+                                  onSelectSession={handleSelectSession}
+                                  onNewSession={handleNewSession}
+                                  allSessions={allSessions}
+                                  sessionStatuses={sessionStatuses}
+                                  worktreeStatuses={worktreeStatuses}
+                                  allMessages={allMessages}
+                                  allProjects={allProjects}
+                                  sessionMetas={sessionMetas}
+                                />
+                              )}
+                            </MergedAppStateQuery>
                           )}
-                        </MergedAppStateQuery>
+                        </MergedStateQuery>
                       )}
                     </MergedStateQuery>
                   )}
-                </MergedStateQuery>
+                </MergedEphemeralStateQuery>
               )}
-            </MergedStateQuery>
+            </MergedEphemeralStateQuery>
           )}
         </MergedStateQuery>
       ) : (
@@ -167,7 +174,7 @@ export function SessionsSidebar({
   );
 }
 
-function SessionStatusDot({ status }: { status: SessionValue['status'] }) {
+function SessionStatusDot({ status }: { status: SessionStatusValue['status'] }) {
   const opacity = useSharedValue(1);
 
   useEffect(() => {
@@ -252,7 +259,7 @@ interface SessionRowProps {
   session: TaggedSession;
   isSelected: boolean;
   isPinned: boolean;
-  sessionStatus: SessionValue['status'];
+  sessionStatus: SessionStatusValue['status'];
   worktreeStatus?: WorktreeStatusValue;
   /** Agent name used for this session (e.g. "build", "plan"). */
   agentName?: string;
@@ -410,6 +417,7 @@ function SessionListContent({
   onSelectSession,
   onNewSession,
   allSessions,
+  sessionStatuses,
   worktreeStatuses,
   allMessages,
   allProjects,
@@ -421,6 +429,7 @@ function SessionListContent({
   /** Create a new session for the given project ID. */
   onNewSession: (projectId: string) => void;
   allSessions: TaggedSession[] | null;
+  sessionStatuses: WithBackendUrl<SessionStatusValue>[] | null;
   worktreeStatuses: WithBackendUrl<WorktreeStatusValue>[] | null;
   allMessages: WithBackendUrl<ServerMessage>[] | null;
   allProjects: WithBackendUrl<ProjectValue>[] | null;
@@ -544,6 +553,14 @@ function SessionListContent({
     if (!api) return;
     await api.sessions.unarchive({ sessionId });
   }, [getApi]);
+
+  const sessionStatusBySession = useMemo(() => {
+    const map = new Map<string, SessionStatusValue['status']>();
+    for (const ss of sessionStatuses ?? []) {
+      map.set(ss.sessionId, ss.status);
+    }
+    return map;
+  }, [sessionStatuses]);
 
   const worktreeStatusBySession = useMemo(() => {
     const map = new Map<string, WorktreeStatusValue>();
@@ -805,7 +822,7 @@ function SessionListContent({
                   session={node.session}
                   isSelected={node.session.id === selectedSessionId}
                   isPinned={pinnedSet.has(node.session.id)}
-                  sessionStatus={node.session.status}
+                  sessionStatus={sessionStatusBySession.get(node.session.id) ?? 'idle'}
                   worktreeStatus={worktreeStatusBySession.get(node.session.id)}
                   onPress={onSelectSession}
                   onOverflow={handleOverflow}
@@ -829,7 +846,7 @@ function SessionListContent({
               session={node.session}
               isSelected={node.session.id === selectedSessionId}
               isPinned={pinnedSet.has(node.session.id)}
-              sessionStatus={node.session.status}
+              sessionStatus={sessionStatusBySession.get(node.session.id) ?? 'idle'}
               worktreeStatus={worktreeStatusBySession.get(node.session.id)}
               agentName={agentBySession.get(node.session.id)}
               onPress={onSelectSession}
@@ -848,7 +865,7 @@ function SessionListContent({
                   session={child}
                   isSelected={child.id === selectedSessionId}
                   isPinned={pinnedSet.has(child.id)}
-                  sessionStatus={child.status}
+                  sessionStatus={sessionStatusBySession.get(child.id) ?? 'idle'}
                   worktreeStatus={worktreeStatusBySession.get(child.id)}
                   agentName={agentBySession.get(child.id)}
                   onPress={onSelectSession}
@@ -886,7 +903,7 @@ function SessionListContent({
                   session={node.session}
                   isSelected={node.session.id === selectedSessionId}
                   isPinned={pinnedSet.has(node.session.id)}
-                  sessionStatus={node.session.status}
+                  sessionStatus={sessionStatusBySession.get(node.session.id) ?? 'idle'}
                   worktreeStatus={worktreeStatusBySession.get(node.session.id)}
                   agentName={agentBySession.get(node.session.id)}
                   onPress={onSelectSession}
@@ -906,7 +923,7 @@ function SessionListContent({
                       session={child}
                       isSelected={child.id === selectedSessionId}
                       isPinned={pinnedSet.has(child.id)}
-                      sessionStatus={child.status}
+                      sessionStatus={sessionStatusBySession.get(child.id) ?? 'idle'}
                       worktreeStatus={worktreeStatusBySession.get(child.id)}
                       agentName={agentBySession.get(child.id)}
                       onPress={onSelectSession}

@@ -1,4 +1,4 @@
-import { Hono } from "hono"
+import { Hono, type Context } from "hono"
 import { DurableStreamServer } from "durable-streams-web-standard"
 import { FileBackedStreamStore } from "@durable-streams/server"
 import { dataDir } from "@crustjs/store"
@@ -11,6 +11,15 @@ import { StateStream } from "./state-stream"
 import { router } from "./router"
 import type { RouterContext } from "./router"
 import { logger } from 'hono/logger'
+
+/** Hono handler that strips a prefix from the URL and forwards to a DurableStreamServer. */
+function rewriteToDs(prefix: string, ds: DurableStreamServer) {
+  return (c: Context) => {
+    const url = new URL(c.req.url)
+    url.pathname = url.pathname.slice(prefix.length) || "/"
+    return ds.fetch(new Request(url.toString(), c.req.raw))
+  }
+}
 
 const generateInstanceId = customAlphabet("abcdefghijklmnopqrstuvwxyz", 12)
 
@@ -46,10 +55,14 @@ export async function createApp(opencodeUrl: string) {
     // Stream may be empty on first boot — that's fine
   }
 
-  // Single durable stream server for state protocol events.
+  // Instance stream — finalized, replayable state events.
   // Created after sessionWorktrees so initialization can emit merge status.
-  const ds = new DurableStreamServer()
-  const stateStream = new StateStream(ds, client, sessionWorktrees)
+  const instanceDs = new DurableStreamServer()
+
+  // Ephemeral stream — live-only UI state (session status, in-progress messages, worktree status).
+  const ephemeralDs = new DurableStreamServer()
+
+  const stateStream = new StateStream(instanceDs, ephemeralDs, client, sessionWorktrees)
   stateStream.initialize().catch((err) => {
     console.error("Failed to initialize state stream:", err)
   })
@@ -80,31 +93,20 @@ export async function createApp(opencodeUrl: string) {
     return c.json({ instanceId, appStreamUrl: "/app" })
   })
 
-  // Stream is mounted at /{instanceId} — changes on every restart
-  app.all(`/${instanceId}/*`, (c) => {
-    const url = new URL(c.req.url)
-    url.pathname = url.pathname.slice(`/${instanceId}`.length) || "/"
-    const rewritten = new Request(url.toString(), c.req.raw)
-    return ds.fetch(rewritten)
-  })
-  app.all(`/${instanceId}`, (c) => {
-    const url = new URL(c.req.url)
-    url.pathname = "/"
-    const rewritten = new Request(url.toString(), c.req.raw)
-    return ds.fetch(rewritten)
-  })
+  // Ephemeral stream — live-only state, no catch-up replay
+  // Must be mounted before the instance stream catch-all so it matches first.
+  const ephemeralPrefix = `/${instanceId}/ephemeral`
+  app.all(`${ephemeralPrefix}/*`, rewriteToDs(ephemeralPrefix, ephemeralDs))
+  app.all(ephemeralPrefix, rewriteToDs(ephemeralPrefix, ephemeralDs))
+
+  // Instance stream — finalized, replayable state events
+  const instancePrefix = `/${instanceId}`
+  app.all(`${instancePrefix}/*`, rewriteToDs(instancePrefix, instanceDs))
+  app.all(instancePrefix, rewriteToDs(instancePrefix, instanceDs))
 
   // Persistent app state stream — fixed path, never resets
-  app.all("/app/*", (c) => {
-    const url = new URL(c.req.url)
-    url.pathname = url.pathname.slice("/app".length) || "/"
-    return appDs.fetch(new Request(url.toString(), c.req.raw))
-  })
-  app.all("/app", (c) => {
-    const url = new URL(c.req.url)
-    url.pathname = "/"
-    return appDs.fetch(new Request(url.toString(), c.req.raw))
-  })
+  app.all("/app/*", rewriteToDs("/app", appDs))
+  app.all("/app", rewriteToDs("/app", appDs))
 
   app.get("/health", async (c) => {
     return c.json({ healthy: true, opencodeUrl, instanceId })
@@ -117,6 +119,7 @@ export async function createApp(opencodeUrl: string) {
   const routerContext: RouterContext = {
     client,
     appDs,
+    ephemeralDs,
     sessionWorktrees,
     stateStream,
   }
@@ -140,7 +143,7 @@ export async function createApp(opencodeUrl: string) {
     await next()
   })
 
-  return { app, ds, appDs, stateStream, instanceId }
+  return { app, instanceDs, ephemeralDs, appDs, stateStream, instanceId }
 }
 
 export type { Router } from "./router"

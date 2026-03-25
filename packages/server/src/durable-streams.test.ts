@@ -82,17 +82,17 @@ describe("instance ID routing", () => {
   })
 
   test("stream is accessible at /{instanceId}", async () => {
-    const { server, baseUrl, ds, instanceId } = await startServer()
+    const { server, baseUrl, instanceDs, instanceId } = await startServer()
     try {
       // Wait for StateStream.initialize to fail (it will since opencode is down),
       // then manually create the stream so we can test routing
       await new Promise((r) => setTimeout(r, 200))
       // Stream may or may not exist depending on timing; create idempotently
       try {
-        await ds.createStream("/", { contentType: "application/json" })
+        await instanceDs.createStream("/", { contentType: "application/json" })
       } catch {}
 
-      await ds.appendToStream("/", JSON.stringify({
+      await instanceDs.appendToStream("/", JSON.stringify({
         type: "session",
         key: "s1",
         value: { id: "s1", title: "Hello" },
@@ -128,11 +128,11 @@ describe("instance ID routing", () => {
   })
 
   test("SSE client receives events via /{instanceId}", async () => {
-    const { server, baseUrl, ds, instanceId } = await startServer()
+    const { server, baseUrl, instanceDs, instanceId } = await startServer()
     try {
       await new Promise((r) => setTimeout(r, 200))
       try {
-        await ds.createStream("/", { contentType: "application/json" })
+        await instanceDs.createStream("/", { contentType: "application/json" })
       } catch {}
 
       const res = await stream({
@@ -141,7 +141,7 @@ describe("instance ID routing", () => {
         live: "sse",
       })
 
-      await ds.appendToStream("/", JSON.stringify({
+      await instanceDs.appendToStream("/", JSON.stringify({
         type: "message",
         key: "m1",
         value: { id: "m1", sessionId: "s1", role: "user", parts: [], createdAt: 1 },

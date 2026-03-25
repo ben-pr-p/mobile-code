@@ -22,8 +22,9 @@ import {
 import type { Message as ServerMessage } from '../../server/src/types';
 import type { ApiClient } from '../lib/api';
 import { backendResourcesAtom } from '../lib/backend-streams';
-import { useBackendStateQuery } from '../lib/merged-query';
+import { useBackendStateQuery, useBackendEphemeralStateQuery } from '../lib/merged-query';
 import { MergedStateQuery, type WithBackendUrl } from '../lib/merged-query';
+import { useSessionStatus } from '../hooks/useSessionStatus';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useHandsFreeMode } from '../hooks/useHandsFreeMode';
 import { useModels } from '../hooks/useModels';
@@ -107,6 +108,7 @@ export function SessionView({
   isNewSession,
   serverSelector,
 }: SessionViewProps) {
+  const sessionStatus = useSessionStatus(backendUrl, sessionId);
   const [activeTab, setActiveTab] = useState<'session' | 'changes'>('session');
   const [isSending, setIsSending] = useState(false);
   const [pendingVoiceMessages, setPendingVoiceMessages] = useState<Message[]>([]);
@@ -133,8 +135,8 @@ export function SessionView({
     return agent?.name ?? effectiveAgent;
   }, [agents, effectiveAgent]);
 
-  // Worktree status from this session's backend
-  const { data: worktreeStatusResults } = useBackendStateQuery<WorktreeStatusValue>(
+  // Worktree status from the ephemeral stream
+  const { data: worktreeStatusResults } = useBackendEphemeralStateQuery<WorktreeStatusValue>(
     backendUrl,
     (db, q) =>
       q
@@ -305,7 +307,7 @@ export function SessionView({
     audioRecorder.stopRecording,
     sendVoiceAudio,
     onVoicePrompt ? handleVoicePrompt : undefined,
-    session.status
+    sessionStatus
   );
 
   const handleSend = useCallback(
@@ -539,7 +541,8 @@ function ExistingSessionDataLoader({
   const lineSelectionRef = useRef<LineSelection | null>(lineSelection);
   lineSelectionRef.current = lineSelection;
 
-  const { data: rawMessages } = useBackendStateQuery<ServerMessage>(
+  // Finalized messages from the instance stream
+  const { data: instanceMessages } = useBackendStateQuery<ServerMessage>(
     backendUrl,
     (db, q) =>
       q
@@ -547,8 +550,36 @@ function ExistingSessionDataLoader({
         .where(({ messages }) => eq(messages.sessionId, sessionId)),
     [sessionId]
   );
+
+  // In-progress messages from the ephemeral stream
+  const { data: ephemeralMessages } = useBackendEphemeralStateQuery<ServerMessage>(
+    backendUrl,
+    (db, q) =>
+      q
+        .from({ messages: db.collections.messages })
+        .where(({ messages }) => eq(messages.sessionId, sessionId)),
+    [sessionId]
+  );
+
+  // Merge: instance messages (finalized) override ephemeral by message ID.
+  // Ephemeral messages that don't exist in the instance stream are in-progress.
+  const rawMessages = useMemo(() => {
+    const instanceMap = new Map<string, ServerMessage>();
+    for (const msg of instanceMessages ?? []) {
+      instanceMap.set(msg.id, msg);
+    }
+    // Start with all instance messages
+    const merged = new Map(instanceMap);
+    // Add ephemeral messages that aren't finalized yet
+    for (const msg of ephemeralMessages ?? []) {
+      if (!merged.has(msg.id)) {
+        merged.set(msg.id, msg);
+      }
+    }
+    return [...merged.values()];
+  }, [instanceMessages, ephemeralMessages]);
+
   const sortedRawMessages = useMemo(() => {
-    if (!rawMessages) return [];
     return rawMessages.slice().sort((a, b) => a.createdAt - b.createdAt);
   }, [rawMessages]);
 
@@ -566,7 +597,8 @@ function ExistingSessionDataLoader({
     return null;
   }, [sortedRawMessages]);
 
-  const { data: changeResults } = useBackendStateQuery<ChangeValue>(
+  // File changes from the ephemeral stream (both live and finalized)
+  const { data: changeResults } = useBackendEphemeralStateQuery<ChangeValue>(
     backendUrl,
     (db, q) =>
       q
@@ -575,8 +607,7 @@ function ExistingSessionDataLoader({
     [sessionId]
   );
   const changes = useMemo(() => {
-    const result = changeResults?.[0];
-    return result?.files ?? [];
+    return changeResults?.[0]?.files ?? [];
   }, [changeResults]);
 
   const handleSendText = useCallback(
@@ -806,7 +837,6 @@ function NewSessionDataLoader({
     projectID: projectId,
     version: '',
     time: { created: now, updated: now },
-    status: 'idle',
   };
 
   const createAndPrompt = useCallback(
