@@ -176,7 +176,9 @@ export function SplitLayout({
       <View className="h-8 flex-row items-center justify-between border-b border-stone-200 px-4 dark:border-stone-800">
         <View className="flex-row items-center gap-1.5">
           <Text className="text-xs text-stone-700 dark:text-stone-400">
-            {session.title || 'Untitled'}
+            {worktreeStatus?.isWorktreeSession && worktreeStatus.branch
+              ? `(${worktreeStatus.branch.replace(/^worktree\//, '').split('-')[0]})`
+              : session.title || 'Untitled'}
           </Text>
           <Text className="text-xs text-stone-400 dark:text-stone-600">·</Text>
           <Text className="text-xs text-stone-400 dark:text-stone-600">

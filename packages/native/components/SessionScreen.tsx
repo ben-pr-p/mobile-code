@@ -116,7 +116,9 @@ export function SessionScreen({
     >
       <SessionHeader
         projectName={projectName}
-        branchName={session.title || 'Untitled'}
+        branchName={worktreeStatus?.isWorktreeSession && worktreeStatus.branch
+          ? `(${worktreeStatus.branch.replace(/^worktree\//, '').split('-')[0]})`
+          : session.title || 'Untitled'}
         relativeTime={formatRelativeTime(session.time.updated)}
         onMenuPress={onMenuPress}
         onProjectsPress={onProjectsPress}
