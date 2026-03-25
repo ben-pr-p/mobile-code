@@ -1,2 +1,4 @@
+include = [".env"]
+
 [hooks]
 post_checkout = "bun install"

@@ -210,6 +210,141 @@ describe("create", () => {
 });
 
 // ---------------------------------------------------------------------------
+// include (file copying)
+// ---------------------------------------------------------------------------
+
+describe("include", () => {
+  test("copies included files into the new worktree", async () => {
+    await Bun.write(join(repoDir, ".env"), "SECRET=abc123");
+    await Bun.write(join(repoDir, "worktree.toml"),
+      'include = [".env"]\n\n[hooks]\npost_checkout = "echo setup"',
+    );
+    await $`git add -A && git commit -m "add env and config"`.quiet().cwd(repoDir);
+
+    const driver = await WorktreeDriver.open(repoDir);
+    const wtPath = join(tempBase, "include-basic");
+    await driver.create("include-basic", { path: wtPath });
+
+    const envContent = await Bun.file(join(wtPath, ".env")).text();
+    expect(envContent).toBe("SECRET=abc123");
+  });
+
+  test("copies nested files preserving directory structure", async () => {
+    await $`mkdir -p config`.quiet().cwd(repoDir);
+    await Bun.write(join(repoDir, "config", "local.json"), '{"db":"localhost"}');
+    await Bun.write(join(repoDir, "worktree.toml"),
+      'include = ["config/local.json"]\n\n[hooks]\npost_checkout = "echo setup"',
+    );
+    await $`git add -A && git commit -m "add nested config"`.quiet().cwd(repoDir);
+
+    const driver = await WorktreeDriver.open(repoDir);
+    const wtPath = join(tempBase, "include-nested");
+    await driver.create("include-nested", { path: wtPath });
+
+    const content = await Bun.file(join(wtPath, "config", "local.json")).text();
+    expect(content).toBe('{"db":"localhost"}');
+  });
+
+  test("silently skips patterns that match no files", async () => {
+    await Bun.write(join(repoDir, "worktree.toml"),
+      'include = [".env", "missing.txt"]\n\n[hooks]\npost_checkout = "echo setup"',
+    );
+    await $`git add -A && git commit -m "config with missing files"`.quiet().cwd(repoDir);
+
+    const driver = await WorktreeDriver.open(repoDir);
+    const wtPath = join(tempBase, "include-missing");
+    // Should not throw even though .env and missing.txt don't exist
+    const entry = await driver.create("include-missing", { path: wtPath });
+    expect(entry.path).toBe(wtPath);
+
+    expect(await Bun.file(join(wtPath, ".env")).exists()).toBe(false);
+    expect(await Bun.file(join(wtPath, "missing.txt")).exists()).toBe(false);
+  });
+
+  test("copies files before hooks run", async () => {
+    await Bun.write(join(repoDir, ".env"), "HOOK_VALUE=hello");
+    const marker = join(tempBase, "hook-read-env");
+    await Bun.write(join(repoDir, "worktree.toml"),
+      `include = [".env"]\n\n[hooks]\npost_checkout = "cat .env > ${marker}"`,
+    );
+    await $`git add -A && git commit -m "env and hook"`.quiet().cwd(repoDir);
+
+    const driver = await WorktreeDriver.open(repoDir);
+    const wtPath = join(tempBase, "include-before-hook");
+    await driver.create("include-before-hook", { path: wtPath });
+
+    // The hook should have been able to read .env from the worktree
+    const hookOutput = await Bun.file(marker).text();
+    expect(hookOutput).toBe("HOOK_VALUE=hello");
+  });
+
+  test("no-ops when include is empty", async () => {
+    await Bun.write(join(repoDir, "worktree.toml"),
+      'include = []\n\n[hooks]\npost_checkout = "echo setup"',
+    );
+    await $`git add -A && git commit -m "empty include"`.quiet().cwd(repoDir);
+
+    const driver = await WorktreeDriver.open(repoDir);
+    const wtPath = join(tempBase, "include-empty");
+    const entry = await driver.create("include-empty", { path: wtPath });
+    expect(entry.path).toBe(wtPath);
+  });
+
+  test("parses include array from worktree.toml config", async () => {
+    await Bun.write(join(repoDir, "worktree.toml"),
+      'include = [".env", "config/secrets.json"]\n\n[hooks]\npost_checkout = "echo setup"',
+    );
+    const driver = await WorktreeDriver.open(repoDir);
+    expect(driver.config.include).toEqual([".env", "config/secrets.json"]);
+  });
+
+  test("supports glob patterns", async () => {
+    // Create untracked config files (not committed, so git won't check them out)
+    await Bun.write(join(repoDir, "worktree.toml"),
+      'include = ["secrets/*.json"]\n\n[hooks]\npost_checkout = "echo setup"',
+    );
+    await $`git add -A && git commit -m "add worktree config"`.quiet().cwd(repoDir);
+
+    // These files are untracked — only the include glob should copy them
+    await $`mkdir -p secrets`.quiet().cwd(repoDir);
+    await Bun.write(join(repoDir, "secrets", "a.json"), '{"a":1}');
+    await Bun.write(join(repoDir, "secrets", "b.json"), '{"b":2}');
+    await Bun.write(join(repoDir, "secrets", "notes.md"), "# Notes");
+
+    const driver = await WorktreeDriver.open(repoDir);
+    const wtPath = join(tempBase, "include-glob");
+    await driver.create("include-glob", { path: wtPath });
+
+    // Both .json files should be copied
+    expect(await Bun.file(join(wtPath, "secrets", "a.json")).text()).toBe('{"a":1}');
+    expect(await Bun.file(join(wtPath, "secrets", "b.json")).text()).toBe('{"b":2}');
+    // The .md file should NOT be copied (doesn't match *.json)
+    expect(await Bun.file(join(wtPath, "secrets", "notes.md")).exists()).toBe(false);
+  });
+
+  test("supports dotfile glob patterns", async () => {
+    // Commit the worktree config first, then create untracked .env files
+    await Bun.write(join(repoDir, "worktree.toml"),
+      'include = [".env*"]\n\n[hooks]\npost_checkout = "echo setup"',
+    );
+    await $`git add -A && git commit -m "add worktree config"`.quiet().cwd(repoDir);
+
+    // These .env files are untracked — only include will copy them
+    await Bun.write(join(repoDir, ".env"), "BASE=1");
+    await Bun.write(join(repoDir, ".env.local"), "LOCAL=2");
+    await Bun.write(join(repoDir, ".env.production"), "PROD=3");
+
+    const driver = await WorktreeDriver.open(repoDir);
+    const wtPath = join(tempBase, "include-dotglob");
+    await driver.create("include-dotglob", { path: wtPath });
+
+    expect(await Bun.file(join(wtPath, ".env")).text()).toBe("BASE=1");
+    expect(await Bun.file(join(wtPath, ".env.local")).text()).toBe("LOCAL=2");
+    expect(await Bun.file(join(wtPath, ".env.production")).text()).toBe("PROD=3");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // merge
 // ---------------------------------------------------------------------------
 
