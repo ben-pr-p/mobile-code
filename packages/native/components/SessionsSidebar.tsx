@@ -1,17 +1,54 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, Text, Pressable, ScrollView, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, Pressable, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
-import { Menu, Plus, Search, Ellipsis, Settings, Mic, HelpCircle, ChevronRight, ChevronDown, GitBranch, Pin, Archive, ArchiveRestore, CircleDot, Check, Monitor, Cloud } from 'lucide-react-native';
+import {
+  Menu,
+  Plus,
+  Search,
+  Ellipsis,
+  Settings,
+  Mic,
+  HelpCircle,
+  ChevronRight,
+  ChevronDown,
+  GitBranch,
+  Pin,
+  Archive,
+  ArchiveRestore,
+  CircleDot,
+  Check,
+  Monitor,
+  Cloud,
+} from 'lucide-react-native';
 import { useAtom, useAtomValue } from 'jotai/react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate, Easing, type SharedValue } from 'react-native-reanimated';
-import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  interpolate,
+  Easing,
+  type SharedValue,
+} from 'react-native-reanimated';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import type { SessionValue, SessionStatusValue, SessionMetaValue, WorktreeStatusValue, ProjectValue } from '../lib/stream-db';
+import type {
+  SessionValue,
+  SessionStatusValue,
+  SessionMetaValue,
+  WorktreeStatusValue,
+  ProjectValue,
+} from '../lib/stream-db';
 import type { Message as ServerMessage } from '../../server/src/types';
-import { MergedStateQuery, MergedEphemeralStateQuery, MergedAppStateQuery, type WithBackendUrl } from '../lib/merged-query';
+import {
+  MergedStateQuery,
+  MergedEphemeralStateQuery,
+  MergedAppStateQuery,
+  type WithBackendUrl,
+} from '../lib/merged-query';
 import { backendResourcesAtom } from '../lib/backend-streams';
 import { pinnedSessionIdsAtom, pinnedProjectIdsAtom } from '../state/ui';
 import { backendsAtom, type BackendUrl, type BackendType } from '../state/backends';
@@ -41,15 +78,18 @@ export function SessionsSidebar({
     drawerNavigation.closeDrawer();
   }, [drawerNavigation]);
 
-  const handleNewSession = useCallback((pid?: string) => {
-    const targetProjectId = pid ?? projectId;
-    if (!targetProjectId) return;
-    router.push({
-      pathname: '/projects/[projectId]/new-session',
-      params: { projectId: targetProjectId },
-    });
-    closeDrawer();
-  }, [projectId, router, closeDrawer]);
+  const handleNewSession = useCallback(
+    (pid?: string) => {
+      const targetProjectId = pid ?? projectId;
+      if (!targetProjectId) return;
+      router.push({
+        pathname: '/projects/[projectId]/new-session',
+        params: { projectId: targetProjectId },
+      });
+      closeDrawer();
+    },
+    [projectId, router, closeDrawer]
+  );
 
   const handleSelectSession = useCallback(
     (sessionId: string, pid: string, backendUrl: BackendUrl) => {
@@ -59,7 +99,7 @@ export function SessionsSidebar({
       });
       closeDrawer();
     },
-    [router, closeDrawer],
+    [router, closeDrawer]
   );
 
   const handleSettingsPress = useCallback(() => {
@@ -68,7 +108,9 @@ export function SessionsSidebar({
   }, [router, closeDrawer]);
 
   return (
-    <GestureHandlerRootView className="flex-1 bg-stone-50 dark:bg-stone-950" style={{ paddingTop: insets.top }}>
+    <GestureHandlerRootView
+      className="flex-1 bg-stone-50 dark:bg-stone-950"
+      style={{ paddingTop: insets.top }}>
       {/* Header */}
       <View className="h-14 flex-row items-center justify-between px-5">
         <Pressable
@@ -95,28 +137,24 @@ export function SessionsSidebar({
 
       {projectId ? (
         <MergedStateQuery<SessionValue>
-          query={(db, q) => q.from({ sessions: db.collections.sessions })}
-        >
+          query={(db, q) => q.from({ sessions: db.collections.sessions })}>
           {({ data: allSessions }) => (
             <MergedEphemeralStateQuery<SessionStatusValue>
-              query={(db, q) => q.from({ sessionStatuses: db.collections.sessionStatuses })}
-            >
+              query={(db, q) => q.from({ sessionStatuses: db.collections.sessionStatuses })}>
               {({ data: sessionStatuses }) => (
                 <MergedEphemeralStateQuery<WorktreeStatusValue>
-                  query={(db, q) => q.from({ worktreeStatuses: db.collections.worktreeStatuses })}
-                >
+                  query={(db, q) => q.from({ worktreeStatuses: db.collections.worktreeStatuses })}>
                   {({ data: worktreeStatuses }) => (
                     <MergedStateQuery<ServerMessage>
-                      query={(db, q) => q.from({ messages: db.collections.messages })}
-                    >
+                      query={(db, q) => q.from({ messages: db.collections.messages })}>
                       {({ data: allMessages }) => (
                         <MergedStateQuery<ProjectValue>
-                          query={(db, q) => q.from({ projects: db.collections.projects })}
-                        >
+                          query={(db, q) => q.from({ projects: db.collections.projects })}>
                           {({ data: allProjects }) => (
                             <MergedAppStateQuery<SessionMetaValue>
-                              query={(db, q) => q.from({ sessionMeta: db.collections.sessionMeta })}
-                            >
+                              query={(db, q) =>
+                                q.from({ sessionMeta: db.collections.sessionMeta })
+                              }>
                               {({ data: sessionMetas }) => (
                                 <SessionListContent
                                   projectId={projectId}
@@ -182,7 +220,7 @@ function SessionStatusDot({ status }: { status: SessionStatusValue['status'] }) 
       opacity.value = withRepeat(
         withTiming(0.4, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
         -1,
-        true,
+        true
       );
     } else {
       opacity.value = withTiming(1, { duration: 200 });
@@ -201,12 +239,7 @@ function SessionStatusDot({ status }: { status: SessionStatusValue['status'] }) 
         : 'bg-stone-400 dark:bg-stone-600';
 
   if (status === 'busy') {
-    return (
-      <Animated.View
-        style={animatedStyle}
-        className={`h-2 w-2 rounded-full ${colorClass}`}
-      />
-    );
+    return <Animated.View style={animatedStyle} className={`h-2 w-2 rounded-full ${colorClass}`} />;
   }
 
   return <View className={`h-2 w-2 rounded-full ${colorClass}`} />;
@@ -219,9 +252,11 @@ function SessionWorktreeBadge({ worktreeStatus }: { worktreeStatus: WorktreeStat
 
   if (worktreeStatus.hasUncommittedChanges) {
     return (
-      <View className="flex-row items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30">
+      <View className="flex-row items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 dark:bg-amber-900/30">
         <CircleDot size={8} color={colorScheme === 'dark' ? '#fbbf24' : '#d97706'} />
-        <Text className="text-[9px] text-amber-700 dark:text-amber-400" style={{ fontFamily: 'JetBrains Mono' }}>
+        <Text
+          className="text-[9px] text-amber-700 dark:text-amber-400"
+          style={{ fontFamily: 'JetBrains Mono' }}>
           Uncommitted
         </Text>
       </View>
@@ -230,9 +265,11 @@ function SessionWorktreeBadge({ worktreeStatus }: { worktreeStatus: WorktreeStat
 
   if (worktreeStatus.hasUnmergedCommits) {
     return (
-      <View className="flex-row items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30">
+      <View className="flex-row items-center gap-0.5 rounded bg-blue-100 px-1.5 py-0.5 dark:bg-blue-900/30">
         <GitBranch size={8} color={colorScheme === 'dark' ? '#60a5fa' : '#2563eb'} />
-        <Text className="text-[9px] text-blue-700 dark:text-blue-400" style={{ fontFamily: 'JetBrains Mono' }}>
+        <Text
+          className="text-[9px] text-blue-700 dark:text-blue-400"
+          style={{ fontFamily: 'JetBrains Mono' }}>
           Awaiting merge
         </Text>
       </View>
@@ -241,9 +278,11 @@ function SessionWorktreeBadge({ worktreeStatus }: { worktreeStatus: WorktreeStat
 
   if (worktreeStatus.merged) {
     return (
-      <View className="flex-row items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30">
+      <View className="flex-row items-center gap-0.5 rounded bg-green-100 px-1.5 py-0.5 dark:bg-green-900/30">
         <Check size={8} color={colorScheme === 'dark' ? '#4ade80' : '#16a34a'} />
-        <Text className="text-[9px] text-green-700 dark:text-green-400" style={{ fontFamily: 'JetBrains Mono' }}>
+        <Text
+          className="text-[9px] text-green-700 dark:text-green-400"
+          style={{ fontFamily: 'JetBrains Mono' }}>
           Merged
         </Text>
       </View>
@@ -266,7 +305,6 @@ interface SessionRowProps {
   onPress: (sessionId: string, projectId: string, backendUrl: BackendUrl) => void;
   onOverflow?: (id: string, backendUrl: BackendUrl) => void;
   onTogglePin: (id: string) => void;
-  onArchive?: (id: string, backendUrl: BackendUrl) => void;
   isArchived?: boolean;
   hasChildren?: boolean;
   isExpanded?: boolean;
@@ -280,17 +318,33 @@ interface SessionRowProps {
 const ARCHIVE_SWIPE_THRESHOLD = 100;
 
 /** Animated right-action panel revealed behind a session row during swipe. */
-function ArchiveSwipeAction({ drag, isArchived }: { drag: SharedValue<number>; isArchived: boolean }) {
+function ArchiveSwipeAction({
+  drag,
+  isArchived,
+  isLoading,
+}: {
+  drag: SharedValue<number>;
+  isArchived: boolean;
+  isLoading: boolean;
+}) {
   // The icon scales up once the user drags past the threshold to confirm the action.
   const iconStyle = useAnimatedStyle(() => {
     const scale = interpolate(
       Math.abs(drag.value),
       [0, ARCHIVE_SWIPE_THRESHOLD * 0.8, ARCHIVE_SWIPE_THRESHOLD],
       [0.8, 1, 1.2],
-      'clamp',
+      'clamp'
     );
     return { transform: [{ scale }] };
   });
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center rounded-lg bg-amber-600">
+        <ActivityIndicator size="small" color="#FFFFFF" />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 items-center justify-center rounded-lg bg-amber-600">
@@ -301,7 +355,8 @@ function ArchiveSwipeAction({ drag, isArchived }: { drag: SharedValue<number>; i
           <Archive size={18} color="#FFFFFF" />
         )}
       </Animated.View>
-      <Text className="mt-1 text-[10px] font-medium text-white"
+      <Text
+        className="mt-1 text-[10px] font-medium text-white"
         style={{ fontFamily: 'JetBrains Mono' }}>
         {isArchived ? 'Unarchive' : 'Archive'}
       </Text>
@@ -309,13 +364,54 @@ function ArchiveSwipeAction({ drag, isArchived }: { drag: SharedValue<number>; i
   );
 }
 
-function SessionRow({ session, isSelected, isPinned, sessionStatus, worktreeStatus, agentName, onPress, onOverflow, onTogglePin, onArchive, isArchived, hasChildren, isExpanded, onToggleExpand, isSubSession, backendType }: SessionRowProps) {
+function SessionRow({
+  session,
+  isSelected,
+  isPinned,
+  sessionStatus,
+  worktreeStatus,
+  agentName,
+  onPress,
+  onOverflow,
+  onTogglePin,
+  isArchived,
+  hasChildren,
+  isExpanded,
+  onToggleExpand,
+  isSubSession,
+  backendType,
+}: SessionRowProps) {
   const { colorScheme } = useColorScheme();
   const overflowColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const chevronColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const subSessionIconColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const pinColor = colorScheme === 'dark' ? '#D97706' : '#B45309';
-  const swipeableRef = useRef<SwipeableMethods>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const resources = useAtomValue(backendResourcesAtom);
+  const getApi = useCallback(
+    (backendUrl: BackendUrl): ApiClient | null => {
+      return resources[backendUrl]?.api ?? null;
+    },
+    [resources]
+  );
+
+  const archiveSession = useCallback(
+    async (backendUrl: BackendUrl, sessionId: string) => {
+      const api = getApi(backendUrl);
+      if (!api) return;
+      await api.sessions.archive({ sessionId });
+    },
+    [getApi]
+  );
+
+  const unarchiveSession = useCallback(
+    async (backendUrl: BackendUrl, sessionId: string) => {
+      const api = getApi(backendUrl);
+      if (!api) return;
+      await api.sessions.unarchive({ sessionId });
+    },
+    [getApi]
+  );
 
   const handleLongPress = useCallback(() => {
     onTogglePin(session.id);
@@ -323,23 +419,29 @@ function SessionRow({ session, isSelected, isPinned, sessionStatus, worktreeStat
 
   const renderRightActions = useCallback(
     (_progress: SharedValue<number>, drag: SharedValue<number>) => (
-      <ArchiveSwipeAction drag={drag} isArchived={!!isArchived} />
+      <ArchiveSwipeAction drag={drag} isArchived={!!isArchived} isLoading={isArchiving} />
     ),
-    [isArchived],
+    [isArchived, isArchiving]
   );
 
-  const handleSwipeOpen = useCallback((direction: 'left' | 'right') => {
-    if (direction === 'right') {
-      onArchive?.(session.id, session.backendUrl);
-      swipeableRef.current?.close();
-    }
-  }, [session.id, session.backendUrl, onArchive]);
+  const handleSwipeOpen = useCallback(
+    (direction: 'left' | 'right') => {
+      if (direction === 'left') {
+        setIsArchiving(true);
+        if (isArchived) {
+          unarchiveSession(session.backendUrl, session.id);
+        } else {
+          archiveSession(session.backendUrl, session.id);
+        }
+      }
+    },
+    [session.id, session.backendUrl, isArchived, archiveSession, unarchiveSession]
+  );
 
   return (
     <ReanimatedSwipeable
-      ref={swipeableRef}
-      renderRightActions={onArchive ? renderRightActions : undefined}
-      onSwipeableOpen={onArchive ? handleSwipeOpen : undefined}
+      renderRightActions={renderRightActions}
+      onSwipeableOpen={handleSwipeOpen}
       rightThreshold={ARCHIVE_SWIPE_THRESHOLD}
       friction={1.5}
       overshootFriction={4}>
@@ -379,13 +481,14 @@ function SessionRow({ session, isSelected, isPinned, sessionStatus, worktreeStat
               style={{ fontFamily: 'JetBrains Mono' }}>
               {formatRelativeTime(session.time.updated)}
             </Text>
-            {backendType && (
-              backendType === 'local'
-                ? <Monitor size={11} color={colorScheme === 'dark' ? '#57534E' : '#A8A29E'} />
-                : <Cloud size={11} color={colorScheme === 'dark' ? '#57534E' : '#A8A29E'} />
-            )}
+            {backendType &&
+              (backendType === 'local' ? (
+                <Monitor size={11} color={colorScheme === 'dark' ? '#57534E' : '#A8A29E'} />
+              ) : (
+                <Cloud size={11} color={colorScheme === 'dark' ? '#57534E' : '#A8A29E'} />
+              ))}
             {agentName && (
-              <View className="px-1.5 py-0.5 rounded bg-stone-200 dark:bg-stone-800">
+              <View className="rounded bg-stone-200 px-1.5 py-0.5 dark:bg-stone-800">
                 <Text
                   className="text-[9px] text-stone-500 dark:text-stone-400"
                   style={{ fontFamily: 'JetBrains Mono' }}>
@@ -447,17 +550,23 @@ function SessionListContent({
   // Pinned projects — sessions from these show at the top regardless of selected project
   const [pinnedProjectIds] = useAtom(pinnedProjectIdsAtom);
   const resolvedPinnedProjectIds = pinnedProjectIds instanceof Promise ? [] : pinnedProjectIds;
-  const pinnedProjectSet = useMemo(() => new Set(resolvedPinnedProjectIds), [resolvedPinnedProjectIds]);
+  const pinnedProjectSet = useMemo(
+    () => new Set(resolvedPinnedProjectIds),
+    [resolvedPinnedProjectIds]
+  );
 
   const resources = useAtomValue(backendResourcesAtom);
-  const getApi = useCallback((backendUrl: BackendUrl): ApiClient | null => {
-    return resources[backendUrl]?.api ?? null;
-  }, [resources]);
+  const getApi = useCallback(
+    (backendUrl: BackendUrl): ApiClient | null => {
+      return resources[backendUrl]?.api ?? null;
+    },
+    [resources]
+  );
 
   // Backend type lookup — used to show Monitor/Cloud icon in session rows
   const backends = useAtomValue(backendsAtom);
   const resolvedBackends = backends instanceof Promise ? [] : backends;
-  const hasMultipleBackends = resolvedBackends.filter(b => b.enabled).length > 1;
+  const hasMultipleBackends = resolvedBackends.filter((b) => b.enabled).length > 1;
   const backendTypeMap = useMemo(() => {
     const map = new Map<BackendUrl, BackendType>();
     for (const b of resolvedBackends) {
@@ -465,7 +574,6 @@ function SessionListContent({
     }
     return map;
   }, [resolvedBackends]);
-
 
   const router = useRouter();
   const params = useLocalSearchParams<{ projectId?: string; sessionId?: string }>();
@@ -478,7 +586,7 @@ function SessionListContent({
         setPinnedIds([...resolvedPinnedIds, sessionId]);
       }
     },
-    [resolvedPinnedIds, setPinnedIds],
+    [resolvedPinnedIds, setPinnedIds]
   );
 
   const deleteSession = useCallback(
@@ -497,62 +605,46 @@ function SessionListContent({
         Alert.alert('Error', 'Failed to delete session.');
       }
     },
-    [getApi, params.sessionId, params.projectId, router],
+    [getApi, params.sessionId, params.projectId, router]
   );
 
   const handleOverflow = useCallback(
     (sid: string, backendUrl: BackendUrl) => {
       const isPinned = resolvedPinnedIds.includes(sid);
-      Alert.alert(
-        'Session Options',
-        undefined,
-        [
-          {
-            text: isPinned ? 'Unpin Session' : 'Pin Session',
-            onPress: () => {
-              if (isPinned) {
-                setPinnedIds(resolvedPinnedIds.filter((id: string) => id !== sid));
-              } else {
-                setPinnedIds([...resolvedPinnedIds, sid]);
-              }
-            },
+      Alert.alert('Session Options', undefined, [
+        {
+          text: isPinned ? 'Unpin Session' : 'Pin Session',
+          onPress: () => {
+            if (isPinned) {
+              setPinnedIds(resolvedPinnedIds.filter((id: string) => id !== sid));
+            } else {
+              setPinnedIds([...resolvedPinnedIds, sid]);
+            }
           },
-          {
-            text: 'Delete Session',
-            style: 'destructive',
-            onPress: () => {
-              Alert.alert(
-                'Delete Session',
-                'This will permanently delete the session and all its data. This cannot be undone.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: () => deleteSession(sid, backendUrl),
-                  },
-                ],
-              );
-            },
+        },
+        {
+          text: 'Delete Session',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Delete Session',
+              'This will permanently delete the session and all its data. This cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: () => deleteSession(sid, backendUrl),
+                },
+              ]
+            );
           },
-          { text: 'Cancel', style: 'cancel' },
-        ],
-      );
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     },
-    [resolvedPinnedIds, setPinnedIds, deleteSession],
+    [resolvedPinnedIds, setPinnedIds, deleteSession]
   );
-
-  const archiveSession = useCallback(async (sessionId: string, backendUrl: BackendUrl) => {
-    const api = getApi(backendUrl);
-    if (!api) return;
-    await api.sessions.archive({ sessionId });
-  }, [getApi]);
-
-  const unarchiveSession = useCallback(async (sessionId: string, backendUrl: BackendUrl) => {
-    const api = getApi(backendUrl);
-    if (!api) return;
-    await api.sessions.unarchive({ sessionId });
-  }, [getApi]);
 
   const sessionStatusBySession = useMemo(() => {
     const map = new Map<string, SessionStatusValue['status']>();
@@ -582,21 +674,16 @@ function SessionListContent({
     return map;
   }, [allMessages]);
 
-
   const archivedIds = useMemo(
-    () => new Set(
-      sessionMetas
-        ?.filter(m => m.archived)
-        .map(m => m.sessionId) ?? []
-    ),
-    [sessionMetas],
+    () => new Set(sessionMetas?.filter((m) => m.archived).map((m) => m.sessionId) ?? []),
+    [sessionMetas]
   );
 
   // Build project name map for pinned-project session group headers
   const projectNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const p of (allProjects as ProjectValue[] | undefined) ?? []) {
-      const name = p.worktree === '/' ? 'global' : (p.worktree.split('/').pop() || p.worktree);
+      const name = p.worktree === '/' ? 'global' : p.worktree.split('/').pop() || p.worktree;
       map.set(p.id, name);
     }
     return map;
@@ -616,20 +703,20 @@ function SessionListContent({
     if (!sessions) return [];
 
     // Only show pinned projects that are NOT the current project
-    const otherPinnedProjectIds = resolvedPinnedProjectIds.filter(pid => pid !== projectId);
+    const otherPinnedProjectIds = resolvedPinnedProjectIds.filter((pid) => pid !== projectId);
     if (otherPinnedProjectIds.length === 0) return [];
 
     const groups: PinnedProjectGroup[] = [];
 
     for (const pid of otherPinnedProjectIds) {
       let projectSessions = sessions.filter(
-        s => s.projectID === pid && !s.parentID && !archivedIds.has(s.id),
+        (s) => s.projectID === pid && !s.parentID && !archivedIds.has(s.id)
       );
 
       // Apply search filter if active
       if (searchQuery) {
-        projectSessions = projectSessions.filter(s =>
-          s.title.toLowerCase().includes(searchQuery.toLowerCase()),
+        projectSessions = projectSessions.filter((s) =>
+          s.title.toLowerCase().includes(searchQuery.toLowerCase())
         );
       }
 
@@ -639,7 +726,7 @@ function SessionListContent({
       projectSessions.sort((a, b) => b.time.updated - a.time.updated);
 
       // Show up to 3 most recent sessions per pinned project
-      const topSessions = projectSessions.slice(0, 3).map(s => ({
+      const topSessions = projectSessions.slice(0, 3).map((s) => ({
         session: s,
         children: [] as SessionValue[],
       }));
@@ -656,9 +743,7 @@ function SessionListContent({
 
   // Build tree structure: top-level sessions with nested children
   const { activeTree, archivedTree } = useMemo(() => {
-    const byProject = allSessions?.filter(
-      (s) => s.projectID === projectId,
-    );
+    const byProject = allSessions?.filter((s) => s.projectID === projectId);
     if (!byProject) return { activeTree: [], archivedTree: [] };
 
     const filtered = searchQuery
@@ -675,8 +760,8 @@ function SessionListContent({
         if (!aPinned && bPinned) return 1;
         return b.session.time.updated - a.session.time.updated;
       });
-      const active = flat.filter(node => !archivedIds.has(node.session.id));
-      const archived = flat.filter(node => archivedIds.has(node.session.id));
+      const active = flat.filter((node) => !archivedIds.has(node.session.id));
+      const archived = flat.filter((node) => archivedIds.has(node.session.id));
       return { activeTree: active, archivedTree: archived };
     }
 
@@ -714,8 +799,8 @@ function SessionListContent({
       return b.session.time.updated - a.session.time.updated;
     });
 
-    const active = tree.filter(node => !archivedIds.has(node.session.id));
-    const archived = tree.filter(node => archivedIds.has(node.session.id));
+    const active = tree.filter((node) => !archivedIds.has(node.session.id));
+    const archived = tree.filter((node) => archivedIds.has(node.session.id));
 
     return { activeTree: active, archivedTree: archived };
   }, [allSessions, projectId, searchQuery, pinnedSet, archivedIds]);
@@ -786,7 +871,7 @@ function SessionListContent({
               <View className="flex-row items-center px-3.5 pb-1 pt-2">
                 <Pressable
                   onPress={() => {
-                    setExpandedPinnedProjects(prev => {
+                    setExpandedPinnedProjects((prev) => {
                       const next = new Set(prev);
                       if (next.has(group.projectId)) {
                         next.delete(group.projectId);
@@ -797,11 +882,14 @@ function SessionListContent({
                     });
                   }}
                   hitSlop={8}
-                  className="flex-row items-center gap-1.5 flex-1">
+                  className="flex-1 flex-row items-center gap-1.5">
                   {isExpanded ? (
                     <ChevronDown size={12} color={colorScheme === 'dark' ? '#D97706' : '#B45309'} />
                   ) : (
-                    <ChevronRight size={12} color={colorScheme === 'dark' ? '#D97706' : '#B45309'} />
+                    <ChevronRight
+                      size={12}
+                      color={colorScheme === 'dark' ? '#D97706' : '#B45309'}
+                    />
                   )}
                   <Pin size={10} color={colorScheme === 'dark' ? '#D97706' : '#B45309'} />
                   <Text
@@ -810,26 +898,27 @@ function SessionListContent({
                     {group.projectName}
                   </Text>
                 </Pressable>
-                <Pressable
-                  onPress={() => onNewSession(group.projectId)}
-                  hitSlop={8}>
+                <Pressable onPress={() => onNewSession(group.projectId)} hitSlop={8}>
                   <Plus size={14} color={colorScheme === 'dark' ? '#D97706' : '#B45309'} />
                 </Pressable>
               </View>
-              {isExpanded && group.sessions.map((node) => (
-                <SessionRow
-                  key={node.session.id}
-                  session={node.session}
-                  isSelected={node.session.id === selectedSessionId}
-                  isPinned={pinnedSet.has(node.session.id)}
-                  sessionStatus={sessionStatusBySession.get(node.session.id) ?? 'idle'}
-                  worktreeStatus={worktreeStatusBySession.get(node.session.id)}
-                  onPress={onSelectSession}
-                  onOverflow={handleOverflow}
-                  onTogglePin={togglePin}
-                  backendType={hasMultipleBackends ? backendTypeMap.get(node.session.backendUrl) : undefined}
-                />
-              ))}
+              {isExpanded &&
+                group.sessions.map((node) => (
+                  <SessionRow
+                    key={node.session.id}
+                    session={node.session}
+                    isSelected={node.session.id === selectedSessionId}
+                    isPinned={pinnedSet.has(node.session.id)}
+                    sessionStatus={sessionStatusBySession.get(node.session.id) ?? 'idle'}
+                    worktreeStatus={worktreeStatusBySession.get(node.session.id)}
+                    onPress={onSelectSession}
+                    onOverflow={handleOverflow}
+                    onTogglePin={togglePin}
+                    backendType={
+                      hasMultipleBackends ? backendTypeMap.get(node.session.backendUrl) : undefined
+                    }
+                  />
+                ))}
             </View>
           );
         })}
@@ -852,11 +941,12 @@ function SessionListContent({
               onPress={onSelectSession}
               onOverflow={handleOverflow}
               onTogglePin={togglePin}
-              onArchive={archiveSession}
               hasChildren={node.children.length > 0}
               isExpanded={expandedParents.has(node.session.id)}
               onToggleExpand={() => toggleExpand(node.session.id)}
-              backendType={hasMultipleBackends ? backendTypeMap.get(node.session.backendUrl) : undefined}
+              backendType={
+                hasMultipleBackends ? backendTypeMap.get(node.session.backendUrl) : undefined
+              }
             />
             {expandedParents.has(node.session.id) &&
               node.children.map((child) => (
@@ -871,9 +961,10 @@ function SessionListContent({
                   onPress={onSelectSession}
                   onOverflow={handleOverflow}
                   onTogglePin={togglePin}
-                  onArchive={archiveSession}
                   isSubSession
-                  backendType={hasMultipleBackends ? backendTypeMap.get(child.backendUrl) : undefined}
+                  backendType={
+                    hasMultipleBackends ? backendTypeMap.get(child.backendUrl) : undefined
+                  }
                 />
               ))}
           </React.Fragment>
@@ -897,46 +988,49 @@ function SessionListContent({
               </Text>
             </Pressable>
 
-            {showArchived && archivedTree.map((node) => (
-              <React.Fragment key={node.session.id}>
-                <SessionRow
-                  session={node.session}
-                  isSelected={node.session.id === selectedSessionId}
-                  isPinned={pinnedSet.has(node.session.id)}
-                  sessionStatus={sessionStatusBySession.get(node.session.id) ?? 'idle'}
-                  worktreeStatus={worktreeStatusBySession.get(node.session.id)}
-                  agentName={agentBySession.get(node.session.id)}
-                  onPress={onSelectSession}
-                  onOverflow={handleOverflow}
-                  onTogglePin={togglePin}
-                  onArchive={unarchiveSession}
-                  isArchived
-                  hasChildren={node.children.length > 0}
-                  isExpanded={expandedParents.has(node.session.id)}
-                  onToggleExpand={() => toggleExpand(node.session.id)}
-                  backendType={hasMultipleBackends ? backendTypeMap.get(node.session.backendUrl) : undefined}
-                />
-                {expandedParents.has(node.session.id) &&
-                  node.children.map((child) => (
-                    <SessionRow
-                      key={child.id}
-                      session={child}
-                      isSelected={child.id === selectedSessionId}
-                      isPinned={pinnedSet.has(child.id)}
-                      sessionStatus={sessionStatusBySession.get(child.id) ?? 'idle'}
-                      worktreeStatus={worktreeStatusBySession.get(child.id)}
-                      agentName={agentBySession.get(child.id)}
-                      onPress={onSelectSession}
-                      onOverflow={handleOverflow}
-                      onTogglePin={togglePin}
-                      onArchive={unarchiveSession}
-                      isArchived
-                      isSubSession
-                      backendType={hasMultipleBackends ? backendTypeMap.get(child.backendUrl) : undefined}
-                    />
-                  ))}
-              </React.Fragment>
-            ))}
+            {showArchived &&
+              archivedTree.map((node) => (
+                <React.Fragment key={node.session.id}>
+                  <SessionRow
+                    session={node.session}
+                    isSelected={node.session.id === selectedSessionId}
+                    isPinned={pinnedSet.has(node.session.id)}
+                    sessionStatus={sessionStatusBySession.get(node.session.id) ?? 'idle'}
+                    worktreeStatus={worktreeStatusBySession.get(node.session.id)}
+                    agentName={agentBySession.get(node.session.id)}
+                    onPress={onSelectSession}
+                    onOverflow={handleOverflow}
+                    onTogglePin={togglePin}
+                    isArchived
+                    hasChildren={node.children.length > 0}
+                    isExpanded={expandedParents.has(node.session.id)}
+                    onToggleExpand={() => toggleExpand(node.session.id)}
+                    backendType={
+                      hasMultipleBackends ? backendTypeMap.get(node.session.backendUrl) : undefined
+                    }
+                  />
+                  {expandedParents.has(node.session.id) &&
+                    node.children.map((child) => (
+                      <SessionRow
+                        key={child.id}
+                        session={child}
+                        isSelected={child.id === selectedSessionId}
+                        isPinned={pinnedSet.has(child.id)}
+                        sessionStatus={sessionStatusBySession.get(child.id) ?? 'idle'}
+                        worktreeStatus={worktreeStatusBySession.get(child.id)}
+                        agentName={agentBySession.get(child.id)}
+                        onPress={onSelectSession}
+                        onOverflow={handleOverflow}
+                        onTogglePin={togglePin}
+                        isArchived
+                        isSubSession
+                        backendType={
+                          hasMultipleBackends ? backendTypeMap.get(child.backendUrl) : undefined
+                        }
+                      />
+                    ))}
+                </React.Fragment>
+              ))}
           </>
         )}
       </ScrollView>
