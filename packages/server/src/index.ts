@@ -5,8 +5,10 @@
  * Usage:
  *   flock start     [--opencode-url <url>] [--port <port>]         — start the HTTP server
  *   flock sprite sync      [--opencode-url <url>] [--dry-run]      — sync projects to Fly Sprite
- *   flock sprite configure-services [--dry-run]                     — register opencode-serve service on Sprite
+ *   flock sprite configure-services [--dry-run]                     — configure services & env on Sprite
  *                          [--opencode-port <port>] [--opencode-dir <dir>]
+ *                          [--flock-server-port <port>]
+ *                          [--flock-auth-token <token>] [--gemini-api-key <key>]
  */
 
 import { Crust } from "@crustjs/core"
@@ -16,9 +18,16 @@ import { z } from "zod/v4"
 import { createClient } from "./opencode"
 import { createSpriteClientFromEnv } from "./sprites"
 import { sync } from "./sprite-sync"
-import { spawnServices } from "./sprite-configure-services"
+import { configureServices, type ServiceResult } from "./sprite-configure-services"
 import { startServer } from "./start-server"
 import { env } from "./env"
+
+/** Format a service result as a human-readable status string. */
+function serviceStatus(r: ServiceResult): string {
+  if (r.created) return "created"
+  if (r.updated) return "updated"
+  return "unchanged"
+}
 
 // ---------------------------------------------------------------------------
 // start — launch the Bun HTTP server
@@ -93,11 +102,11 @@ const spriteSync = new Crust("sync")
   }))
 
 // ---------------------------------------------------------------------------
-// sprite configure-services — register opencode-serve service on Sprite
+// sprite configure-services — configure services & env on Sprite
 // ---------------------------------------------------------------------------
 
 const spriteConfigure = new Crust("configure-services")
-  .meta({ description: "Register opencode-serve service on Sprite" })
+  .meta({ description: "Configure services and environment on Sprite" })
   .flags({
     "dry-run": flag(
       z.boolean().default(false).describe("Show what would happen without making changes"),
@@ -109,11 +118,23 @@ const spriteConfigure = new Crust("configure-services")
     "opencode-dir": flag(
       z.string().optional().describe("Working directory for opencode serve on Sprite"),
     ),
+    "flock-server-port": flag(
+      z.coerce.number().int().positive().optional().describe("Port for the flock server on Sprite"),
+    ),
+    "flock-auth-token": flag(
+      z.string().optional().describe("Bearer token for mobile client auth (written to .flockenv)"),
+    ),
+    "gemini-api-key": flag(
+      z.string().optional().describe("Gemini API key for transcription (written to .flockenv)"),
+    ),
   })
   .run(commandValidator(async ({ flags }) => {
     const dryRun = flags["dry-run"]
     const opencodePort = flags["opencode-port"]
     const opencodeDir = flags["opencode-dir"]
+    const flockServerPort = flags["flock-server-port"]
+    const flockAuthToken = flags["flock-auth-token"] ?? (env.FLOCK_AUTH_TOKEN || undefined)
+    const geminiApiKey = flags["gemini-api-key"] ?? (env.GEMINI_API_KEY || undefined)
 
     const sprite = createSpriteClientFromEnv()
 
@@ -122,20 +143,19 @@ const spriteConfigure = new Crust("configure-services")
     }
 
     try {
-      const result = await spawnServices(sprite, {
+      const result = await configureServices(sprite, {
         dryRun,
         opencodePort,
         opencodeDir,
+        flockServerPort,
+        flockAuthToken,
+        geminiApiKey,
       })
 
       console.log("\n--- Summary ---")
-      if (result.serviceCreated) {
-        console.log(`Service:    opencode-serve created`)
-      } else if (result.serviceUpdated) {
-        console.log(`Service:    opencode-serve updated`)
-      } else if (result.serviceUnchanged) {
-        console.log(`Service:    opencode-serve unchanged`)
-      }
+      console.log(`Env file:   .flockenv ${result.flockenvWritten ? "written" : "unchanged"}`)
+      console.log(`Service:    opencode-serve ${serviceStatus(result.opencodeServe)}`)
+      console.log(`Service:    flock-server ${serviceStatus(result.flockServer)}`)
     } catch (err: any) {
       console.error("Configure-services failed:", err.message ?? err)
       process.exit(1)

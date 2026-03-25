@@ -24,8 +24,10 @@ The CLI uses the [Crust](https://crustjs.com) framework with a chainable builder
 ```sh
 flock start [--opencode-url <url>] [--port <port>]    # start the HTTP server
 flock sprite sync [--opencode-url <url>] [--dry-run]   # sync projects to Fly Sprite
-flock sprite configure-services [--dry-run]             # register opencode-serve service
+flock sprite configure-services [--dry-run]             # configure services & env on Sprite
                 [--opencode-port <port>] [--opencode-dir <dir>]
+                [--flock-server-port <port>]
+                [--flock-auth-token <token>] [--gemini-api-key <key>]
 flock --help                                            # show help
 flock --version                                         # show version
 ```
