@@ -10,7 +10,14 @@ import {
   type BackendUrl,
 } from '../state/backends';
 import { backendResourcesAtom, type BackendResources } from '../lib/backend-streams';
-import { stateSchema, appStateSchema, type StateDB, type AppStateDB } from '../lib/stream-db';
+import {
+  stateSchema,
+  ephemeralStateSchema,
+  appStateSchema,
+  type StateDB,
+  type EphemeralStateDB,
+  type AppStateDB,
+} from '../lib/stream-db';
 import { createApiClient, type ApiClient } from '../lib/api';
 
 const POLL_INTERVAL = 10_000;
@@ -18,6 +25,7 @@ const POLL_INTERVAL = 10_000;
 interface PerBackendState {
   instanceId: string | null;
   db: StateDB | null;
+  ephemeralDb: EphemeralStateDB | null;
   appDb: AppStateDB | null;
   api: ApiClient | null;
   intervalId: ReturnType<typeof setInterval> | null;
@@ -39,6 +47,24 @@ function createStateDB(url: string, instanceId: string, authToken?: string): Sta
     },
     state: stateSchema,
   }) as StateDB;
+}
+
+/**
+ * Creates an EphemeralStateDB connected to a backend's ephemeral stream.
+ */
+function createEphemeralStateDB(
+  url: string,
+  instanceId: string,
+  authToken?: string
+): EphemeralStateDB {
+  const cleanUrl = url.replace(/\/$/, '');
+  return createStreamDB({
+    streamOptions: {
+      url: `${cleanUrl}/${instanceId}/ephemeral`,
+      ...(authToken ? { headers: { Authorization: `Bearer ${authToken}` } } : {}),
+    },
+    state: ephemeralStateSchema,
+  }) as EphemeralStateDB;
 }
 
 /**
@@ -118,6 +144,7 @@ export function useBackendManager() {
       const perBackend: PerBackendState = {
         instanceId: null,
         db: null,
+        ephemeralDb: null,
         appDb: null,
         api: null,
         intervalId: null,
@@ -146,6 +173,7 @@ export function useBackendManager() {
         [backend.url]: {
           url: backend.url,
           db: null,
+          ephemeralDb: null,
           appDb: null,
           api: perBackend.api,
           loading: true,
@@ -227,7 +255,7 @@ function startPolling(
 
       // Detect instanceId change (server restart)
       if (newInstanceId && newInstanceId !== state.instanceId) {
-        // Tear down old ephemeral StreamDB
+        // Tear down old instance-scoped StreamDBs
         if (state.db) {
           try {
             state.db.close();
@@ -235,10 +263,17 @@ function startPolling(
             /* ignore */
           }
         }
+        if (state.ephemeralDb) {
+          try {
+            state.ephemeralDb.close();
+          } catch {
+            /* ignore */
+          }
+        }
 
         state.instanceId = newInstanceId;
 
-        // Create new ephemeral StreamDB
+        // Create new instance StreamDB (finalized, replayable state)
         try {
           const db = createStateDB(backend.url, newInstanceId, backend.authToken);
           await db.preload();
@@ -247,6 +282,24 @@ function startPolling(
         } catch (err) {
           console.error(`[useBackendManager] Failed to create StateDB for ${backend.url}:`, err);
           state.db = null;
+        }
+
+        // Create new ephemeral StreamDB (live-only UI state)
+        try {
+          const ephemeralDb = createEphemeralStateDB(
+            backend.url,
+            newInstanceId,
+            backend.authToken
+          );
+          await ephemeralDb.preload();
+          state.ephemeralDb = ephemeralDb;
+          console.log('[poll] EphemeralStateDB created', backend.url);
+        } catch (err) {
+          console.error(
+            `[useBackendManager] Failed to create EphemeralStateDB for ${backend.url}:`,
+            err
+          );
+          state.ephemeralDb = null;
         }
 
         // Create persistent app StreamDB (only once — /app stream survives restarts)
@@ -271,6 +324,7 @@ function startPolling(
           [backend.url]: {
             url: backend.url,
             db: state.db,
+            ephemeralDb: state.ephemeralDb,
             appDb: state.appDb,
             api: state.api,
             loading: false,
@@ -317,6 +371,13 @@ function tearDown(state: PerBackendState) {
   if (state.db) {
     try {
       state.db.close();
+    } catch {
+      /* ignore */
+    }
+  }
+  if (state.ephemeralDb) {
+    try {
+      state.ephemeralDb.close();
     } catch {
       /* ignore */
     }

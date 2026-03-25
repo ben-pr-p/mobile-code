@@ -4,6 +4,7 @@ import { diffs } from "./diffs"
 import { models } from "./models"
 import { agents } from "./agents"
 import { commands } from "./commands"
+import { snapshot } from "./snapshot"
 
 export type { RouterContext } from "./context"
 
@@ -15,6 +16,7 @@ export const router = {
   models,
   agents,
   commands,
+  snapshot,
 }
 
 export type Router = typeof router

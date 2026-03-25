@@ -25,6 +25,7 @@ import type { LeftPanelContent } from '../state/ui';
 import type { RecordingState } from '../hooks/useAudioRecorder';
 import type { PendingCommand } from '../state/settings';
 import type { BackendConfig, BackendConnection, BackendUrl } from '../state/backends';
+import { useSessionStatus } from '../hooks/useSessionStatus';
 
 interface SplitLayoutProps {
   sessionId: string;
@@ -105,6 +106,7 @@ export function SplitLayout({
   onHandsFreeToggle,
   onHandsFreeLongPress,
 }: SplitLayoutProps) {
+  const sessionStatus = useSessionStatus(backendUrl, sessionId);
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
   const iconColor = colorScheme === 'dark' ? '#A8A29E' : '#44403C';
@@ -238,7 +240,7 @@ export function SplitLayout({
               onStopPress={audioRecorder.cancelRecording}
               recordingState={audioRecorder.recordingState}
               modelName={modelName}
-              sessionStatus={session.status}
+              sessionStatus={sessionStatus}
               onAbort={onAbort}
               onModelPress={onModelPress}
               agentName={agentName}

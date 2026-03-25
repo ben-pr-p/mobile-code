@@ -9,7 +9,7 @@
 import { startServer } from "./start-server"
 import { env } from "./env"
 
-export const { app, ds, appDs, stateStream, instanceId, server } = await startServer({
+export const { app, instanceDs, ephemeralDs, appDs, stateStream, instanceId, server } = await startServer({
   opencodeUrl: env.OPENCODE_URL,
   port: env.PORT,
 })

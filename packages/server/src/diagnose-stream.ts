@@ -92,9 +92,9 @@ async function main() {
   }
   console.log(`Instance ID: ${instanceId}`)
 
-  // 2. Fetch the ephemeral state stream (catch-up only, no live)
+  // 2. Fetch the instance state stream (catch-up only, no live)
   const stateUrl = `${BASE_URL}/${instanceId}/`
-  console.log(`\nFetching state stream: ${stateUrl}`)
+  console.log(`\nFetching instance stream: ${stateUrl}`)
 
   const stateRes = await stream<StateEvent>({
     url: stateUrl,
@@ -204,7 +204,42 @@ async function main() {
     console.log(`⚠️  CAUTION: Payload string length exceeds 10M chars — large for mobile`)
   }
 
-  // 8. Also check the app stream
+  // 8. Also check the ephemeral stream
+  console.log(`\n--- Ephemeral stream ---`)
+  const ephemeralUrl = `${BASE_URL}/${instanceId}/ephemeral/`
+  console.log(`Fetching: ${ephemeralUrl}`)
+  try {
+    const ephRes = await stream<StateEvent>({
+      url: ephemeralUrl,
+      offset: "-1",
+      live: false,
+      headers: AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : undefined,
+    })
+    const ephEvents = await ephRes.json()
+    const ephPayload = JSON.stringify(ephEvents)
+    console.log(`Ephemeral events: ${ephEvents.length}`)
+    console.log(`Ephemeral payload size: ${formatBytes(byteLen(ephPayload))}`)
+    console.log(`Ephemeral string length: ${ephPayload.length.toLocaleString()}`)
+
+    // Breakdown by type
+    const ephByType = new Map<string, { count: number; bytes: number }>()
+    for (const e of ephEvents) {
+      const json = JSON.stringify(e)
+      const entry = ephByType.get(e.type) ?? { count: 0, bytes: 0 }
+      entry.count++
+      entry.bytes += byteLen(json)
+      ephByType.set(e.type, entry)
+    }
+    for (const [type, { count, bytes }] of [...ephByType.entries()].sort(
+      (a, b) => b[1].bytes - a[1].bytes,
+    )) {
+      console.log(`  ${type}: ${count} events, ${formatBytes(bytes)} total`)
+    }
+  } catch (err) {
+    console.log(`Could not fetch ephemeral stream: ${err}`)
+  }
+
+  // 9. Also check the app stream
   console.log(`\n--- App state stream ---`)
   const appUrl = `${BASE_URL}${appStreamUrl}/`
   console.log(`Fetching: ${appUrl}`)
@@ -224,7 +259,7 @@ async function main() {
     console.log(`Could not fetch app stream: ${err}`)
   }
 
-  // 9. Check for duplicate message events (same key emitted many times)
+  // 10. Check for duplicate message events (same key emitted many times)
   // The stream is append-only: every messagePartDelta and update re-emits
   // the full message, so the same message key appears many times.
   const keyCounts = new Map<string, { count: number; totalBytes: number; lastSize: number }>()
@@ -249,7 +284,7 @@ async function main() {
     )
   }
 
-  // 10. Estimate the "effective" payload — only last version of each key matters
+  // 11. Estimate the "effective" payload — only last version of each key matters
   // for state, but ALL versions are in the stream and sent to the client.
   const lastVersion = new Map<string, number>()
   for (const e of sized) {

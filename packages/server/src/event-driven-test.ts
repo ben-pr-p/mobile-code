@@ -29,7 +29,7 @@ async function main() {
     eventCount++
     console.log(`[Event #${eventCount}] ${event.type}`)
   }
-  await opencode.spawnListener(onEvent)
+  await opencode.spawnListener(onEvent, OPENCODE_URL)
 
   // Send prompt directly via SDK
   console.log("\n--- Sending prompt ---")

@@ -13,6 +13,8 @@ export interface RouterContext {
   client: OpencodeClient
   /** Persistent app-level durable stream (survives server restarts). */
   appDs: DurableStreamServer
+  /** In-memory ephemeral durable stream (resets on server restart). */
+  ephemeralDs: DurableStreamServer
   /** In-memory index of session → worktree mappings. */
   sessionWorktrees: Map<string, { worktreePath: string; projectWorktree: string }>
   /** Real-time state stream for pushing updates to connected clients. */

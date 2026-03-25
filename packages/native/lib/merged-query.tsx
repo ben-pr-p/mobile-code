@@ -16,7 +16,7 @@ import { useLiveQuery } from '@tanstack/react-db';
 import type { InitialQueryBuilder, QueryBuilder } from '@tanstack/react-db';
 import { backendResourcesAtom, type BackendResources } from './backend-streams';
 import type { BackendUrl } from '../state/backends';
-import type { StateDB, AppStateDB } from './stream-db';
+import type { StateDB, EphemeralStateDB, AppStateDB } from './stream-db';
 
 /** Every item returned by a merged query carries its source backend URL. */
 export type WithBackendUrl<T> = T & { backendUrl: BackendUrl };
@@ -192,6 +192,94 @@ function AppStateQueryAccumulator<T>({
   return <>{children({ data: merged.length > 0 ? merged : null, isLoading: loading })}</>;
 }
 
+// --- Ephemeral state query merging ---
+
+interface MergedEphemeralStateQueryProps<T> {
+  query: (
+    db: EphemeralStateDB,
+    q: InitialQueryBuilder
+  ) => QueryBuilder<any> | undefined | null;
+  deps?: unknown[];
+  children: (result: { data: WithBackendUrl<T>[] | null; isLoading: boolean }) => React.ReactNode;
+}
+
+/**
+ * Same as MergedStateQuery but for EphemeralStateDB (live-only session status,
+ * in-progress messages, worktree status).
+ */
+export function MergedEphemeralStateQuery<T>({
+  query,
+  deps = [],
+  children,
+}: MergedEphemeralStateQueryProps<T>) {
+  const resourceMap = useAtomValue(backendResourcesAtom);
+  const backends = Object.values(resourceMap).filter((r) => r.ephemeralDb != null);
+
+  if (backends.length === 0) {
+    return <>{children({ data: null, isLoading: true })}</>;
+  }
+
+  return (
+    <EphemeralStateQueryAccumulator<T>
+      backends={backends}
+      index={0}
+      accumulated={[]}
+      anyLoading={false}
+      query={query}
+      deps={deps}>
+      {children}
+    </EphemeralStateQueryAccumulator>
+  );
+}
+
+interface EphemeralStateQueryAccumulatorProps<T> {
+  backends: BackendResources[];
+  index: number;
+  accumulated: WithBackendUrl<T>[];
+  anyLoading: boolean;
+  query: (
+    db: EphemeralStateDB,
+    q: InitialQueryBuilder
+  ) => QueryBuilder<any> | undefined | null;
+  deps: unknown[];
+  children: (result: { data: WithBackendUrl<T>[] | null; isLoading: boolean }) => React.ReactNode;
+}
+
+function EphemeralStateQueryAccumulator<T>({
+  backends,
+  index,
+  accumulated,
+  anyLoading,
+  query,
+  deps,
+  children,
+}: EphemeralStateQueryAccumulatorProps<T>) {
+  const backend = backends[index];
+  const db = backend.ephemeralDb!;
+
+  const result = useLiveQuery((q) => query(db, q), [db, ...deps]);
+  const rawData = (result.data as T[] | null) ?? [];
+  const tagged = rawData.map((item) => ({ ...item, backendUrl: backend.url }));
+  const merged = [...accumulated, ...tagged];
+  const loading = anyLoading || backend.loading || result.isLoading;
+
+  if (index + 1 < backends.length) {
+    return (
+      <EphemeralStateQueryAccumulator<T>
+        backends={backends}
+        index={index + 1}
+        accumulated={merged}
+        anyLoading={loading}
+        query={query}
+        deps={deps}>
+        {children}
+      </EphemeralStateQueryAccumulator>
+    );
+  }
+
+  return <>{children({ data: merged.length > 0 ? merged : null, isLoading: loading })}</>;
+}
+
 // --- Single-backend query hook ---
 
 /**
@@ -206,6 +294,28 @@ export function useBackendStateQuery<T>(
   const resourceMap = useAtomValue(backendResourcesAtom);
   const resources = resourceMap[backendUrl];
   const db = resources?.db ?? null;
+  const loading = resources?.loading ?? true;
+
+  const result = useLiveQuery((q) => db && query(db, q), [db, ...deps]);
+  if (!db) return { data: null, isLoading: true };
+  return { data: result.data as T[] | null, isLoading: loading || result.isLoading };
+}
+
+/**
+ * Runs an EphemeralStateDB live query against a single specific backend.
+ * Use this when you know which backend owns the data (e.g., session-scoped queries).
+ */
+export function useBackendEphemeralStateQuery<T>(
+  backendUrl: BackendUrl,
+  query: (
+    db: EphemeralStateDB,
+    q: InitialQueryBuilder
+  ) => QueryBuilder<any> | undefined | null,
+  deps: unknown[] = []
+): { data: T[] | null; isLoading: boolean } {
+  const resourceMap = useAtomValue(backendResourcesAtom);
+  const resources = resourceMap[backendUrl];
+  const db = resources?.ephemeralDb ?? null;
   const loading = resources?.loading ?? true;
 
   const result = useLiveQuery((q) => db && query(db, q), [db, ...deps]);
