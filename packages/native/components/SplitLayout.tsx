@@ -115,6 +115,12 @@ export function SplitLayout({
   const [leftPanel, setLeftPanel] = useState<LeftPanelContent>({ type: 'changes' });
   const [settingsVisible, setSettingsVisible] = useState(false);
 
+  // Extract the short worktree ID (e.g. "x7k2" from branch "worktree/x7k2-add-button")
+  const isWorktree = worktreeStatus?.isWorktreeSession && !worktreeStatus.error;
+  const worktreeShortId = isWorktree && worktreeStatus?.branch
+    ? worktreeStatus.branch.replace(/^worktree\//, '').split('-')[0]
+    : null;
+
   const handleToolCallPress = (messageId: string) => {
     setLeftPanel({ type: 'tool-detail', messageId });
     onToolCallPress?.(messageId);
@@ -149,7 +155,7 @@ export function SplitLayout({
             <Text
               className="text-sm font-semibold text-stone-900 dark:text-stone-50"
               style={{ fontFamily: 'JetBrains Mono' }}>
-              {projectName}
+              {projectName}{worktreeShortId ? ` (${worktreeShortId})` : ''}
             </Text>
           </View>
         </View>
@@ -176,9 +182,7 @@ export function SplitLayout({
       <View className="h-8 flex-row items-center justify-between border-b border-stone-200 px-4 dark:border-stone-800">
         <View className="flex-row items-center gap-1.5">
           <Text className="text-xs text-stone-700 dark:text-stone-400">
-            {worktreeStatus?.isWorktreeSession && worktreeStatus.branch
-              ? `(${worktreeStatus.branch.replace(/^worktree\//, '').split('-')[0]})`
-              : session.title || 'Untitled'}
+            {session.title || 'Untitled'}
           </Text>
           <Text className="text-xs text-stone-400 dark:text-stone-600">·</Text>
           <Text className="text-xs text-stone-400 dark:text-stone-600">

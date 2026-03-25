@@ -47,6 +47,11 @@ export function SessionHeader({
 
   const isWorktree = worktreeStatus?.isWorktreeSession && !worktreeStatus.error
 
+  // Extract the short worktree ID (e.g. "x7k2" from branch "worktree/x7k2-add-button")
+  const worktreeShortId = isWorktree && worktreeStatus?.branch
+    ? worktreeStatus.branch.replace(/^worktree\//, '').split('-')[0]
+    : null
+
   // Derive the server name for the info bar (only shown when multiple backends)
   const serverName = hasMultipleBackends && backendUrl
     ? resolvedBackends.find(b => b.url === backendUrl)?.name ?? null
@@ -71,7 +76,7 @@ export function SessionHeader({
             className="text-sm font-semibold text-stone-900 dark:text-stone-50"
             style={{ fontFamily: 'JetBrains Mono' }}
           >
-            {projectName}
+            {projectName}{worktreeShortId ? ` (${worktreeShortId})` : ''}
           </Text>
           {hasMultipleBackends && (
             <View className="flex-row items-center gap-1">
