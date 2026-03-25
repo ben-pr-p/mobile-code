@@ -3,6 +3,8 @@
 // post-checkout hook execution (e.g. dependency installation).
 
 import { $ } from "bun";
+import { copyFile, mkdir } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -14,6 +16,12 @@ export interface WorktreeConfig {
     /** Command executed after a new worktree is checked out (e.g. `"bun install"`). */
     post_checkout?: string;
   };
+  /**
+   * Glob patterns for files to copy from the repo root into each new worktree.
+   * Patterns are relative to the repo root (e.g. `".env"`, `"config/*.json"`).
+   * Patterns that match no files are silently skipped.
+   */
+  include?: string[];
 }
 
 /** A single worktree as reported by `git worktree list --porcelain`. */
@@ -152,6 +160,9 @@ export class WorktreeDriver {
     if (base) args.push(base);
 
     await this.#exec(args);
+
+    // Copy included files before running hooks (hooks may depend on them)
+    await this.#copyIncludes(worktreePath);
 
     // Run post-checkout hook if configured
     if (!skipHooks) {
@@ -333,6 +344,28 @@ export class WorktreeDriver {
   // Private helpers
   // -------------------------------------------------------------------------
 
+  /**
+   * Copy files matching `include` glob patterns from the repo root into the worktree.
+   * Patterns that match no files are silently skipped so optional entries like
+   * `.env` don't break creation when absent.
+   */
+  async #copyIncludes(worktreePath: string): Promise<void> {
+    const patterns = this.#config.include;
+    if (!patterns?.length) return;
+
+    for (const pattern of patterns) {
+      const glob = new Bun.Glob(pattern);
+      for await (const relPath of glob.scan({ cwd: this.#repoRoot, dot: true })) {
+        const src = resolve(this.#repoRoot, relPath);
+        const dest = resolve(worktreePath, relPath);
+
+        // Ensure the destination directory exists (for nested paths)
+        await mkdir(dirname(dest), { recursive: true });
+        await copyFile(src, dest);
+      }
+    }
+  }
+
   /** Derive a default worktree path from the branch name: `../<branch-slug>` */
   #defaultPath(branch: string): string {
     // Place sibling to the repo root, using the branch name (slashes → dashes)
@@ -449,6 +482,12 @@ function validateConfig(raw: Record<string, unknown>): WorktreeConfig {
     if (typeof hooks.post_checkout === "string") {
       config.hooks.post_checkout = hooks.post_checkout;
     }
+  }
+
+  if (Array.isArray(raw.include)) {
+    config.include = raw.include.filter(
+      (f): f is string => typeof f === "string",
+    );
   }
 
   return config;
