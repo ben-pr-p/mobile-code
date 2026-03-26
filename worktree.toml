@@ -1,4 +1,4 @@
-include = [".env"]
+include = ["packages/server/.env"]
 
 [hooks]
 post_checkout = "bun install"
