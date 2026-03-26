@@ -37,7 +37,7 @@ export async function sendPrompt(
   const partSummary = parts.map((p) => p.type === "audio" ? "audio" : `text(${p.text.length})`).join(", ")
   console.log(`[prompt] session=${sessionId} received ${parts.length} part(s): ${partSummary}`)
 
-  // Resolve all parts to text, transcribing audio via Gemini
+  // Resolve all parts to text, transcribing audio via Gemini (in parallel)
   const textParts = await Promise.all(
     parts.map(async (p) => {
       if (p.type === "audio") {
@@ -47,7 +47,18 @@ export async function sendPrompt(
             p.mimeType ?? "audio/mp4",
             conversationContext,
           )
-          return { type: "text" as const, text: transcription || "[inaudible]" }
+          let text = transcription || "[inaudible]"
+
+          // Prepend per-chunk line reference if the audio part carries one
+          if (p.lineReference) {
+            const range = p.lineReference.startLine === p.lineReference.endLine
+              ? `line ${p.lineReference.startLine}`
+              : `lines ${p.lineReference.startLine}-${p.lineReference.endLine}`
+            const side = p.lineReference.side ? ` (${p.lineReference.side} side)` : ""
+            text = `[Referencing ${range} of ${p.lineReference.file}${side}]\n${text}`
+          }
+
+          return { type: "text" as const, text }
         } catch (err) {
           console.error(`[prompt] transcription error:`, err)
           return { type: "text" as const, text: "[transcription error]" }

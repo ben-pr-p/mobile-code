@@ -35,9 +35,15 @@ export function EmptySession({ onMenuPress, onProjectsPress }: EmptySessionProps
         onSend={() => {}}
         onMicPressIn={() => {}}
         onMicPressOut={() => {}}
+        onSendRecording={() => {}}
         onAttachPress={() => {}}
         onStopPress={() => {}}
         recordingState="idle"
+        chunks={[]}
+        totalDurationMs={0}
+        onSendChunks={() => {}}
+        onDiscardChunk={() => {}}
+        onDiscardAllChunks={() => {}}
         modelName="..."
       />
     </View>

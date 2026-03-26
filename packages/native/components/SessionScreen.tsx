@@ -8,7 +8,7 @@ import { ChatThread } from './ChatThread'
 import { ChangesView } from './ChangesView'
 import { VoiceInputArea } from './VoiceInputArea'
 import type { SessionValue, UIMessage as Message, ChangedFile, WorktreeStatusValue, PermissionRequestValue } from '../lib/stream-db'
-import type { RecordingState } from '../hooks/useAudioRecorder'
+import type { RecordingState, AudioChunk } from '../hooks/useChunkedAudioRecorder'
 import type { PendingCommand } from '../state/settings'
 import type { BackendUrl } from '../state/backends'
 import { useSessionStatus } from '../hooks/useSessionStatus'
@@ -31,9 +31,15 @@ interface SessionScreenProps {
   isSending?: boolean
   audioRecorder: {
     recordingState: RecordingState
+    chunks: AudioChunk[]
+    totalDurationMs: number
     startRecording: () => void
     stopRecording: () => void
+    sendRecording: () => void
     cancelRecording: () => void
+    sendChunks: () => void
+    discardChunk: (id: string) => void
+    discardAllChunks: () => void
   }
   onAbort?: () => void
   emptyMessage?: string
@@ -159,9 +165,15 @@ export function SessionScreen({
               isSending={isSending}
               onMicPressIn={audioRecorder.startRecording}
               onMicPressOut={audioRecorder.stopRecording}
+              onSendRecording={audioRecorder.sendRecording}
               onAttachPress={() => {}}
               onStopPress={audioRecorder.cancelRecording}
               recordingState={audioRecorder.recordingState}
+              chunks={audioRecorder.chunks}
+              totalDurationMs={audioRecorder.totalDurationMs}
+              onSendChunks={audioRecorder.sendChunks}
+              onDiscardChunk={audioRecorder.discardChunk}
+              onDiscardAllChunks={audioRecorder.discardAllChunks}
               modelName={modelName}
               sessionStatus={sessionStatus}
               onAbort={onAbort}

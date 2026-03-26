@@ -26,7 +26,7 @@ import { useBackendStateQuery, useBackendEphemeralStateQuery } from '../lib/merg
 import { MergedStateQuery, type WithBackendUrl } from '../lib/merged-query';
 import { useSessionStatus } from '../hooks/useSessionStatus';
 import { usePendingPermission } from '../hooks/usePendingPermission';
-import { useAudioRecorder } from '../hooks/useAudioRecorder';
+import { useChunkedAudioRecorder, type AudioChunk } from '../hooks/useChunkedAudioRecorder';
 import { useHandsFreeMode } from '../hooks/useHandsFreeMode';
 import { useModels } from '../hooks/useModels';
 import { useAgents } from '../hooks/useAgents';
@@ -40,6 +40,14 @@ import { lineSelectionAtom, type LineSelection } from '../state/line-selection';
 import { Server, ChevronDown } from 'lucide-react-native';
 import type { BackendConfig, BackendConnection, BackendUrl } from '../state/backends';
 import { BackendSelectorSheet, type BackendOption } from './BackendSelectorSheet';
+
+/** An audio part with an optional per-chunk line reference for the server. */
+export interface AnnotatedAudioPart {
+  type: 'audio';
+  audioData: string;
+  mimeType: string;
+  lineReference?: LineSelection;
+}
 
 /** Settings type shared by both wrappers. */
 export interface SessionSettings {
@@ -64,7 +72,8 @@ interface SessionViewProps {
   onProjectsPress: () => void;
   settings: SessionSettings;
   onSendText: (text: string, model: ModelSelection | null, agent?: string) => Promise<void>;
-  onSendAudio: (base64: string, mimeType: string, model: ModelSelection | null) => void;
+  /** Send one or more annotated audio chunks. Each chunk may carry its own lineReference. */
+  onSendAudio: (parts: AnnotatedAudioPart[], model: ModelSelection | null) => void;
   onExecuteCommand?: (command: string, args: string, model: ModelSelection | null) => Promise<void>;
   /** Walking-mode voice prompt handler. */
   onVoicePrompt?: (
@@ -251,8 +260,51 @@ export function SessionView({
     return merged;
   }, [serverMessagesList, pendingVoiceMessages]);
 
-  // Shared helper: adds a pending voice message and sends audio to the server.
-  const sendVoiceAudio = useCallback(
+  // Line selection ref for the chunked recorder to snapshot at recording time.
+  const lineSelection = useAtomValue(lineSelectionAtom);
+  const setLineSelection = useSetAtom(lineSelectionAtom);
+  const lineSelectionRef = useRef<LineSelection | null>(lineSelection);
+  lineSelectionRef.current = lineSelection;
+
+  // Shared helper: adds a pending voice message and sends annotated audio chunks to the server.
+  const sendVoiceChunks = useCallback(
+    (chunks: AudioChunk[]) => {
+      const pendingId = `voice-${++voiceIdCounter.current}`;
+      setPendingVoiceMessages((prev) => [
+        ...prev,
+        {
+          id: pendingId,
+          sessionId,
+          role: 'user',
+          type: 'voice',
+          content: '',
+          audioUri: null,
+          transcription: null,
+          toolName: null,
+          toolMeta: null,
+          syncStatus: 'sending',
+          createdAt: Date.now(),
+          isComplete: false,
+        },
+      ]);
+
+      const parts: AnnotatedAudioPart[] = chunks.map((chunk) => ({
+        type: 'audio' as const,
+        audioData: chunk.base64,
+        mimeType: chunk.mimeType,
+        lineReference: chunk.lineReference ?? undefined,
+      }));
+
+      onSendAudio(parts, effectiveModel);
+
+      // Clear line selection after sending
+      if (lineSelectionRef.current) setLineSelection(null);
+    },
+    [sessionId, onSendAudio, effectiveModel, setLineSelection]
+  );
+
+  // Hands-free shim: wraps a single recording into the new multi-part format.
+  const sendSingleVoiceAudio = useCallback(
     (base64: string, mimeType: string) => {
       const pendingId = `voice-${++voiceIdCounter.current}`;
       setPendingVoiceMessages((prev) => [
@@ -272,23 +324,35 @@ export function SessionView({
           isComplete: false,
         },
       ]);
-      onSendAudio(base64, mimeType, effectiveModel);
+
+      const currentSelection = lineSelectionRef.current;
+      const parts: AnnotatedAudioPart[] = [{
+        type: 'audio' as const,
+        audioData: base64,
+        mimeType,
+        lineReference: currentSelection ?? undefined,
+      }];
+      onSendAudio(parts, effectiveModel);
+      if (currentSelection) setLineSelection(null);
     },
-    [sessionId, onSendAudio, effectiveModel]
+    [sessionId, onSendAudio, effectiveModel, setLineSelection]
   );
 
-  const audioRecorder = useAudioRecorder({
-    onSendAudio: sendVoiceAudio,
-    onRecordingComplete: async () => {
-      // After expo-av recording finishes, restore the playback session so
-      // hands-free headphone button works again via A2DP.
-      try {
-        const HandsFreeMedia = (await import('../modules/hands-free-media')).default;
-        await HandsFreeMedia?.restorePlaybackSession();
-      } catch {
-        // Module may not be available — that's fine
-      }
-    },
+  const restorePlaybackSession = useCallback(async () => {
+    // After expo-av recording finishes, restore the playback session so
+    // hands-free headphone button works again via A2DP.
+    try {
+      const HandsFreeMedia = (await import('../modules/hands-free-media')).default;
+      await HandsFreeMedia?.restorePlaybackSession();
+    } catch {
+      // Module may not be available — that's fine
+    }
+  }, []);
+
+  const audioRecorder = useChunkedAudioRecorder({
+    onSendChunks: sendVoiceChunks,
+    onRecordingComplete: restorePlaybackSession,
+    getLineSelection: () => lineSelectionRef.current,
   });
 
   // Walking-mode voice prompt: wraps the onVoicePrompt callback with the
@@ -302,12 +366,15 @@ export function SessionView({
   );
 
   // Hands-free mode: headphone button starts a CallKit call which records
-  // via AVAudioEngine natively. The recorded audio is delivered to sendVoiceAudio.
+  // via AVAudioEngine natively. The recorded audio is delivered as a single
+  // recording via the hands-free shim (no chunking for CallKit path).
+  // We pass sendRecording (stop + send) for the legacy fallback path so
+  // that expo-av recordings are sent immediately rather than just queued.
   const handsFree = useHandsFreeMode(
     audioRecorder.recordingState,
     audioRecorder.startRecording,
-    audioRecorder.stopRecording,
-    sendVoiceAudio,
+    audioRecorder.sendRecording,
+    sendSingleVoiceAudio,
     onVoicePrompt ? handleVoicePrompt : undefined,
     sessionStatus
   );
@@ -632,24 +699,18 @@ function ExistingSessionDataLoader({
   );
 
   const handleSendAudio = useCallback(
-    (base64: string, mimeType: string, model: ModelSelection | null) => {
+    (parts: AnnotatedAudioPart[], model: ModelSelection | null) => {
       if (!api) return;
-      const currentSelection = lineSelectionRef.current;
       api.sessions.prompt({
         sessionId,
-        parts: [{ type: 'audio' as const, audioData: base64, mimeType }],
+        parts,
         ...(model ? { model } : {}),
-        ...(currentSelection ? { lineReference: currentSelection } : {}),
       })
-        .then(() => {
-          // Clear line selection after successful send
-          if (currentSelection) setLineSelection(null);
-        })
         .catch((err) => {
           console.error('[SessionContent] audio prompt failed:', err);
         });
     },
-    [api, sessionId, setLineSelection]
+    [api, sessionId]
   );
 
   const handleExecuteCommand = useCallback(
@@ -847,7 +908,7 @@ function NewSessionDataLoader({
     async (
       parts: (
         | { type: 'text'; text: string }
-        | { type: 'audio'; audioData: string; mimeType: string }
+        | AnnotatedAudioPart
       )[],
       model: ModelSelection | null
     ) => {
@@ -882,8 +943,8 @@ function NewSessionDataLoader({
   );
 
   const handleSendAudio = useCallback(
-    (base64: string, mimeType: string, model: ModelSelection | null) => {
-      createAndPrompt([{ type: 'audio', audioData: base64, mimeType }], model).catch((err) => {
+    (parts: AnnotatedAudioPart[], model: ModelSelection | null) => {
+      createAndPrompt(parts, model).catch((err) => {
         console.error('[NewSessionContent] audio create + prompt failed:', err);
       });
     },
@@ -985,9 +1046,15 @@ function SessionLoading({
         onSend={() => {}}
         onMicPressIn={() => {}}
         onMicPressOut={() => {}}
+        onSendRecording={() => {}}
         onAttachPress={() => {}}
         onStopPress={() => {}}
         recordingState="idle"
+        chunks={[]}
+        totalDurationMs={0}
+        onSendChunks={() => {}}
+        onDiscardChunk={() => {}}
+        onDiscardAllChunks={() => {}}
         modelName="..."
       />
     </View>

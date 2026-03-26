@@ -22,7 +22,7 @@ import { StatusDot, TOOL_LABELS, formatDuration } from './tool-calls/shared';
 import type { SessionValue, UIMessage as Message, ChangedFile, WorktreeStatusValue, PermissionRequestValue } from '../lib/stream-db';
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings';
 import type { LeftPanelContent } from '../state/ui';
-import type { RecordingState } from '../hooks/useAudioRecorder';
+import type { RecordingState, AudioChunk } from '../hooks/useChunkedAudioRecorder';
 import type { PendingCommand } from '../state/settings';
 import type { BackendConfig, BackendConnection, BackendUrl } from '../state/backends';
 import { useSessionStatus } from '../hooks/useSessionStatus';
@@ -43,9 +43,15 @@ interface SplitLayoutProps {
   isSending?: boolean;
   audioRecorder: {
     recordingState: RecordingState;
+    chunks: AudioChunk[];
+    totalDurationMs: number;
     startRecording: () => void;
     stopRecording: () => void;
+    sendRecording: () => void;
     cancelRecording: () => void;
+    sendChunks: () => void;
+    discardChunk: (id: string) => void;
+    discardAllChunks: () => void;
   };
   onAbort?: () => void;
   settings: {
@@ -248,9 +254,15 @@ export function SplitLayout({
                   isSending={isSending}
                   onMicPressIn={audioRecorder.startRecording}
                   onMicPressOut={audioRecorder.stopRecording}
+                  onSendRecording={audioRecorder.sendRecording}
                   onAttachPress={() => {}}
                   onStopPress={audioRecorder.cancelRecording}
                   recordingState={audioRecorder.recordingState}
+                  chunks={audioRecorder.chunks}
+                  totalDurationMs={audioRecorder.totalDurationMs}
+                  onSendChunks={audioRecorder.sendChunks}
+                  onDiscardChunk={audioRecorder.discardChunk}
+                  onDiscardAllChunks={audioRecorder.discardAllChunks}
                   modelName={modelName}
                   sessionStatus={sessionStatus}
                   onAbort={onAbort}

@@ -12,7 +12,17 @@ export const sessions = {
       sessionId: z.string(),
       parts: z.array(z.union([
         z.object({ type: z.literal("text"), text: z.string() }),
-        z.object({ type: z.literal("audio"), audioData: z.string(), mimeType: z.string().optional() }),
+        z.object({
+          type: z.literal("audio"),
+          audioData: z.string(),
+          mimeType: z.string().optional(),
+          lineReference: z.object({
+            file: z.string(),
+            startLine: z.number(),
+            endLine: z.number(),
+            side: z.enum(["additions", "deletions"]).optional(),
+          }).optional(),
+        }),
       ])),
       model: z.object({ providerID: z.string(), modelID: z.string() }).optional(),
       agent: z.string().optional(),

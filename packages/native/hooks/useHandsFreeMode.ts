@@ -3,7 +3,7 @@ import { Alert } from 'react-native'
 import { useAtom, useSetAtom, useAtomValue } from 'jotai'
 import HandsFreeMedia from '../modules/hands-free-media'
 import { handsFreeActiveAtom, nativeRecordingAtom, handsFreeModeAtom } from '../state/settings'
-import type { RecordingState } from './useAudioRecorder'
+import type { RecordingState } from './useChunkedAudioRecorder'
 
 /** Whether the native module is available in this binary. */
 const isModuleAvailable = HandsFreeMedia != null
