@@ -2,7 +2,8 @@ import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings';
 import { asyncStorageAdapter } from '../lib/jotai-async-storage';
-import { backendConnectionsAtom } from './backends';
+import { globalDb } from '../lib/global-db';
+import type { BackendConnectionValue } from '../lib/stream-db';
 
 export const notificationSoundAtom = atom<NotificationSound>('chime');
 
@@ -30,8 +31,10 @@ export const nativeRecordingAtom = atom(false);
  * Reports 'connected' if any backend is connected, 'reconnecting' if any is
  * reconnecting and none are connected, 'error' otherwise.
  */
-export const connectionInfoAtom = atom<ConnectionInfo>((get) => {
-  const connections = Object.values(get(backendConnectionsAtom));
+export const connectionInfoAtom = atom<ConnectionInfo>(() => {
+  // Read connections directly from the global DB collection (synchronous)
+  const connectionsCollection = globalDb.collections.backendConnections as any;
+  const connections = (connectionsCollection.toArray ?? []) as BackendConnectionValue[];
   if (connections.length === 0) {
     return { status: 'reconnecting', latencyMs: null, error: null };
   }

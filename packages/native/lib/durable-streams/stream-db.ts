@@ -1007,6 +1007,13 @@ export interface CreateDbWithNoStreamsOptions<
   state: TDef
   /** Optional callback to customize collection creation (e.g. persistence) */
   createCollectionFn?: CreateCollectionFn
+  // [FLOCKCODE] Local-only collections — no sync config, client-written directly
+  /**
+   * Collection names that are local-only (no sync, no stream).
+   * These collections are created without a sync config and can be written
+   * to directly via the TanStack DB collection API (insert/update/delete).
+   */
+  localCollectionNames?: ReadonlySet<string>
 }
 
 /**
@@ -1044,30 +1051,56 @@ export function createDbWithNoStreams<
 >(
   options: CreateDbWithNoStreamsOptions<TDef>
 ): MultiStreamDB<TDef> & { _entries: Map<string, CollectionEntry> } {
-  const { state, createCollectionFn } = options
+  const { state, createCollectionFn, localCollectionNames } = options
 
   const collectionInstances: Record<string, Collection<object, string>> = {}
   const entries = new Map<string, CollectionEntry>()
   const streamHandles: StreamHandle[] = []
 
   for (const [name, definition] of Object.entries(state)) {
-    const { syncConfig, getCallbacks } = createCapturingSyncConfig()
+    const isLocal = localCollectionNames?.has(name) ?? false
 
-    const config: StreamCollectionConfig = {
-      id: `stream-db:${name}`,
-      schema: definition.schema as StandardSchemaV1<object>,
-      getKey: (item: any) => String(item[definition.primaryKey]),
-      sync: syncConfig,
-      startSync: true,
-      gcTime: 0,
+    if (isLocal) {
+      // [FLOCKCODE] Local-only collection — no sync, client-written directly.
+      // These are used for backends config, connection state, etc.
+      const config: StreamCollectionConfig = {
+        id: `stream-db:${name}`,
+        schema: definition.schema as StandardSchemaV1<object>,
+        getKey: (item: any) => String(item[definition.primaryKey]),
+        sync: undefined as any, // No sync — local-only
+        startSync: false,
+        gcTime: 0,
+      }
+
+      // Remove sync from the config entirely before passing to createCollection
+      const { sync: _sync, startSync: _startSync, ...localConfig } = config
+      const collection = createCollectionFn
+        ? createCollectionFn(name, config)
+        : defaultCreateCollection(localConfig as any)
+
+      collectionInstances[name] = collection
+      // Local collections still get an entry but with a no-op getCallbacks
+      entries.set(name, { definition, collection, getCallbacks: () => null })
+    } else {
+      // Stream-fed collection — create with capturing sync config
+      const { syncConfig, getCallbacks } = createCapturingSyncConfig()
+
+      const config: StreamCollectionConfig = {
+        id: `stream-db:${name}`,
+        schema: definition.schema as StandardSchemaV1<object>,
+        getKey: (item: any) => String(item[definition.primaryKey]),
+        sync: syncConfig,
+        startSync: true,
+        gcTime: 0,
+      }
+
+      const collection = createCollectionFn
+        ? createCollectionFn(name, config)
+        : defaultCreateCollection(config)
+
+      collectionInstances[name] = collection
+      entries.set(name, { definition, collection, getCallbacks })
     }
-
-    const collection = createCollectionFn
-      ? createCollectionFn(name, config)
-      : defaultCreateCollection(config)
-
-    collectionInstances[name] = collection
-    entries.set(name, { definition, collection, getCallbacks })
   }
 
   return {
@@ -1093,6 +1126,18 @@ export interface AppendStreamOptions {
    * These must be keys from the state definition passed to createDbWithNoStreams.
    */
   collectionNames: string[]
+  // [FLOCKCODE] backendUrl stamping — injected into every row by the write handler
+  /**
+   * Backend URL to stamp on every row written by this stream.
+   * This lets queries join/filter by backend without the server knowing its own URL.
+   */
+  backendUrl?: string
+  /**
+   * Collections whose key should be rewritten as `${backendUrl}:${originalKey}`.
+   * Used for backendProjects where the same project ID can exist on multiple backends.
+   * The original key is also stored as `projectId` on the value.
+   */
+  compositeKeyCollections?: Set<string>
 }
 
 /**
@@ -1108,7 +1153,7 @@ export function appendStreamToDb<TDef extends StreamStateDefinition>(
   db: MultiStreamDB<TDef> & { _entries: Map<string, CollectionEntry> },
   options: AppendStreamOptions
 ): StreamHandle {
-  const { streamOptions, collectionNames } = options
+  const { streamOptions, collectionNames, backendUrl, compositeKeyCollections } = options
 
   // Create a stream handle (lightweight, doesn't connect until stream() is called)
   const stream = new DurableStreamClass(streamOptions)
@@ -1134,16 +1179,32 @@ export function appendStreamToDb<TDef extends StreamStateDefinition>(
       )
     }
 
+    // [FLOCKCODE] Determine if this collection needs composite keys
+    const needsCompositeKey = compositeKeyCollections?.has(name) ?? false
+    const pk = entry.definition.primaryKey
+
     // Register this collection's sync callbacks with the dispatcher
     dispatcher.registerHandler(entry.definition.type, {
       begin: callbacks.begin,
       write: (value, type) => {
+        // [FLOCKCODE] Stamp backendUrl on every row
+        if (backendUrl) {
+          ;(value as any).backendUrl = backendUrl
+        }
+        // [FLOCKCODE] Rewrite key to composite for collections that need it.
+        // Store the original key as `projectId` and set the primary key to
+        // `${backendUrl}:${originalKey}`.
+        if (needsCompositeKey && backendUrl) {
+          const originalKey = String((value as any)[pk])
+          ;(value as any).projectId = originalKey
+          ;(value as any)[pk] = `${backendUrl}:${originalKey}`
+        }
         callbacks.write({ value, type })
       },
       commit: callbacks.commit,
       markReady: callbacks.markReady,
       truncate: callbacks.truncate,
-      primaryKey: entry.definition.primaryKey,
+      primaryKey: pk,
     })
   }
 

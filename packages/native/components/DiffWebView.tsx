@@ -4,8 +4,7 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { eq } from '@tanstack/react-db'
 import { useColorScheme } from 'nativewind'
-import type { BackendUrl } from '../state/backends'
-import { backendResourcesAtom } from '../lib/backend-streams'
+import { getApi } from '../lib/api'
 import { useBackendEphemeralStateQuery } from '../lib/merged-query'
 import type { ChangeValue } from '../lib/stream-db'
 import { lineSelectionAtom } from '../state/line-selection'
@@ -13,7 +12,7 @@ import diffViewerHtml from '../assets/diff-viewer'
 
 interface DiffWebViewProps {
   sessionId: string
-  backendUrl: BackendUrl
+  backendUrl: string
   /** File to display, or null to hide the diff content */
   activeFile: string | null
 }
@@ -24,9 +23,7 @@ interface DiffWebViewProps {
  * Subsequent updates are sent via postMessage — no network requests or reloads.
  */
 export function DiffWebView({ sessionId, backendUrl, activeFile }: DiffWebViewProps) {
-  const resources = useAtomValue(backendResourcesAtom)
-  const backendRes = resources[backendUrl]
-  const api = backendRes?.api
+  const api = getApi(backendUrl)
   const { colorScheme } = useColorScheme()
   const webViewRef = useRef<WebView>(null)
   const [isLoaded, setIsLoaded] = useState(false)

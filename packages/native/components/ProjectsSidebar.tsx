@@ -6,8 +6,7 @@ import { useAtom } from 'jotai';
 import { X, Plus } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { ProjectCard } from './ProjectCard';
-import { MergedStateQuery } from '../lib/merged-query';
-import type { ProjectValue } from '../lib/stream-db';
+import { useDeduplicatedProjects, type DeduplicatedProject } from '../hooks/useDeduplicatedProjects';
 import { projectFilterAtom, pinnedProjectIdsAtom } from '../state/ui';
 
 
@@ -21,7 +20,7 @@ interface ProjectGroup {
  * Finds shared parent directory prefixes where 2+ projects share the same
  * immediate parent-of-parent segment. E.g. ~/work/a and ~/work/b -> "work" group.
  */
-function deriveGroups(projects: ProjectValue[]): ProjectGroup[] {
+function deriveGroups(projects: DeduplicatedProject[]): ProjectGroup[] {
   if (projects.length === 0) return [];
 
   const parentCounts = new Map<string, number>();
@@ -58,37 +57,10 @@ export function ProjectsSidebar({
   selectedProjectId,
   onClose,
 }: ProjectsSidebarProps) {
-  return (
-    <MergedStateQuery<ProjectValue>
-      query={(db, q) => q.from({ projects: db.collections.projects })}
-    >
-      {({ data: rawProjects, isLoading }) => (
-        <ProjectsSidebarContent
-          rawProjects={rawProjects}
-          isLoading={isLoading}
-          selectedProjectId={selectedProjectId}
-          onClose={onClose}
-        />
-      )}
-    </MergedStateQuery>
-  );
-}
-
-function ProjectsSidebarContent({
-  rawProjects,
-  isLoading,
-  selectedProjectId,
-  onClose,
-}: {
-  rawProjects: ProjectValue[] | null;
-  isLoading: boolean;
-  selectedProjectId: string | null;
-  onClose: () => void;
-}) {
+  const { projects, isLoading } = useDeduplicatedProjects();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useAtom(projectFilterAtom);
-  const projects = rawProjects?.slice().sort((a, b) => b.time.created - a.time.created) ?? [];
   const { colorScheme } = useColorScheme();
   const iconColor = colorScheme === 'dark' ? '#A8A29E' : '#44403C';
   const placeholderColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';

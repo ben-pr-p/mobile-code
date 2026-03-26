@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
@@ -6,8 +6,7 @@ import { useRouter } from 'expo-router';
 import { useNavigation, DrawerActions, type NavigationProp } from '@react-navigation/native';
 import { SessionHeader } from '../../components/SessionHeader';
 import { useRightDrawer } from '../../lib/drawer-context';
-import { MergedStateQuery } from '../../lib/merged-query';
-import type { ProjectValue } from '../../lib/stream-db';
+import { useDeduplicatedProjects } from '../../hooks/useDeduplicatedProjects';
 
 /**
  * Root index route — shown when no project is selected.
@@ -18,44 +17,8 @@ export default function IndexScreen() {
   const router = useRouter();
   const navigation = useNavigation<NavigationProp<any>>();
   const { openRightDrawer } = useRightDrawer();
-
-  return (
-    <MergedStateQuery<ProjectValue>
-      query={(db, q) => q.from({ projects: db.collections.projects })}>
-      {({ data: rawProjects, isLoading }) => (
-        <IndexContent
-          rawProjects={rawProjects}
-          isLoading={isLoading}
-          insets={insets}
-          router={router}
-          navigation={navigation}
-          openRightDrawer={openRightDrawer}
-        />
-      )}
-    </MergedStateQuery>
-  );
-}
-
-function IndexContent({
-  rawProjects,
-  isLoading,
-  insets,
-  router,
-  navigation,
-  openRightDrawer,
-}: {
-  rawProjects: ProjectValue[] | null;
-  isLoading: boolean;
-  insets: { top: number };
-  router: ReturnType<typeof useRouter>;
-  navigation: NavigationProp<any>;
-  openRightDrawer: () => void;
-}) {
   const { colorScheme } = useColorScheme();
-  const projects = useMemo(
-    () => rawProjects?.slice().sort((a, b) => b.time.created - a.time.created) ?? [],
-    [rawProjects]
-  );
+  const { projects, isLoading } = useDeduplicatedProjects();
 
   // Auto-navigate to the most recent project's index, which will in turn
   // resolve the most recent non-archived session or fall back to new-session.
@@ -67,7 +30,7 @@ function IndexContent({
 
     router.replace({
       pathname: '/projects/[projectId]',
-      params: { projectId: projects[0].id },
+      params: { projectId: projects[0].projectId },
     });
   }, [isLoading, projects, router]);
 

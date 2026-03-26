@@ -2,15 +2,13 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
-import { useAtomValue } from 'jotai';
 import { Shield } from 'lucide-react-native';
 import type { PermissionRequestValue } from '../lib/stream-db';
-import type { BackendUrl } from '../state/backends';
-import { backendResourcesAtom } from '../lib/backend-streams';
+import { getApi } from '../lib/api';
 
 interface PermissionRequestBarProps {
   permission: PermissionRequestValue;
-  backendUrl: BackendUrl;
+  backendUrl: string;
 }
 
 /**
@@ -25,8 +23,7 @@ export function PermissionRequestBar({ permission, backendUrl }: PermissionReque
   const isDark = colorScheme === 'dark';
   const [replyInFlight, setReplyInFlight] = useState<'once' | 'always' | 'reject' | null>(null);
 
-  const resources = useAtomValue(backendResourcesAtom);
-  const api = resources[backendUrl]?.api;
+  const api = getApi(backendUrl);
 
   const handleReply = useCallback(
     async (reply: 'once' | 'always' | 'reject') => {

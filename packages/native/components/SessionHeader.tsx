@@ -3,10 +3,10 @@ import { View, Text, Pressable, ActivityIndicator } from 'react-native'
 import { Menu, FolderOpen, GitMerge, Check, CircleDot, Monitor, Cloud } from 'lucide-react-native'
 import { useColorScheme } from 'nativewind'
 import { useAtomValue } from 'jotai'
+import { useLiveQuery } from '@tanstack/react-db'
 import { connectionInfoAtom } from '../state/settings'
-import { backendsAtom, backendConnectionsAtom } from '../state/backends'
-import type { BackendUrl } from '../state/backends'
-import type { WorktreeStatusValue } from '../lib/stream-db'
+import { globalDb } from '../lib/global-db'
+import type { BackendConfigValue, BackendConnectionValue, WorktreeStatusValue } from '../lib/stream-db'
 
 interface SessionHeaderProps {
   projectName: string
@@ -21,7 +21,7 @@ interface SessionHeaderProps {
   /** Callback to trigger a merge. */
   onMerge?: () => void
   /** The backend URL for this session. When provided, the server name is shown in the info bar. */
-  backendUrl?: BackendUrl
+  backendUrl?: string
 }
 
 /** Session header with project name, session info, and optional worktree status. */
@@ -39,9 +39,19 @@ export function SessionHeader({
   const { colorScheme } = useColorScheme()
   const iconColor = colorScheme === 'dark' ? '#A8A29E' : '#44403C'
   const connection = useAtomValue(connectionInfoAtom)
-  const connections = useAtomValue(backendConnectionsAtom)
-  const backends = useAtomValue(backendsAtom)
-  const resolvedBackends = backends instanceof Promise ? [] : backends
+  const { data: backendRows } = useLiveQuery(
+    (q) => q.from({ backends: globalDb.collections.backends }),
+    []
+  )
+  const resolvedBackends = (backendRows as BackendConfigValue[] | null) ?? []
+  const { data: connectionRows } = useLiveQuery(
+    (q) => q.from({ bc: globalDb.collections.backendConnections }),
+    []
+  )
+  const connections: Record<string, BackendConnectionValue> = {}
+  for (const c of (connectionRows as BackendConnectionValue[] | null) ?? []) {
+    connections[c.url] = c
+  }
   const dotColor = connection.status === 'connected' ? 'bg-green-500' : 'bg-red-500'
   const hasMultipleBackends = resolvedBackends.filter(b => b.enabled).length > 1
 

@@ -1,157 +1,97 @@
 /**
- * MergedQuery — runs the same useLiveQuery against every connected backend's
- * unified DB, concatenates the results, and passes them to a render function.
+ * Global DB query utilities.
  *
- * Each result item is augmented with a `backendUrl` field so the caller knows
- * which backend it came from.
+ * With the global DB, all collections from all backends live in one place.
+ * Every server-synced row has a `backendUrl` field stamped by the EventDispatcher.
+ * Queries can join against the `backends` and `backendConnections` collections
+ * to filter by enabled/connected status.
  *
- * Uses a recursive component pattern to satisfy React's rules of hooks:
- * each recursion level renders one component that calls useLiveQuery exactly
- * once, then renders the next level with accumulated results.
+ * This module re-exports the globalDb for convenience and provides the
+ * `useGlobalQuery` hook as a simple wrapper around useLiveQuery with the
+ * global DB.
  */
-import React from 'react';
-import { useAtomValue } from 'jotai/react';
 import { useLiveQuery } from '@tanstack/react-db';
 import type { InitialQueryBuilder, QueryBuilder } from '@tanstack/react-db';
-import { backendResourcesAtom, type BackendResources } from './backend-streams';
-import type { BackendUrl } from '../state/backends';
-import type { UnifiedDB } from './stream-db';
+import { globalDb } from './global-db';
+import type { GlobalDB } from './stream-db';
 
-/** Every item returned by a merged query carries its source backend URL. */
-export type WithBackendUrl<T> = T & { backendUrl: BackendUrl };
-
-// --- Unified query merging ---
-
-interface MergedQueryProps<T> {
-  /** Build a query from the unified DB. */
-  query: (db: UnifiedDB, q: InitialQueryBuilder) => QueryBuilder<any> | undefined | null;
-  /** Extra deps for the query. */
-  deps?: unknown[];
-  /** Render function receiving the merged, backend-tagged results. */
-  children: (result: { data: WithBackendUrl<T>[] | null; isLoading: boolean }) => React.ReactNode;
-}
+export { globalDb };
+export type { GlobalDB };
 
 /**
- * Runs a live query against every connected backend's unified DB, tags each
- * result with its source `backendUrl`, and concatenates them.
+ * @deprecated No longer needed — all server-synced types now include `backendUrl` directly.
+ * Kept for backwards compatibility. This is now a no-op identity type.
+ */
+export type WithBackendUrl<T> = T;
+
+/**
+ * Run a live query against the global DB.
  *
- * This replaces MergedStateQuery, MergedEphemeralStateQuery, and
- * MergedAppStateQuery — all collections are in the unified DB.
- *
+ * @example
  * ```tsx
- * <MergedQuery<ProjectValue>
- *   query={(db, q) => q.from({ projects: db.collections.projects })}
- * >
- *   {({ data, isLoading }) => <ProjectList projects={data} />}
- * </MergedQuery>
+ * const { data: sessions } = useGlobalQuery<SessionValue>(
+ *   (db, q) => q
+ *     .from({ sessions: db.collections.sessions })
+ *     .where(({ sessions }) => eq(sessions.backendUrl, backendUrl)),
+ *   [backendUrl]
+ * );
  * ```
  */
-export function MergedQuery<T>({ query, deps = [], children }: MergedQueryProps<T>) {
-  const resourceMap = useAtomValue(backendResourcesAtom);
-  const backends = Object.values(resourceMap).filter((r) => r.db != null);
-
-  if (backends.length === 0) {
-    return <>{children({ data: null, isLoading: true })}</>;
-  }
-
-  return (
-    <QueryAccumulator<T>
-      backends={backends}
-      index={0}
-      accumulated={[]}
-      anyLoading={false}
-      query={query}
-      deps={deps}>
-      {children}
-    </QueryAccumulator>
-  );
-}
-
-interface QueryAccumulatorProps<T> {
-  backends: BackendResources[];
-  index: number;
-  accumulated: WithBackendUrl<T>[];
-  anyLoading: boolean;
-  query: (db: UnifiedDB, q: InitialQueryBuilder) => QueryBuilder<any> | undefined | null;
-  deps: unknown[];
-  children: (result: { data: WithBackendUrl<T>[] | null; isLoading: boolean }) => React.ReactNode;
-}
-
-function QueryAccumulator<T>({
-  backends,
-  index,
-  accumulated,
-  anyLoading,
-  query,
-  deps,
-  children,
-}: QueryAccumulatorProps<T>) {
-  const backend = backends[index];
-  const db = backend.db!;
-
-  const result = useLiveQuery((q) => query(db, q), [db, ...deps]);
-  const rawData = (result.data as T[] | null) ?? [];
-  const tagged = rawData.map((item) => ({ ...item, backendUrl: backend.url }));
-  const merged = [...accumulated, ...tagged];
-  const loading = anyLoading || backend.loading || result.isLoading;
-
-  if (index + 1 < backends.length) {
-    return (
-      <QueryAccumulator<T>
-        backends={backends}
-        index={index + 1}
-        accumulated={merged}
-        anyLoading={loading}
-        query={query}
-        deps={deps}>
-        {children}
-      </QueryAccumulator>
-    );
-  }
-
-  return <>{children({ data: merged.length > 0 ? merged : null, isLoading: loading })}</>;
-}
-
-// --- Backwards-compatible aliases ---
-// These re-export MergedQuery under the old names so existing consumers
-// don't need to be updated in this commit. The query callback receives
-// the full UnifiedDB, which is a superset of the old StateDB / EphemeralStateDB / AppStateDB.
-
-/** @deprecated Use MergedQuery instead */
-export const MergedStateQuery = MergedQuery;
-
-/** @deprecated Use MergedQuery instead */
-export const MergedEphemeralStateQuery = MergedQuery;
-
-/** @deprecated Use MergedQuery instead */
-export const MergedAppStateQuery = MergedQuery;
-
-// --- Single-backend query hook ---
-
-/**
- * Runs a live query against a single specific backend's unified DB.
- * Use this when you know which backend owns the data (e.g., session-scoped queries).
- */
-export function useBackendQuery<T>(
-  backendUrl: BackendUrl,
-  query: (db: UnifiedDB, q: InitialQueryBuilder) => QueryBuilder<any> | undefined | null,
+export function useGlobalQuery<T>(
+  query: (db: GlobalDB, q: InitialQueryBuilder) => QueryBuilder<any> | undefined | null,
   deps: unknown[] = []
 ): { data: T[] | null; isLoading: boolean } {
-  const resourceMap = useAtomValue(backendResourcesAtom);
-  const resources = resourceMap[backendUrl];
-  const db = resources?.db ?? null;
-  const loading = resources?.loading ?? true;
-
-  const result = useLiveQuery((q) => db && query(db, q), [db, ...deps]);
-  if (!db) return { data: null, isLoading: true };
-  return { data: result.data as T[] | null, isLoading: loading || result.isLoading };
+  const result = useLiveQuery((q) => query(globalDb, q), deps);
+  return {
+    data: (result.data as T[] | null) ?? null,
+    isLoading: result.isLoading,
+  };
 }
 
-/** @deprecated Use useBackendQuery instead */
+// ---------------------------------------------------------------------------
+// Backwards-compatible aliases
+// ---------------------------------------------------------------------------
+// These are thin wrappers so that existing consumer code doesn't need to be
+// rewritten in this commit. They all delegate to the global DB.
+
+import React from 'react';
+
+interface LegacyMergedQueryProps<T> {
+  query: (db: GlobalDB, q: InitialQueryBuilder) => QueryBuilder<any> | undefined | null;
+  deps?: unknown[];
+  children: (result: { data: T[] | null; isLoading: boolean }) => React.ReactNode;
+}
+
+function LegacyMergedQuery<T>({ query, deps = [], children }: LegacyMergedQueryProps<T>) {
+  const result = useLiveQuery((q) => query(globalDb, q), deps);
+  const data = (result.data as T[] | null) ?? null;
+  return <>{children({ data, isLoading: result.isLoading })}</>;
+}
+
+/** @deprecated Use useGlobalQuery or useLiveQuery with globalDb instead */
+export const MergedQuery = LegacyMergedQuery;
+/** @deprecated Use useGlobalQuery or useLiveQuery with globalDb instead */
+export const MergedStateQuery = LegacyMergedQuery;
+/** @deprecated Use useGlobalQuery or useLiveQuery with globalDb instead */
+export const MergedEphemeralStateQuery = LegacyMergedQuery;
+/** @deprecated Use useGlobalQuery or useLiveQuery with globalDb instead */
+export const MergedAppStateQuery = LegacyMergedQuery;
+
+/**
+ * @deprecated Use useGlobalQuery instead.
+ * The backendUrl parameter is ignored — filter by backendUrl in the query instead.
+ */
+export function useBackendQuery<T>(
+  _backendUrl: string,
+  query: (db: GlobalDB, q: InitialQueryBuilder) => QueryBuilder<any> | undefined | null,
+  deps: unknown[] = []
+): { data: T[] | null; isLoading: boolean } {
+  return useGlobalQuery<T>(query, deps);
+}
+
+/** @deprecated Use useGlobalQuery instead */
 export const useBackendStateQuery = useBackendQuery;
-
-/** @deprecated Use useBackendQuery instead */
+/** @deprecated Use useGlobalQuery instead */
 export const useBackendEphemeralStateQuery = useBackendQuery;
-
-/** @deprecated Use useBackendQuery instead */
+/** @deprecated Use useGlobalQuery instead */
 export const useBackendAppStateQuery = useBackendQuery;

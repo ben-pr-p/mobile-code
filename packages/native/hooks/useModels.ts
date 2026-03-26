@@ -1,32 +1,38 @@
 import { useEffect, useCallback } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { useLiveQuery, eq } from '@tanstack/react-db';
 import {
   selectedModelAtom,
   modelCatalogAtom,
   modelDefaultsAtom,
   type ModelSelection,
 } from '../state/settings';
-import { backendResourcesAtom } from '../lib/backend-streams';
-import { backendConnectionsAtom, type BackendUrl } from '../state/backends';
+import { globalDb } from '../lib/global-db';
+import { getApi } from '../lib/api';
+import type { BackendConnectionValue } from '../lib/stream-db';
 
 /**
  * Fetches the provider/model catalog from the server and exposes model
  * selection state.
  */
-export function useModels(backendUrl: BackendUrl) {
-  const resources = useAtomValue(backendResourcesAtom);
-  const connections = useAtomValue(backendConnectionsAtom);
+export function useModels(backendUrl: string) {
   const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom);
   const setCatalog = useSetAtom(modelCatalogAtom);
   const setDefaults = useSetAtom(modelDefaultsAtom);
   const catalog = useAtomValue(modelCatalogAtom);
   const defaults = useAtomValue(modelDefaultsAtom);
 
-  const api = resources[backendUrl]?.api ?? null;
-  const connectionStatus = connections[backendUrl]?.status ?? 'reconnecting';
+  const { data: connectionRows } = useLiveQuery(
+    (q) =>
+      q
+        .from({ bc: globalDb.collections.backendConnections })
+        .where(({ bc }) => eq(bc.url, backendUrl)),
+    [backendUrl]
+  );
+  const connectionStatus = (connectionRows as BackendConnectionValue[] | null)?.[0]?.status ?? 'reconnecting';
 
   const fetchCatalog = useCallback(async () => {
-    if (!api) return;
+    const api = getApi(backendUrl);
     try {
       const { models, defaults } = await api.models.list();
       setCatalog(models);
@@ -34,7 +40,7 @@ export function useModels(backendUrl: BackendUrl) {
     } catch (err) {
       console.error('[useModels] Failed to fetch model catalog:', err);
     }
-  }, [api, setCatalog, setDefaults]);
+  }, [backendUrl, setCatalog, setDefaults]);
 
   // Fetch catalog when backend becomes connected
   useEffect(() => {

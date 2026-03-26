@@ -1,34 +1,30 @@
 export {
   flattenServerMessage,
-  stateSchema,
-  ephemeralStateSchema,
-  appStateSchema,
-  unifiedStateDef,
+  globalStateDef,
   PERSISTED_COLLECTION_NAMES,
   STATE_STREAM_COLLECTIONS,
   EPHEMERAL_STREAM_COLLECTIONS,
   APP_STREAM_COLLECTIONS,
 };
 export type {
-  ProjectValue,
+  BackendProjectValue,
+  BackendProjectValue as ProjectValue,
   SessionValue,
   SessionStatusValue,
   ChangeValue,
   WorktreeStatusValue,
   PermissionRequestValue,
   SessionMetaValue,
-  StateDB,
-  EphemeralStateDB,
-  AppStateDB,
-  UnifiedStateDef,
-  UnifiedDB,
+  BackendConfigValue,
+  BackendConnectionValue,
+  GlobalStateDef,
+  GlobalDB,
   UIMessage,
   ToolMeta,
 };
 export type { ChangedFile, ToolCallStatus } from '../../server/src/types';
 
-import { createStateSchema } from './durable-streams';
-import type { StreamDB, MultiStreamDB } from './durable-streams';
+import type { MultiStreamDB } from './durable-streams';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Message, ChangedFile } from '../../server/src/types';
 
@@ -42,8 +38,21 @@ function passthrough<T>(): StandardSchemaV1<T> {
   };
 }
 
-type ProjectValue = {
+// ---------------------------------------------------------------------------
+// Server-synced value types (backendUrl is stamped by EventDispatcher)
+// ---------------------------------------------------------------------------
+
+/**
+ * A project as seen from a specific backend. The same physical project can
+ * appear on multiple backends — each backend produces its own row.
+ * Key: `${backendUrl}:${projectId}` (composite).
+ */
+type BackendProjectValue = {
+  /** Composite key: `${backendUrl}:${projectId}` */
   id: string;
+  /** The original project ID from the server */
+  projectId: string;
+  backendUrl: string;
   worktree: string;
   vcsDir?: string;
   vcs?: 'git';
@@ -52,6 +61,7 @@ type ProjectValue = {
 
 type SessionValue = {
   id: string;
+  backendUrl: string;
   title: string;
   directory: string;
   projectID: string;
@@ -64,17 +74,20 @@ type SessionValue = {
 
 type SessionStatusValue = {
   sessionId: string;
+  backendUrl: string;
   status: 'idle' | 'busy' | 'error';
   error?: string;
 };
 
 type ChangeValue = {
   sessionId: string;
+  backendUrl: string;
   files: ChangedFile[];
 };
 
 type WorktreeStatusValue = {
   sessionId: string;
+  backendUrl: string;
   isWorktreeSession: boolean;
   branch?: string;
   /** Whether the branch has been merged into main (via --no-ff). */
@@ -88,16 +101,57 @@ type WorktreeStatusValue = {
 
 type PermissionRequestValue = {
   sessionId: string;
+  backendUrl: string;
   requestId: string;
   permission: string;
   patterns: string[];
   description: string;
 };
 
+type SessionMetaValue = {
+  sessionId: string;
+  backendUrl: string;
+  archived: boolean;
+};
+
+// ---------------------------------------------------------------------------
+// Local-only value types (client-written, no sync)
+// ---------------------------------------------------------------------------
+
+/** Backend server configuration. Replaces the old backendsAtom. */
+type BackendConfigValue = {
+  /** The server URL — primary key */
+  url: string;
+  /** Human-readable label */
+  name: string;
+  /** Backend type — affects UI hints and icons */
+  type: 'local' | 'sprite';
+  /** Whether this backend is active */
+  enabled: boolean;
+  /** Optional bearer token for authenticated backends */
+  authToken?: string;
+};
+
+/** Live connection state for a backend. Ephemeral (not persisted). */
+type BackendConnectionValue = {
+  /** The server URL — primary key */
+  url: string;
+  status: 'connected' | 'reconnecting' | 'error' | 'offline';
+  instanceId: string | null;
+  latencyMs: number | null;
+  error: string | null;
+};
+
+// ---------------------------------------------------------------------------
+// Collection definitions — server-synced
+// ---------------------------------------------------------------------------
+
 const stateDef = {
-  projects: {
-    schema: passthrough<ProjectValue>(),
+  backendProjects: {
+    schema: passthrough<BackendProjectValue>(),
     type: 'project' as const,
+    // Composite key is set by the EventDispatcher's backendUrl stamper:
+    // `${backendUrl}:${originalProjectId}`
     primaryKey: 'id' as const,
   },
   sessions: {
@@ -105,15 +159,12 @@ const stateDef = {
     type: 'session' as const,
     primaryKey: 'id' as const,
   },
-  messages: { schema: passthrough<Message>(), type: 'message' as const, primaryKey: 'id' as const },
+  messages: {
+    schema: passthrough<Message & { backendUrl: string }>(),
+    type: 'message' as const,
+    primaryKey: 'id' as const,
+  },
 };
-
-type StateDef = typeof stateDef;
-type StateDB = StreamDB<StateDef>;
-
-const stateSchema = createStateSchema(stateDef);
-
-// --- Ephemeral state (session status, in-progress messages, worktree status) ---
 
 const ephemeralStateDef = {
   sessionStatuses: {
@@ -121,12 +172,8 @@ const ephemeralStateDef = {
     type: 'sessionStatus' as const,
     primaryKey: 'sessionId' as const,
   },
-  // Renamed from "messages" to "pendingMessages" to avoid collision with the
-  // persisted messages collection. The server still sends type: 'message' on
-  // the ephemeral stream — the EventDispatcher for the ephemeral stream maps
-  // that type to this collection via appendStreamToDb's collectionNames mapping.
   pendingMessages: {
-    schema: passthrough<Message>(),
+    schema: passthrough<Message & { backendUrl: string }>(),
     type: 'message' as const,
     primaryKey: 'id' as const,
   },
@@ -147,18 +194,6 @@ const ephemeralStateDef = {
   },
 };
 
-type EphemeralStateDef = typeof ephemeralStateDef;
-type EphemeralStateDB = StreamDB<EphemeralStateDef>;
-
-const ephemeralStateSchema = createStateSchema(ephemeralStateDef);
-
-// --- Persistent app state (archive status, etc.) ---
-
-type SessionMetaValue = {
-  sessionId: string;
-  archived: boolean;
-};
-
 const appStateDef = {
   sessionMeta: {
     schema: passthrough<SessionMetaValue>(),
@@ -167,62 +202,79 @@ const appStateDef = {
   },
 };
 
-type AppStateDef = typeof appStateDef;
-type AppStateDB = StreamDB<AppStateDef>;
+// ---------------------------------------------------------------------------
+// Collection definitions — local-only (no sync, client-written)
+// ---------------------------------------------------------------------------
 
-const appStateSchema = createStateSchema(appStateDef);
+const localDef = {
+  backends: {
+    schema: passthrough<BackendConfigValue>(),
+    type: 'backend' as const,
+    primaryKey: 'url' as const,
+  },
+  backendConnections: {
+    schema: passthrough<BackendConnectionValue>(),
+    type: 'backendConnection' as const,
+    primaryKey: 'url' as const,
+  },
+};
 
-// --- Unified state definition (all collections in one DB, fed by multiple streams) ---
+// ---------------------------------------------------------------------------
+// Global state definition — one DB for the entire app
+// ---------------------------------------------------------------------------
 
 /**
- * All collections merged into a single definition. Used with createDbWithNoStreams()
- * to create one DB per backend, then appendStreamToDb() attaches individual streams.
+ * All collections in a single global DB.
  *
- * Note: `messages` (persisted, from state stream) and `pendingMessages` (ephemeral,
- * from ephemeral stream) are separate collections even though the server sends both
- * as event type 'message'. The per-stream EventDispatcher routes them correctly.
+ * Server-synced collections have `backendUrl` stamped on every row by the
+ * EventDispatcher. `backendProjects` uses a composite key (`backendUrl:projectId`)
+ * since the same project can appear on multiple backends.
+ *
+ * Local-only collections (`backends`, `backendConnections`) are written directly
+ * by the client — no sync config, no stream.
  */
-const unifiedStateDef = {
-  // From stateDef (state stream — persisted)
-  projects: stateDef.projects,
+const globalStateDef = {
+  // State stream (persisted)
+  backendProjects: stateDef.backendProjects,
   sessions: stateDef.sessions,
   messages: stateDef.messages,
-  // From ephemeralStateDef (ephemeral stream — not persisted)
+  // Ephemeral stream (not persisted)
   sessionStatuses: ephemeralStateDef.sessionStatuses,
   pendingMessages: ephemeralStateDef.pendingMessages,
   changes: ephemeralStateDef.changes,
   worktreeStatuses: ephemeralStateDef.worktreeStatuses,
   permissionRequests: ephemeralStateDef.permissionRequests,
-  // From appStateDef (app stream — persisted)
+  // App stream (persisted)
   sessionMeta: appStateDef.sessionMeta,
+  // Local-only
+  backends: localDef.backends,
+  backendConnections: localDef.backendConnections,
 };
 
-type UnifiedStateDef = typeof unifiedStateDef;
+type GlobalStateDef = typeof globalStateDef;
 
 /**
- * A unified DB with all collections from all three streams.
- * This is not a StreamDB (no single stream) — it's a MultiStreamDB.
+ * The single global DB with all collections — server-synced and local-only.
+ * Created once at app startup.
  */
-type UnifiedDB = MultiStreamDB<UnifiedStateDef>;
+type GlobalDB = MultiStreamDB<GlobalStateDef>;
 
 /**
  * Collection names that should be persisted to SQLite.
- * Ephemeral collections (sessionStatuses, pendingMessages, changes,
- * worktreeStatuses, permissionRequests) are intentionally excluded.
+ * Ephemeral and connection-status collections are excluded.
  */
 const PERSISTED_COLLECTION_NAMES = new Set([
-  'projects',
+  'backendProjects',
   'sessions',
   'messages',
   'sessionMeta',
+  'backends', // local-only but persisted (user config)
 ]);
 
 /**
  * Which collections each stream feeds. Used by appendStreamToDb().
- * The key is a label, the value is the list of collection names from
- * unifiedStateDef that this stream's events should route to.
  */
-const STATE_STREAM_COLLECTIONS = ['projects', 'sessions', 'messages'] as const;
+const STATE_STREAM_COLLECTIONS = ['backendProjects', 'sessions', 'messages'] as const;
 const EPHEMERAL_STREAM_COLLECTIONS = [
   'sessionStatuses',
   'pendingMessages',

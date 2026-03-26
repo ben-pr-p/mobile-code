@@ -20,10 +20,9 @@ import {
   type WorktreeStatusValue,
 } from '../lib/stream-db';
 import type { Message as ServerMessage } from '../../server/src/types';
-import type { ApiClient } from '../lib/api';
-import { backendResourcesAtom } from '../lib/backend-streams';
+import { getApi, type ApiClient } from '../lib/api';
 import { useBackendStateQuery, useBackendEphemeralStateQuery } from '../lib/merged-query';
-import { MergedStateQuery, type WithBackendUrl } from '../lib/merged-query';
+import { MergedStateQuery } from '../lib/merged-query';
 import { useSessionStatus } from '../hooks/useSessionStatus';
 import { usePendingPermission } from '../hooks/usePendingPermission';
 import { useChunkedAudioRecorder, type AudioChunk } from '../hooks/useChunkedAudioRecorder';
@@ -54,7 +53,7 @@ export interface SessionSettings {
   connection: ConnectionInfo;
   backends: BackendConfig[];
   setBackends: (backends: BackendConfig[]) => void;
-  connections: Record<BackendUrl, BackendConnection>;
+  connections: Record<string, BackendConnection>;
   notificationSound: NotificationSound;
   setNotificationSound: (value: NotificationSound) => void;
   notificationSoundOptions: { label: string; value: NotificationSound }[];
@@ -157,8 +156,7 @@ export function SessionView({
   );
   const worktreeStatus = worktreeStatusResults?.[0];
 
-  const resources = useAtomValue(backendResourcesAtom);
-  const api = resources[backendUrl]?.api;
+  const api = getApi(backendUrl);
 
   const handleMerge = useCallback(async () => {
     if (!api) return;
@@ -185,10 +183,11 @@ export function SessionView({
     backendUrl,
     (db, q) =>
       q
-        .from({ projects: db.collections.projects })
-        .where(({ projects }) => eq(projects.id, session.projectID)),
+        .from({ backendProjects: db.collections.backendProjects })
+        .where(({ backendProjects }) => eq(backendProjects.projectId, session.projectID)),
     [session.projectID]
   );
+  // Multiple rows may match (same project on multiple backends) — take first
   const project = projectResults?.[0];
   const worktree = project?.worktree ?? '';
   const sessionDir = session.directory ?? '';
@@ -603,8 +602,7 @@ function ExistingSessionDataLoader({
   onProjectsPress: () => void;
   settings: SessionSettings;
 }) {
-  const resources = useAtomValue(backendResourcesAtom);
-  const api = resources[backendUrl]?.api;
+  const api = getApi(backendUrl);
 
   // Line selection — read current value via ref so memoized callbacks stay stable
   const lineSelection = useAtomValue(lineSelectionAtom);
@@ -801,9 +799,9 @@ export function NewSessionContent({
   return (
     <MergedStateQuery<ProjectValue>
       query={(db, q) =>
-        q
-          .from({ projects: db.collections.projects })
-          .where(({ projects }) => eq(projects.id, projectId))
+         q
+           .from({ backendProjects: db.collections.backendProjects })
+           .where(({ backendProjects }) => eq(backendProjects.projectId, projectId))
       }
       deps={[projectId]}>
       {({ data: projectResults, isLoading }) => {
@@ -882,8 +880,7 @@ function NewSessionDataLoader({
   selectedBackendUrl: BackendUrl;
   onSelectBackend: (url: BackendUrl) => void;
 }) {
-  const resources = useAtomValue(backendResourcesAtom);
-  const api = resources[backendUrl]?.api;
+  const api = getApi(backendUrl);
   const creatingRef = useRef(false);
   const [useWorktree, setUseWorktree] = useState(false);
   const [backendSelectorVisible, setBackendSelectorVisible] = useState(false);
@@ -897,6 +894,7 @@ function NewSessionDataLoader({
   const now = Date.now();
   const placeholderSession: SessionValue = {
     id: 'new',
+    backendUrl,
     title: 'New Session',
     directory: worktree,
     projectID: projectId,

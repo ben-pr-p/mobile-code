@@ -1,23 +1,36 @@
 import { useAtom, useAtomValue } from 'jotai';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
+import { useLiveQuery } from '@tanstack/react-db';
 import {
   notificationSoundAtom,
   connectionInfoAtom,
 } from '../state/settings';
 import { NOTIFICATION_SOUND_OPTIONS } from '../__fixtures__/settings';
-import {
-  backendsAtom,
-  backendConnectionsAtom,
-  type BackendConfig,
-  type BackendConnection,
-} from '../state/backends';
+import { globalDb } from '../lib/global-db';
+import type {
+  BackendConfigValue,
+  BackendConnectionValue,
+} from '../lib/stream-db';
 
 
 export function useSettings() {
-  const [backends, setBackends] = useAtom(backendsAtom);
-  const resolvedBackends = backends instanceof Promise ? [] : backends;
-  const connections = useAtomValue(backendConnectionsAtom);
+  // Read backends and connections from global DB collections
+  const { data: backendRows } = useLiveQuery(
+    (q) => q.from({ backends: globalDb.collections.backends }),
+    []
+  );
+  const backends = (backendRows as BackendConfigValue[] | null) ?? [];
+
+  const { data: connectionRows } = useLiveQuery(
+    (q) => q.from({ bc: globalDb.collections.backendConnections }),
+    []
+  );
+  const connections: Record<string, BackendConnectionValue> = {};
+  for (const c of (connectionRows as BackendConnectionValue[] | null) ?? []) {
+    connections[c.url] = c;
+  }
+
   const [notificationSound, setNotificationSound] = useAtom(notificationSoundAtom);
 
   // Aggregate connection info across all backends
@@ -32,11 +45,25 @@ export function useSettings() {
 
   const isEmergencyLaunch = Updates.isEmergencyLaunch;
 
+  // Write backends to the global DB collection
+  const setBackends = (newBackends: BackendConfigValue[]) => {
+    const collection = globalDb.collections.backends as any;
+    // Simple approach: clear and re-insert all
+    // (TanStack DB local collections support direct mutations)
+    const current = collection.toArray as BackendConfigValue[];
+    for (const b of current) {
+      try { collection.delete(b.url); } catch { /* ignore */ }
+    }
+    for (const b of newBackends) {
+      try { collection.insert(b); } catch { /* ignore */ }
+    }
+  };
+
   return {
     connection,
 
     // Multi-backend API
-    backends: resolvedBackends,
+    backends,
     setBackends,
     connections,
 
