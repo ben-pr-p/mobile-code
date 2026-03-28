@@ -41,7 +41,7 @@ import type { Message } from '../../server/src/types';
 
 const database = open({ name: 'flockcode.sqlite' }) as unknown as OpSQLiteDatabaseLike;
 const persistence = createReactNativeSQLitePersistence<any, string>({ database });
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 // ---------------------------------------------------------------------------
 // Helpers
