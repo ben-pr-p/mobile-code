@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { useLiveQuery } from '@tanstack/react-db';
+import { useEffect, useRef, useState } from 'react';
+import { createEffect, useLiveQuery, eq } from '@tanstack/react-db';
 import { appendStreamToDb, type StreamHandle } from '../lib/durable-streams';
 import { collections, collectionEntries } from '../lib/collections';
 import {
@@ -39,11 +39,26 @@ interface PerBackendState {
  * Mount once at the app root.
  */
 export function useBackendManager() {
-  // Read backend configs from the global DB's local-only collection
+  const backendPollingIntervals = useRef<Record<string, ReturnType<typeof setInterval>>>(new Map());
+
   const { data: backendConfigs } = useLiveQuery(
     (q) => q.from({ backends: collections.backends }),
     []
   );
+
+  /**
+   * Start polling for each enabled backend on mount or enable
+   * Stop polling for removed or disabled backends
+   * TODO: Need to think through auth/url changing (can key polling by map)
+   */
+  createEffect({
+    query: (q) =>
+      q.from({ backends: collections.backends }).where((b) => eq(b.backends.enabled, true)),
+    skipInitial: false,
+    onEnter(result) {},
+    onUpdate(result) {},
+    onExit(result) {},
+  });
 
   // Track per-backend state across renders
   const stateRef = useRef<Map<string, PerBackendState>>(new Map());
@@ -291,4 +306,11 @@ function tearDown(state: PerBackendState) {
   closeStreamSafe(state.stateStream);
   closeStreamSafe(state.ephemeralStream);
   closeStreamSafe(state.appStream);
+}
+
+/**
+ * Backend key combines URL + authToken if present
+ */
+function getBackendKey(backend: BackendConfigValue) {
+  return backend.url + (backend.authToken ? `:${backend.authToken}` : '');
 }
