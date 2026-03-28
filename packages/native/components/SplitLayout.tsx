@@ -19,7 +19,13 @@ import { VoiceInputArea } from './VoiceInputArea';
 import { SettingsScreen } from './SettingsScreen';
 import { getToolRenderers, type ToolCallProps } from './tool-calls';
 import { StatusDot, TOOL_LABELS, formatDuration } from './tool-calls/shared';
-import type { SessionValue, UIMessage as Message, ChangedFile, WorktreeStatusValue, PermissionRequestValue } from '../lib/stream-db';
+import type {
+  SessionValue,
+  UIMessage as Message,
+  ChangedFile,
+  WorktreeStatusValue,
+  PermissionRequestValue,
+} from '../lib/stream-db';
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings';
 import type { LeftPanelContent } from '../state/ui';
 import type { RecordingState, AudioChunk } from '../hooks/useChunkedAudioRecorder';
@@ -56,9 +62,6 @@ interface SplitLayoutProps {
   onAbort?: () => void;
   settings: {
     connection: ConnectionInfo;
-    backends: BackendConfig[];
-    setBackends: (backends: BackendConfig[]) => void;
-    connections: Record<BackendUrl, BackendConnection>;
     notificationSound: NotificationSound;
     setNotificationSound: (value: NotificationSound) => void;
     notificationSoundOptions: { label: string; value: NotificationSound }[];
@@ -127,9 +130,10 @@ export function SplitLayout({
 
   // Extract the short worktree ID (e.g. "x7k2" from branch "worktree/x7k2-add-button")
   const isWorktree = worktreeStatus?.isWorktreeSession && !worktreeStatus.error;
-  const worktreeShortId = isWorktree && worktreeStatus?.branch
-    ? worktreeStatus.branch.replace(/^worktree\//, '').split('-')[0]
-    : null;
+  const worktreeShortId =
+    isWorktree && worktreeStatus?.branch
+      ? worktreeStatus.branch.replace(/^worktree\//, '').split('-')[0]
+      : null;
 
   const handleToolCallPress = (messageId: string) => {
     setLeftPanel({ type: 'tool-detail', messageId });
@@ -165,7 +169,8 @@ export function SplitLayout({
             <Text
               className="text-sm font-semibold text-stone-900 dark:text-stone-50"
               style={{ fontFamily: 'JetBrains Mono' }}>
-              {projectName}{worktreeShortId ? ` (${worktreeShortId})` : ''}
+              {projectName}
+              {worktreeShortId ? ` (${worktreeShortId})` : ''}
             </Text>
           </View>
         </View>
@@ -229,7 +234,7 @@ export function SplitLayout({
               onClose={handleCloseLeftPanel}
             />
           ) : (
-             <ChangesView sessionId={sessionId} backendUrl={backendUrl} changes={changes} />
+            <ChangesView sessionId={sessionId} backendUrl={backendUrl} changes={changes} />
           )}
         </View>
 
@@ -239,42 +244,43 @@ export function SplitLayout({
           behavior="padding"
           keyboardVerticalOffset={insets.top + 48 + 32}>
           <ChatThread messages={messages} onToolCallPress={handleToolCallPress} />
-          {!session.parentID && (
-            pendingPermission
-              ? <PermissionRequestBar permission={pendingPermission} backendUrl={backendUrl} />
-              : <VoiceInputArea
-                  textValue={textValue}
-                  onTextChange={setTextValue}
-                  onSend={() => {
-                    const text = textValue.trim();
-                    if (!text) return;
-                    setTextValue('');
-                    onSend(text);
-                  }}
-                  isSending={isSending}
-                  onMicPressIn={audioRecorder.startRecording}
-                  onMicPressOut={audioRecorder.stopRecording}
-                  onSendRecording={audioRecorder.sendRecording}
-                  onAttachPress={() => {}}
-                  onStopPress={audioRecorder.cancelRecording}
-                  recordingState={audioRecorder.recordingState}
-                  chunks={audioRecorder.chunks}
-                  totalDurationMs={audioRecorder.totalDurationMs}
-                  onSendChunks={audioRecorder.sendChunks}
-                  onDiscardChunk={audioRecorder.discardChunk}
-                  onDiscardAllChunks={audioRecorder.discardAllChunks}
-                  modelName={modelName}
-                  sessionStatus={sessionStatus}
-                  onAbort={onAbort}
-                  onModelPress={onModelPress}
-                  agentName={agentName}
-                  onAgentPress={onAgentPress}
-                  pendingCommand={pendingCommand}
-                  onClearCommand={onClearCommand}
-                  onHandsFreeToggle={onHandsFreeToggle}
-                  onHandsFreeLongPress={onHandsFreeLongPress}
-                />
-          )}
+          {!session.parentID &&
+            (pendingPermission ? (
+              <PermissionRequestBar permission={pendingPermission} backendUrl={backendUrl} />
+            ) : (
+              <VoiceInputArea
+                textValue={textValue}
+                onTextChange={setTextValue}
+                onSend={() => {
+                  const text = textValue.trim();
+                  if (!text) return;
+                  setTextValue('');
+                  onSend(text);
+                }}
+                isSending={isSending}
+                onMicPressIn={audioRecorder.startRecording}
+                onMicPressOut={audioRecorder.stopRecording}
+                onSendRecording={audioRecorder.sendRecording}
+                onAttachPress={() => {}}
+                onStopPress={audioRecorder.cancelRecording}
+                recordingState={audioRecorder.recordingState}
+                chunks={audioRecorder.chunks}
+                totalDurationMs={audioRecorder.totalDurationMs}
+                onSendChunks={audioRecorder.sendChunks}
+                onDiscardChunk={audioRecorder.discardChunk}
+                onDiscardAllChunks={audioRecorder.discardAllChunks}
+                modelName={modelName}
+                sessionStatus={sessionStatus}
+                onAbort={onAbort}
+                onModelPress={onModelPress}
+                agentName={agentName}
+                onAgentPress={onAgentPress}
+                pendingCommand={pendingCommand}
+                onClearCommand={onClearCommand}
+                onHandsFreeToggle={onHandsFreeToggle}
+                onHandsFreeLongPress={onHandsFreeLongPress}
+              />
+            ))}
         </KeyboardAvoidingView>
       </View>
 
@@ -303,9 +309,6 @@ export function SplitLayout({
               elevation: 16,
             }}>
             <SettingsScreen
-              backends={settings.backends}
-              onBackendsChange={settings.setBackends}
-              connections={settings.connections}
               connection={settings.connection}
               notificationSound={settings.notificationSound}
               onNotificationSoundChange={settings.setNotificationSound}

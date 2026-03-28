@@ -13,9 +13,6 @@ export default function SettingsModal() {
 
   return (
     <SettingsScreen
-      backends={settings.backends}
-      onBackendsChange={settings.setBackends}
-      connections={settings.connections}
       connection={settings.connection}
       notificationSound={settings.notificationSound}
       onNotificationSoundChange={settings.setNotificationSound}

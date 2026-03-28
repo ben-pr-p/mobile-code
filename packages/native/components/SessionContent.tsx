@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { View, Text, Pressable, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { eq } from '@tanstack/react-db';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { SessionScreen } from './SessionScreen';
 import { SplitLayout } from './SplitLayout';
 import { SessionHeader } from './SessionHeader';
@@ -52,9 +52,6 @@ export interface AnnotatedAudioPart {
 /** Settings type shared by both wrappers. */
 export interface SessionSettings {
   connection: ConnectionInfo;
-  backends: BackendConfig[];
-  setBackends: (backends: BackendConfig[]) => void;
-  connections: Record<string, BackendConnection>;
   notificationSound: NotificationSound;
   setNotificationSound: (value: NotificationSound) => void;
   notificationSoundOptions: { label: string; value: NotificationSound }[];
@@ -800,6 +797,17 @@ export function NewSessionContent({
 }: NewSessionContentProps) {
   const [selectedBackendUrl, setSelectedBackendUrl] = useState<BackendUrl | null>(null);
 
+  // Read backends and connections for building backend options
+  const { data: allBackends } = useLiveQuery((q) => q.from({ backends: collections.backends }), []);
+  const { data: allConnections } = useLiveQuery(
+    (q) => q.from({ bc: collections.backendConnections }),
+    []
+  );
+  const connectionsMap: Record<string, BackendConnection> = {};
+  for (const c of (allConnections as BackendConnection[] | null) ?? []) {
+    connectionsMap[c.url] = c;
+  }
+
   return (
     <MergedStateQuery<ProjectValue>
       query={(q) =>
@@ -817,11 +825,11 @@ export function NewSessionContent({
         const backendUrlsWithProject = new Set(projectResults.map((p) => p.backendUrl));
 
         // Build BackendOption[] for all backends that host the project
-        const backendOptions: BackendOption[] = settings.backends
+        const backendOptions: BackendOption[] = ((allBackends as BackendConfig[] | null) ?? [])
           .filter((b) => b.enabled && backendUrlsWithProject.has(b.url))
           .map((config) => ({
             config,
-            connection: settings.connections[config.url],
+            connection: connectionsMap[config.url],
             hasProject: true,
           }));
 
