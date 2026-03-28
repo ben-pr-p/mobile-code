@@ -41,7 +41,6 @@ import type { Message } from '../../server/src/types';
 
 const database = open({ name: 'flockcode.sqlite' }) as unknown as OpSQLiteDatabaseLike;
 const persistence = createReactNativeSQLitePersistence<any, string>({ database });
-const SCHEMA_VERSION = 2;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -51,7 +50,8 @@ const SCHEMA_VERSION = 2;
 function createPersistedStreamCollection<T extends object>(
   id: string,
   definition: CollectionDefinition,
-  getKey: (item: T) => string
+  getKey: (item: T) => string,
+  schemaVersion = 1
 ) {
   const { syncConfig, getCallbacks } = createCapturingSyncConfig();
   const collection = createCollection<T, string>(
@@ -62,7 +62,7 @@ function createPersistedStreamCollection<T extends object>(
       startSync: true,
       gcTime: 0,
       persistence,
-      schemaVersion: SCHEMA_VERSION,
+      schemaVersion,
     })
   );
   return { collection, getCallbacks, definition };
@@ -89,7 +89,8 @@ function createEphemeralStreamCollection<T extends object>(
 function createLocalPersistedCollection<T extends object>(
   id: string,
   definition: CollectionDefinition,
-  getKey: (item: T) => string
+  getKey: (item: T) => string,
+  schemaVersion = 1
 ) {
   const collection = createCollection<T, string>(
     persistedCollectionOptions<T, string>({
@@ -98,7 +99,7 @@ function createLocalPersistedCollection<T extends object>(
         getKey,
       }),
       persistence,
-      schemaVersion: SCHEMA_VERSION,
+      schemaVersion,
     })
   );
   return { collection, getCallbacks: () => null, definition };
@@ -201,7 +202,8 @@ const _permissionRequests = createEphemeralStreamCollection<PermissionRequestVal
 const _backends = createLocalPersistedCollection<BackendConfigValue>(
   'backends',
   globalStateDef.backends,
-  (item) => item.id
+  (item) => item.id,
+  2 // bumped from 1: key changed from url to id
 );
 
 const _backendConnections = createLocalEphemeralCollection<BackendConnectionValue>(
