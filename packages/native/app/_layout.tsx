@@ -1,8 +1,5 @@
-// Crypto polyfills — must be imported before anything that uses crypto.
-// react-native-get-random-values polyfills crypto.getRandomValues (needed by TanStack DB).
-// react-native-random-uuid polyfills crypto.randomUUID (needed by TanStack DB collections).
-import 'react-native-get-random-values';
-import 'react-native-random-uuid';
+// Must be first import — polyfills crypto.randomUUID before TanStack DB loads
+import '../lib/polyfills';
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { View, Alert } from 'react-native';
 import { Stack, useGlobalSearchParams } from 'expo-router';
