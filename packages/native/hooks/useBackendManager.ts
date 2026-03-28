@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { useLiveQuery } from '@tanstack/react-db';
-import { createTransaction } from '@tanstack/db';
 import { appendStreamToDb, type StreamHandle } from '../lib/durable-streams';
 import { collections, collectionEntries } from '../lib/collections';
 import {
@@ -109,28 +108,22 @@ export function useBackendManager() {
  * backendConnections collection.
  */
 function updateConnection(url: string, value: BackendConnectionValue | null) {
-  const tx = createTransaction<BackendConnectionValue>({
-    mutationFn: async () => {},
-    autoCommit: true,
-  });
-  tx.mutate(() => {
-    if (value === null) {
-      try {
-        collections.backendConnections.delete(url);
-      } catch {
-        /* ignore if not found */
-      }
-    } else {
-      try {
-        collections.backendConnections.insert(value);
-      } catch {
-        // Already exists — update instead
-        collections.backendConnections.update(url, (draft: any) => {
-          Object.assign(draft, value);
-        });
-      }
+  if (value === null) {
+    try {
+      collections.backendConnections.delete(url);
+    } catch {
+      /* ignore if not found */
     }
-  });
+  } else {
+    try {
+      collections.backendConnections.insert(value);
+    } catch {
+      // Already exists — update instead
+      collections.backendConnections.update(url, (draft: any) => {
+        Object.assign(draft, value);
+      });
+    }
+  }
 }
 
 function authHeaders(authToken?: string): Record<string, string> {

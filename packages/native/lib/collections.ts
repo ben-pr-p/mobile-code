@@ -13,6 +13,7 @@ import './polyfills';
  */
 import { open } from '@op-engineering/op-sqlite';
 import { createCollection } from '@tanstack/db';
+import { localOnlyCollectionOptions } from '@tanstack/db';
 import {
   createReactNativeSQLitePersistence,
   persistedCollectionOptions,
@@ -84,20 +85,18 @@ function createEphemeralStreamCollection<T extends object>(
   return { collection, getCallbacks, definition };
 }
 
-/** Create a local-only persisted collection (no sync, client-written). */
+/** Create a local-only persisted collection (client-written, SQLite-backed). */
 function createLocalPersistedCollection<T extends object>(
   id: string,
   definition: CollectionDefinition,
   getKey: (item: T) => string
 ) {
-  const noopSync = { sync: () => () => {} };
   const collection = createCollection<T, string>(
     persistedCollectionOptions<T, string>({
-      id,
-      getKey,
-      sync: noopSync,
-      startSync: true,
-      gcTime: 0,
+      ...localOnlyCollectionOptions<T, string>({
+        id,
+        getKey,
+      }),
       persistence,
       schemaVersion: SCHEMA_VERSION,
     })
@@ -105,20 +104,18 @@ function createLocalPersistedCollection<T extends object>(
   return { collection, getCallbacks: () => null, definition };
 }
 
-/** Create a local-only non-persisted collection (no sync, ephemeral). */
+/** Create a local-only non-persisted collection (client-written, in-memory). */
 function createLocalEphemeralCollection<T extends object>(
   id: string,
   definition: CollectionDefinition,
   getKey: (item: T) => string
 ) {
-  const noopSync = { sync: () => () => {} };
-  const collection = createCollection<T, string>({
-    id,
-    getKey,
-    sync: noopSync,
-    startSync: false,
-    gcTime: 0,
-  });
+  const collection = createCollection<T, string>(
+    localOnlyCollectionOptions<T, string>({
+      id,
+      getKey,
+    })
+  );
   return { collection, getCallbacks: () => null, definition };
 }
 

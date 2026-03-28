@@ -3,7 +3,6 @@ import { View, Text, Pressable, ScrollView, TextInput, Switch, Alert } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { useLiveQuery } from '@tanstack/react-db';
-import { createTransaction } from '@tanstack/db';
 import { ArrowLeft, ChevronDown, Monitor, Cloud, Plus, Pencil, Trash2 } from 'lucide-react-native';
 import { collections } from '../lib/collections';
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings';
@@ -47,17 +46,11 @@ export function SettingsScreen({
 
   const handleAddBackend = useCallback(() => {
     const tempUrl = `new-${Date.now()}`;
-    const tx = createTransaction<BackendConfig>({
-      mutationFn: async () => {},
-      autoCommit: true,
-    });
-    tx.mutate(() => {
-      collections.backends.insert({
-        url: tempUrl,
-        name: '',
-        type: 'sprite',
-        enabled: true,
-      });
+    collections.backends.insert({
+      url: tempUrl,
+      name: '',
+      type: 'sprite',
+      enabled: true,
     });
     setEditingUrl(tempUrl);
   }, []);
@@ -70,13 +63,7 @@ export function SettingsScreen({
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            const tx = createTransaction<BackendConfig>({
-              mutationFn: async () => {},
-              autoCommit: true,
-            });
-            tx.mutate(() => {
-              collections.backends.delete(url);
-            });
+            collections.backends.delete(url);
             if (editingUrl === url) setEditingUrl(null);
           },
         },
@@ -228,14 +215,8 @@ interface BackendEntryProps {
 function BackendEntry({ backend, connection, isEditing, onEdit, onDelete }: BackendEntryProps) {
   const onUpdate = useCallback(
     (updates: Partial<BackendConfig>) => {
-      const tx = createTransaction<BackendConfig>({
-        mutationFn: async () => {},
-        autoCommit: true,
-      });
-      tx.mutate(() => {
-        collections.backends.update(backend.url, (draft: any) => {
-          Object.assign(draft, updates);
-        });
+      collections.backends.update(backend.url, (draft: any) => {
+        Object.assign(draft, updates);
       });
     },
     [backend.url]
