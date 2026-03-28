@@ -45,26 +45,27 @@ export function SettingsScreen({
   }
 
   const handleAddBackend = useCallback(() => {
-    const tempUrl = `new-${Date.now()}`;
+    const id = crypto.randomUUID();
     collections.backends.insert({
-      url: tempUrl,
+      id,
+      url: '',
       name: '',
       type: 'sprite',
       enabled: true,
     });
-    setEditingUrl(tempUrl);
+    setEditingUrl(id);
   }, []);
 
   const handleDeleteBackend = useCallback(
-    (url: string, name: string) => {
-      Alert.alert('Delete Server', `Remove "${name || url}"?`, [
+    (id: string, name: string) => {
+      Alert.alert('Delete Server', `Remove "${name || 'Unnamed'}"?`, [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            collections.backends.delete(url);
-            if (editingUrl === url) setEditingUrl(null);
+            collections.backends.delete(id);
+            if (editingUrl === id) setEditingUrl(null);
           },
         },
       ]);
@@ -102,12 +103,12 @@ export function SettingsScreen({
         <View className="gap-3 px-5">
           {backends.map((backend) => (
             <BackendEntry
-              key={backend.url}
+              key={backend.id}
               backend={backend}
               connection={connectionMap[backend.url]}
-              isEditing={editingUrl === backend.url}
-              onEdit={() => setEditingUrl(editingUrl === backend.url ? null : backend.url)}
-              onDelete={() => handleDeleteBackend(backend.url, backend.name)}
+              isEditing={editingUrl === backend.id}
+              onEdit={() => setEditingUrl(editingUrl === backend.id ? null : backend.id)}
+              onDelete={() => handleDeleteBackend(backend.id, backend.name)}
             />
           ))}
 
@@ -215,7 +216,7 @@ interface BackendEntryProps {
 function BackendEntry({ backend, connection, isEditing, onEdit, onDelete }: BackendEntryProps) {
   const onUpdate = useCallback(
     (updates: Partial<BackendConfig>) => {
-      collections.backends.update(backend.url, (draft: any) => {
+      collections.backends.update(backend.id, (draft: any) => {
         Object.assign(draft, updates);
       });
     },

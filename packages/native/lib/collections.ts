@@ -201,7 +201,7 @@ const _permissionRequests = createEphemeralStreamCollection<PermissionRequestVal
 const _backends = createLocalPersistedCollection<BackendConfigValue>(
   'backends',
   globalStateDef.backends,
-  (item) => String(item.url)
+  (item) => item.id
 );
 
 const _backendConnections = createLocalEphemeralCollection<BackendConnectionValue>(

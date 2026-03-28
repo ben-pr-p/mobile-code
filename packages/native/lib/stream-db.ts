@@ -117,7 +117,9 @@ type SessionMetaValue = {
 
 /** Backend server configuration. Replaces the old backendsAtom. */
 type BackendConfigValue = {
-  /** The server URL — primary key */
+  /** Unique ID — stable key, generated on create */
+  id: string;
+  /** The server URL (editable) */
   url: string;
   /** Human-readable label */
   name: string;
@@ -207,7 +209,7 @@ const localDef = {
   backends: {
     schema: passthrough<BackendConfigValue>(),
     type: 'backend' as const,
-    primaryKey: 'url' as const,
+    primaryKey: 'id' as const,
   },
   backendConnections: {
     schema: passthrough<BackendConnectionValue>(),

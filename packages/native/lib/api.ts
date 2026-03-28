@@ -35,8 +35,16 @@ export function createApiClient(url: string, authToken?: string): ApiClient {
  * on each call (oRPC clients are lightweight).
  */
 export function getApi(backendUrl: string): ApiClient {
-  const backendConfig = (collections.backends as any).get(backendUrl) as
-    | BackendConfigValue
-    | undefined;
-  return createApiClient(backendUrl, backendConfig?.authToken);
+  // Find the backend config by URL (key is id, not url)
+  let authToken: string | undefined;
+  const state = (collections.backends as any).state as Map<string, BackendConfigValue> | undefined;
+  if (state) {
+    for (const config of state.values()) {
+      if (config.url === backendUrl) {
+        authToken = config.authToken;
+        break;
+      }
+    }
+  }
+  return createApiClient(backendUrl, authToken);
 }
