@@ -23,6 +23,7 @@ import type { Message as ServerMessage } from '../../server/src/types';
 import { getApi, type ApiClient } from '../lib/api';
 import { useBackendStateQuery, useBackendEphemeralStateQuery } from '../lib/merged-query';
 import { MergedStateQuery } from '../lib/merged-query';
+import { collections } from '../lib/collections';
 import { useSessionStatus } from '../hooks/useSessionStatus';
 import { usePendingPermission } from '../hooks/usePendingPermission';
 import { useChunkedAudioRecorder, type AudioChunk } from '../hooks/useChunkedAudioRecorder';
@@ -148,9 +149,9 @@ export function SessionView({
   // Worktree status from the ephemeral stream
   const { data: worktreeStatusResults } = useBackendEphemeralStateQuery<WorktreeStatusValue>(
     backendUrl,
-    (db, q) =>
+    (q) =>
       q
-        .from({ worktreeStatuses: db.collections.worktreeStatuses })
+        .from({ worktreeStatuses: collections.worktreeStatuses })
         .where(({ worktreeStatuses }) => eq(worktreeStatuses.sessionId, sessionId)),
     [sessionId]
   );
@@ -181,9 +182,9 @@ export function SessionView({
   // Look up the project to derive the display name
   const { data: projectResults } = useBackendStateQuery<ProjectValue>(
     backendUrl,
-    (db, q) =>
+    (q) =>
       q
-        .from({ backendProjects: db.collections.backendProjects })
+        .from({ backendProjects: collections.backendProjects })
         .where(({ backendProjects }) => eq(backendProjects.projectId, session.projectID)),
     [session.projectID]
   );
@@ -325,12 +326,14 @@ export function SessionView({
       ]);
 
       const currentSelection = lineSelectionRef.current;
-      const parts: AnnotatedAudioPart[] = [{
-        type: 'audio' as const,
-        audioData: base64,
-        mimeType,
-        lineReference: currentSelection ?? undefined,
-      }];
+      const parts: AnnotatedAudioPart[] = [
+        {
+          type: 'audio' as const,
+          audioData: base64,
+          mimeType,
+          lineReference: currentSelection ?? undefined,
+        },
+      ];
       onSendAudio(parts, effectiveModel);
       if (currentSelection) setLineSelection(null);
     },
@@ -559,9 +562,9 @@ export function SessionContent({
 }: SessionContentProps) {
   const { data: sessionResults, isLoading: sessionLoading } = useBackendStateQuery<SessionValue>(
     backendUrl,
-    (db, q) =>
+    (q) =>
       q
-        .from({ sessions: db.collections.sessions })
+        .from({ sessions: collections.sessions })
         .where(({ sessions }) => eq(sessions.id, sessionId)),
     [sessionId]
   );
@@ -613,9 +616,9 @@ function ExistingSessionDataLoader({
   // Finalized messages from the instance stream
   const { data: instanceMessages } = useBackendStateQuery<ServerMessage>(
     backendUrl,
-    (db, q) =>
+    (q) =>
       q
-        .from({ messages: db.collections.messages })
+        .from({ messages: collections.messages })
         .where(({ messages }) => eq(messages.sessionId, sessionId)),
     [sessionId]
   );
@@ -623,9 +626,9 @@ function ExistingSessionDataLoader({
   // In-progress messages from the ephemeral stream
   const { data: ephemeralMessages } = useBackendEphemeralStateQuery<ServerMessage>(
     backendUrl,
-    (db, q) =>
+    (q) =>
       q
-        .from({ pendingMessages: db.collections.pendingMessages })
+        .from({ pendingMessages: collections.pendingMessages })
         .where(({ pendingMessages }) => eq(pendingMessages.sessionId, sessionId)),
     [sessionId]
   );
@@ -669,9 +672,9 @@ function ExistingSessionDataLoader({
   // File changes from the ephemeral stream (both live and finalized)
   const { data: changeResults } = useBackendEphemeralStateQuery<ChangeValue>(
     backendUrl,
-    (db, q) =>
+    (q) =>
       q
-        .from({ changes: db.collections.changes })
+        .from({ changes: collections.changes })
         .where(({ changes }) => eq(changes.sessionId, sessionId)),
     [sessionId]
   );
@@ -699,11 +702,12 @@ function ExistingSessionDataLoader({
   const handleSendAudio = useCallback(
     (parts: AnnotatedAudioPart[], model: ModelSelection | null) => {
       if (!api) return;
-      api.sessions.prompt({
-        sessionId,
-        parts,
-        ...(model ? { model } : {}),
-      })
+      api.sessions
+        .prompt({
+          sessionId,
+          parts,
+          ...(model ? { model } : {}),
+        })
         .catch((err) => {
           console.error('[SessionContent] audio prompt failed:', err);
         });
@@ -798,10 +802,10 @@ export function NewSessionContent({
 
   return (
     <MergedStateQuery<ProjectValue>
-      query={(db, q) =>
-         q
-           .from({ backendProjects: db.collections.backendProjects })
-           .where(({ backendProjects }) => eq(backendProjects.projectId, projectId))
+      query={(q) =>
+        q
+          .from({ backendProjects: collections.backendProjects })
+          .where(({ backendProjects }) => eq(backendProjects.projectId, projectId))
       }
       deps={[projectId]}>
       {({ data: projectResults, isLoading }) => {
@@ -904,10 +908,7 @@ function NewSessionDataLoader({
 
   const createAndPrompt = useCallback(
     async (
-      parts: (
-        | { type: 'text'; text: string }
-        | AnnotatedAudioPart
-      )[],
+      parts: ({ type: 'text'; text: string } | AnnotatedAudioPart)[],
       model: ModelSelection | null
     ) => {
       if (creatingRef.current || !api) return;

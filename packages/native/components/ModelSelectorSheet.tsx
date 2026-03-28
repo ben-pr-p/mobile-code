@@ -15,6 +15,7 @@ import { useColorScheme } from 'nativewind';
 import { Check, Search } from 'lucide-react-native';
 import type { CatalogModel, ModelSelection } from '../state/settings';
 import { useBackendStateQuery } from '../lib/merged-query';
+import { collections } from '../lib/collections';
 import type { BackendUrl } from '../state/backends';
 import type { Message as ServerMessage } from '../../server/src/types';
 
@@ -54,7 +55,7 @@ export function ModelSelectorSheet({
   // Derive recently used models from all messages — only queries when the sheet is visible
   const { data: allRawMessages } = useBackendStateQuery<ServerMessage>(
     backendUrl,
-    (db, q) => (visible ? q.from({ messages: db.collections.messages }) : null),
+    (q) => (visible ? q.from({ messages: collections.messages }) : null),
     [visible]
   );
   const recentModels: RecentModel[] = useMemo(() => {
@@ -136,9 +137,7 @@ export function ModelSelectorSheet({
     if (!recentModels || !catalog) return [];
     const result: CatalogModel[] = [];
     for (const r of recentModels) {
-      const match = catalog.find(
-        (m) => m.id === r.modelID && m.providerID === r.providerID,
-      );
+      const match = catalog.find((m) => m.id === r.modelID && m.providerID === r.providerID);
       if (match) result.push(match);
       if (result.length >= 5) break;
     }
@@ -153,7 +152,7 @@ export function ModelSelectorSheet({
       (m) =>
         m.name.toLowerCase().includes(query) ||
         m.id.toLowerCase().includes(query) ||
-        m.providerName.toLowerCase().includes(query),
+        m.providerName.toLowerCase().includes(query)
     );
   }, [catalog, query]);
 
@@ -183,7 +182,7 @@ export function ModelSelectorSheet({
       (m) =>
         m.name.toLowerCase().includes(query) ||
         m.id.toLowerCase().includes(query) ||
-        m.providerName.toLowerCase().includes(query),
+        m.providerName.toLowerCase().includes(query)
     );
   }, [recentCatalogModels, query]);
 
@@ -209,8 +208,7 @@ export function ModelSelectorSheet({
           backgroundColor: 'rgba(0,0,0,0.5)',
           opacity: backdropAnim,
           justifyContent: 'flex-end',
-        }}
-      >
+        }}>
         <Pressable style={{ flex: 1 }} onPress={handleClose} />
 
         {/* Sheet */}
@@ -223,12 +221,11 @@ export function ModelSelectorSheet({
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
               paddingBottom: insets.bottom + 8,
-            }}
-          >
+            }}>
             {/* Handle bar */}
-            <View className="items-center pt-3 pb-2">
+            <View className="items-center pb-2 pt-3">
               <View
-                className="w-9 h-1 rounded-full"
+                className="h-1 w-9 rounded-full"
                 style={{ backgroundColor: isDark ? '#44403C' : '#D6D3D1' }}
               />
             </View>
@@ -237,8 +234,7 @@ export function ModelSelectorSheet({
             <View className="px-5 pb-3">
               <Text
                 className="text-base font-semibold text-stone-900 dark:text-stone-50"
-                style={{ fontFamily: 'JetBrains Mono' }}
-              >
+                style={{ fontFamily: 'JetBrains Mono' }}>
                 Select Model
               </Text>
             </View>
@@ -247,22 +243,19 @@ export function ModelSelectorSheet({
               className="px-5"
               showsVerticalScrollIndicator={false}
               bounces={false}
-              keyboardShouldPersistTaps="handled"
-            >
+              keyboardShouldPersistTaps="handled">
               {/* Default option */}
               <ModelRow
                 label="Server Default"
                 subtitle={
-                  defaultModel
-                    ? `${defaultModel.providerID}/${defaultModel.modelID}`
-                    : undefined
+                  defaultModel ? `${defaultModel.providerID}/${defaultModel.modelID}` : undefined
                 }
                 isSelected={!selectedModel}
                 onPress={handleSelectDefault}
                 isDark={isDark}
               />
 
-              <View className="h-px bg-stone-200 dark:bg-stone-800 my-2" />
+              <View className="my-2 h-px bg-stone-200 dark:bg-stone-800" />
 
               {/* Recently Used section */}
               {filteredRecent.length > 0 && (
@@ -283,7 +276,7 @@ export function ModelSelectorSheet({
                       />
                     );
                   })}
-                  <View className="h-px bg-stone-200 dark:bg-stone-800 my-2" />
+                  <View className="my-2 h-px bg-stone-200 dark:bg-stone-800" />
                 </>
               )}
 
@@ -300,9 +293,7 @@ export function ModelSelectorSheet({
                         key={`${model.providerID}/${model.id}`}
                         label={model.name}
                         statusBadge={
-                          model.status && model.status !== 'active'
-                            ? model.status
-                            : undefined
+                          model.status && model.status !== 'active' ? model.status : undefined
                         }
                         isSelected={isSelected}
                         onPress={() => handleSelect(model)}
@@ -315,38 +306,39 @@ export function ModelSelectorSheet({
 
               {/* Empty state */}
               {(!catalog || catalog.length === 0) && (
-                <View className="py-8 items-center">
-                  <Text className="text-sm text-stone-400 dark:text-stone-600 text-center">
+                <View className="items-center py-8">
+                  <Text className="text-center text-sm text-stone-400 dark:text-stone-600">
                     {catalog === null ? 'Loading models...' : 'No models available'}
                   </Text>
                 </View>
               )}
 
               {/* No search results */}
-              {catalog && catalog.length > 0 && grouped.length === 0 && filteredRecent.length === 0 && query && (
-                <View className="py-6 items-center">
-                  <Text
-                    className="text-sm text-stone-400 dark:text-stone-600 text-center"
-                    style={{ fontFamily: 'JetBrains Mono' }}
-                  >
-                    No models matching "{searchQuery.trim()}"
-                  </Text>
-                </View>
-              )}
+              {catalog &&
+                catalog.length > 0 &&
+                grouped.length === 0 &&
+                filteredRecent.length === 0 &&
+                query && (
+                  <View className="items-center py-6">
+                    <Text
+                      className="text-center text-sm text-stone-400 dark:text-stone-600"
+                      style={{ fontFamily: 'JetBrains Mono' }}>
+                      No models matching "{searchQuery.trim()}"
+                    </Text>
+                  </View>
+                )}
             </ScrollView>
 
             {/* Search bar — pinned at bottom */}
             <View className="px-5 pt-3">
-              <View
-                className="flex-row items-center bg-stone-100 dark:bg-stone-900 rounded-lg px-3 h-10 gap-2"
-              >
+              <View className="h-10 flex-row items-center gap-2 rounded-lg bg-stone-100 px-3 dark:bg-stone-900">
                 <Search size={14} color={searchIconColor} />
                 <TextInput
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   placeholder="Search models..."
                   placeholderTextColor={placeholderColor}
-                  className="flex-1 text-xs text-stone-900 dark:text-stone-50 py-0"
+                  className="flex-1 py-0 text-xs text-stone-900 dark:text-stone-50"
                   style={{ fontFamily: 'JetBrains Mono' }}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -368,9 +360,8 @@ export function ModelSelectorSheet({
 function SectionLabel({ text }: { text: string }) {
   return (
     <Text
-      className="text-[10px] font-semibold text-stone-400 dark:text-stone-600 mb-2 px-1"
-      style={{ letterSpacing: 2, fontFamily: 'JetBrains Mono' }}
-    >
+      className="mb-2 px-1 text-[10px] font-semibold text-stone-400 dark:text-stone-600"
+      style={{ letterSpacing: 2, fontFamily: 'JetBrains Mono' }}>
       {text}
     </Text>
   );
@@ -394,40 +385,32 @@ function ModelRow({
   return (
     <Pressable
       onPress={onPress}
-      className="flex-row items-center justify-between py-2.5 px-3 rounded-lg mb-0.5"
+      className="mb-0.5 flex-row items-center justify-between rounded-lg px-3 py-2.5"
       style={{
-        backgroundColor: isSelected
-          ? isDark ? '#292524' : '#F5F5F4'
-          : 'transparent',
-      }}
-    >
-      <View className="flex-1 mr-3">
+        backgroundColor: isSelected ? (isDark ? '#292524' : '#F5F5F4') : 'transparent',
+      }}>
+      <View className="mr-3 flex-1">
         <Text
           className="text-sm text-stone-900 dark:text-stone-50"
-          style={{ fontFamily: 'JetBrains Mono' }}
-        >
+          style={{ fontFamily: 'JetBrains Mono' }}>
           {label}
         </Text>
         {subtitle && (
           <Text
-            className="text-[10px] text-stone-500 dark:text-stone-500 mt-0.5"
-            style={{ fontFamily: 'JetBrains Mono' }}
-          >
+            className="mt-0.5 text-[10px] text-stone-500 dark:text-stone-500"
+            style={{ fontFamily: 'JetBrains Mono' }}>
             {subtitle}
           </Text>
         )}
         {statusBadge && (
           <Text
-            className="text-[10px] text-stone-400 dark:text-stone-600 mt-0.5"
-            style={{ fontFamily: 'JetBrains Mono' }}
-          >
+            className="mt-0.5 text-[10px] text-stone-400 dark:text-stone-600"
+            style={{ fontFamily: 'JetBrains Mono' }}>
             {statusBadge}
           </Text>
         )}
       </View>
-      {isSelected && (
-        <Check size={16} color={isDark ? '#F59E0B' : '#D97706'} />
-      )}
+      {isSelected && <Check size={16} color={isDark ? '#F59E0B' : '#D97706'} />}
     </Pressable>
   );
 }

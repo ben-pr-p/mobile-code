@@ -1,22 +1,20 @@
 /**
  * Global DB query utilities.
  *
- * With the global DB, all collections from all backends live in one place.
+ * With the collections, all collections from all backends live in one place.
  * Every server-synced row has a `backendUrl` field stamped by the EventDispatcher.
  * Queries can join against the `backends` and `backendConnections` collections
  * to filter by enabled/connected status.
  *
- * This module re-exports the globalDb for convenience and provides the
- * `useGlobalQuery` hook as a simple wrapper around useLiveQuery with the
- * global DB.
+ * This module re-exports collections for convenience and provides the
+ * `useGlobalQuery` hook as a simple wrapper around useLiveQuery with
+ * collections.
  */
 import { useLiveQuery } from '@tanstack/react-db';
 import type { InitialQueryBuilder, QueryBuilder } from '@tanstack/react-db';
-import { globalDb } from './global-db';
-import type { GlobalDB } from './stream-db';
+import { collections } from './collections';
 
-export { globalDb };
-export type { GlobalDB };
+export { collections };
 
 /**
  * @deprecated No longer needed — all server-synced types now include `backendUrl` directly.
@@ -25,23 +23,23 @@ export type { GlobalDB };
 export type WithBackendUrl<T> = T;
 
 /**
- * Run a live query against the global DB.
+ * Run a live query against the collections.
  *
  * @example
  * ```tsx
  * const { data: sessions } = useGlobalQuery<SessionValue>(
- *   (db, q) => q
- *     .from({ sessions: db.collections.sessions })
+ *   (q) => q
+ *     .from({ sessions: collections.sessions })
  *     .where(({ sessions }) => eq(sessions.backendUrl, backendUrl)),
  *   [backendUrl]
  * );
  * ```
  */
 export function useGlobalQuery<T>(
-  query: (db: GlobalDB, q: InitialQueryBuilder) => QueryBuilder<any> | undefined | null,
+  query: (q: InitialQueryBuilder) => QueryBuilder<any> | undefined | null,
   deps: unknown[] = []
 ): { data: T[] | null; isLoading: boolean } {
-  const result = useLiveQuery((q) => query(globalDb, q), deps);
+  const result = useLiveQuery((q) => query(q), deps);
   return {
     data: (result.data as T[] | null) ?? null,
     isLoading: result.isLoading,
@@ -52,29 +50,29 @@ export function useGlobalQuery<T>(
 // Backwards-compatible aliases
 // ---------------------------------------------------------------------------
 // These are thin wrappers so that existing consumer code doesn't need to be
-// rewritten in this commit. They all delegate to the global DB.
+// rewritten in this commit. They all delegate to collections.
 
 import React from 'react';
 
 interface LegacyMergedQueryProps<T> {
-  query: (db: GlobalDB, q: InitialQueryBuilder) => QueryBuilder<any> | undefined | null;
+  query: (q: InitialQueryBuilder) => QueryBuilder<any> | undefined | null;
   deps?: unknown[];
   children: (result: { data: T[] | null; isLoading: boolean }) => React.ReactNode;
 }
 
 function LegacyMergedQuery<T>({ query, deps = [], children }: LegacyMergedQueryProps<T>) {
-  const result = useLiveQuery((q) => query(globalDb, q), deps);
+  const result = useLiveQuery((q) => query(q), deps);
   const data = (result.data as T[] | null) ?? null;
   return <>{children({ data, isLoading: result.isLoading })}</>;
 }
 
-/** @deprecated Use useGlobalQuery or useLiveQuery with globalDb instead */
+/** @deprecated Use useGlobalQuery or useLiveQuery with collections instead */
 export const MergedQuery = LegacyMergedQuery;
-/** @deprecated Use useGlobalQuery or useLiveQuery with globalDb instead */
+/** @deprecated Use useGlobalQuery or useLiveQuery with collections instead */
 export const MergedStateQuery = LegacyMergedQuery;
-/** @deprecated Use useGlobalQuery or useLiveQuery with globalDb instead */
+/** @deprecated Use useGlobalQuery or useLiveQuery with collections instead */
 export const MergedEphemeralStateQuery = LegacyMergedQuery;
-/** @deprecated Use useGlobalQuery or useLiveQuery with globalDb instead */
+/** @deprecated Use useGlobalQuery or useLiveQuery with collections instead */
 export const MergedAppStateQuery = LegacyMergedQuery;
 
 /**
@@ -83,10 +81,14 @@ export const MergedAppStateQuery = LegacyMergedQuery;
  */
 export function useBackendQuery<T>(
   _backendUrl: string,
-  query: (db: GlobalDB, q: InitialQueryBuilder) => QueryBuilder<any> | undefined | null,
+  query: (q: InitialQueryBuilder) => QueryBuilder<any> | undefined | null,
   deps: unknown[] = []
 ): { data: T[] | null; isLoading: boolean } {
-  return useGlobalQuery<T>(query, deps);
+  const result = useLiveQuery((q) => query(q), deps);
+  return {
+    data: (result.data as T[] | null) ?? null,
+    isLoading: result.isLoading,
+  };
 }
 
 /** @deprecated Use useGlobalQuery instead */

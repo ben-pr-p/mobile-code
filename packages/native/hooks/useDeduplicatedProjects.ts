@@ -7,7 +7,7 @@
  */
 import { useMemo } from 'react';
 import { useLiveQuery } from '@tanstack/react-db';
-import { globalDb } from '../lib/global-db';
+import { collections } from '../lib/collections';
 import type { BackendProjectValue } from '../lib/stream-db';
 
 /**
@@ -29,9 +29,7 @@ export type DeduplicatedProject = {
   time: { created: number; initialized?: number };
 };
 
-function deduplicateProjects(
-  backendProjects: BackendProjectValue[]
-): DeduplicatedProject[] {
+function deduplicateProjects(backendProjects: BackendProjectValue[]): DeduplicatedProject[] {
   const byProjectId = new Map<string, DeduplicatedProject>();
 
   for (const bp of backendProjects) {
@@ -74,7 +72,7 @@ export function useDeduplicatedProjects(): {
   isLoading: boolean;
 } {
   const { data: rawProjects, isLoading } = useLiveQuery(
-    (q) => q.from({ backendProjects: globalDb.collections.backendProjects }),
+    (q) => q.from({ backendProjects: collections.backendProjects }),
     []
   );
 

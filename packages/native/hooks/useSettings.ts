@@ -2,28 +2,18 @@ import { useAtom, useAtomValue } from 'jotai';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
 import { useLiveQuery } from '@tanstack/react-db';
-import {
-  notificationSoundAtom,
-  connectionInfoAtom,
-} from '../state/settings';
+import { notificationSoundAtom, connectionInfoAtom } from '../state/settings';
 import { NOTIFICATION_SOUND_OPTIONS } from '../__fixtures__/settings';
-import { globalDb } from '../lib/global-db';
-import type {
-  BackendConfigValue,
-  BackendConnectionValue,
-} from '../lib/stream-db';
-
+import { collections } from '../lib/collections';
+import type { BackendConfigValue, BackendConnectionValue } from '../lib/stream-db';
 
 export function useSettings() {
   // Read backends and connections from global DB collections
-  const { data: backendRows } = useLiveQuery(
-    (q) => q.from({ backends: globalDb.collections.backends }),
-    []
-  );
+  const { data: backendRows } = useLiveQuery((q) => q.from({ backends: collections.backends }), []);
   const backends = (backendRows as BackendConfigValue[] | null) ?? [];
 
   const { data: connectionRows } = useLiveQuery(
-    (q) => q.from({ bc: globalDb.collections.backendConnections }),
+    (q) => q.from({ bc: collections.backendConnections }),
     []
   );
   const connections: Record<string, BackendConnectionValue> = {};
@@ -39,23 +29,29 @@ export function useSettings() {
   // Build version string from real app version + OTA update ID when available
   const nativeVersion = Constants.expoConfig?.version ?? '0.0.0';
   const updateId = Updates.updateId;
-  const appVersion = updateId
-    ? `${nativeVersion} (${updateId.slice(0, 8)})`
-    : nativeVersion;
+  const appVersion = updateId ? `${nativeVersion} (${updateId.slice(0, 8)})` : nativeVersion;
 
   const isEmergencyLaunch = Updates.isEmergencyLaunch;
 
   // Write backends to the global DB collection
   const setBackends = (newBackends: BackendConfigValue[]) => {
-    const collection = globalDb.collections.backends as any;
+    const collection = collections.backends as any;
     // Simple approach: clear and re-insert all
     // (TanStack DB local collections support direct mutations)
     const current = collection.toArray as BackendConfigValue[];
     for (const b of current) {
-      try { collection.delete(b.url); } catch { /* ignore */ }
+      try {
+        collection.delete(b.url);
+      } catch {
+        /* ignore */
+      }
     }
     for (const b of newBackends) {
-      try { collection.insert(b); } catch { /* ignore */ }
+      try {
+        collection.insert(b);
+      } catch {
+        /* ignore */
+      }
     }
   };
 

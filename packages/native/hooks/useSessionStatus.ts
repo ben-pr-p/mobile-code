@@ -1,5 +1,6 @@
 import { eq } from '@tanstack/react-db';
 import { useBackendEphemeralStateQuery } from '../lib/merged-query';
+import { collections } from '../lib/collections';
 import type { SessionStatusValue } from '../lib/stream-db';
 import type { BackendUrl } from '../state/backends';
 
@@ -15,9 +16,9 @@ export function useSessionStatus(
 ): SessionStatusValue['status'] {
   const { data } = useBackendEphemeralStateQuery<SessionStatusValue>(
     backendUrl,
-    (db, q) =>
+    (q) =>
       q
-        .from({ sessionStatuses: db.collections.sessionStatuses })
+        .from({ sessionStatuses: collections.sessionStatuses })
         .where(({ sessionStatuses }) => eq(sessionStatuses.sessionId, sessionId)),
     [sessionId]
   );

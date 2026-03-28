@@ -7,6 +7,7 @@ import { useColorScheme } from 'nativewind';
 import { SessionHeader } from '../../../../components/SessionHeader';
 import { useRightDrawer } from '../../../../lib/drawer-context';
 import { MergedStateQuery, MergedAppStateQuery } from '../../../../lib/merged-query';
+import { collections } from '../../../../lib/collections';
 import type { SessionValue, SessionMetaValue } from '../../../../lib/stream-db';
 import type { WithBackendUrl } from '../../../../lib/merged-query';
 import { eq } from '@tanstack/react-db';
@@ -22,15 +23,15 @@ export default function ProjectIndexScreen() {
 
   return (
     <MergedStateQuery<SessionValue>
-      query={(db, q) =>
+      query={(q) =>
         q
-          .from({ sessions: db.collections.sessions })
+          .from({ sessions: collections.sessions })
           .where(({ sessions }) => eq(sessions.projectID, projectId))
       }
       deps={[projectId]}>
       {({ data: sessions, isLoading: sessionsLoading }) => (
         <MergedAppStateQuery<SessionMetaValue>
-          query={(db, q) => q.from({ sessionMeta: db.collections.sessionMeta })}>
+          query={(q) => q.from({ sessionMeta: collections.sessionMeta })}>
           {({ data: sessionMetas, isLoading: metasLoading }) => (
             <ProjectIndexContent
               projectId={projectId}

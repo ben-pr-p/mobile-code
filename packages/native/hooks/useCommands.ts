@@ -2,7 +2,7 @@ import { useEffect, useCallback, useMemo } from 'react';
 import { useSetAtom, useAtomValue } from 'jotai';
 import { useLiveQuery, eq } from '@tanstack/react-db';
 import { commandCatalogAtom, type CommandInfo } from '../state/settings';
-import { globalDb } from '../lib/global-db';
+import { collections } from '../lib/collections';
 import { getApi } from '../lib/api';
 import type { BackendConnectionValue } from '../lib/stream-db';
 
@@ -15,13 +15,11 @@ export function useCommands(backendUrl: string) {
   const catalog = useAtomValue(commandCatalogAtom);
 
   const { data: connectionRows } = useLiveQuery(
-    (q) =>
-      q
-        .from({ bc: globalDb.collections.backendConnections })
-        .where(({ bc }) => eq(bc.url, backendUrl)),
+    (q) => q.from({ bc: collections.backendConnections }).where(({ bc }) => eq(bc.url, backendUrl)),
     [backendUrl]
   );
-  const connectionStatus = (connectionRows as BackendConnectionValue[] | null)?.[0]?.status ?? 'reconnecting';
+  const connectionStatus =
+    (connectionRows as BackendConnectionValue[] | null)?.[0]?.status ?? 'reconnecting';
 
   const fetchCommands = useCallback(async () => {
     const api = getApi(backendUrl);

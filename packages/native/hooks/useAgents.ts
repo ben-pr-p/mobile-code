@@ -2,7 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useLiveQuery, eq } from '@tanstack/react-db';
 import { agentCatalogAtom, connectionInfoAtom, type AgentInfo } from '../state/settings';
-import { globalDb } from '../lib/global-db';
+import { collections } from '../lib/collections';
 import { getApi } from '../lib/api';
 import type { BackendConnectionValue } from '../lib/stream-db';
 
@@ -15,25 +15,25 @@ export function useAgents(backendUrl: string) {
   const catalog = useAtomValue(agentCatalogAtom);
 
   const { data: connectionRows } = useLiveQuery(
-    (q) =>
-      q
-        .from({ bc: globalDb.collections.backendConnections })
-        .where(({ bc }) => eq(bc.url, backendUrl)),
+    (q) => q.from({ bc: collections.backendConnections }).where(({ bc }) => eq(bc.url, backendUrl)),
     [backendUrl]
   );
-  const connectionStatus = (connectionRows as BackendConnectionValue[] | null)?.[0]?.status ?? 'reconnecting';
+  const connectionStatus =
+    (connectionRows as BackendConnectionValue[] | null)?.[0]?.status ?? 'reconnecting';
 
   const fetchAgents = useCallback(async () => {
     const api = getApi(backendUrl);
     try {
       const agents = await api.agents.list();
 
-      setCatalog(agents.map((a: any) => ({
-        name: a.name,
-        description: a.description,
-        mode: (a.mode as AgentInfo['mode']) ?? 'primary',
-        color: a.color,
-      })));
+      setCatalog(
+        agents.map((a: any) => ({
+          name: a.name,
+          description: a.description,
+          mode: (a.mode as AgentInfo['mode']) ?? 'primary',
+          color: a.color,
+        }))
+      );
     } catch (err) {
       console.error('[useAgents] Failed to fetch agent catalog:', err);
     }

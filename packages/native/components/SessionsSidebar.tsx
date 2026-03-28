@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, Pressable, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import {
@@ -53,7 +61,7 @@ import {
   type WithBackendUrl,
 } from '../lib/merged-query';
 import { getApi, type ApiClient } from '../lib/api';
-import { globalDb } from '../lib/global-db';
+import { collections } from '../lib/collections';
 import { pinnedSessionIdsAtom, pinnedProjectIdsAtom } from '../state/ui';
 import type { BackendConfigValue } from '../lib/stream-db';
 
@@ -141,29 +149,28 @@ export function SessionsSidebar({
       <View className="h-px bg-stone-200 dark:bg-stone-800" />
 
       {projectId ? (
-        <MergedStateQuery<SessionValue>
-          query={(db, q) => q.from({ sessions: db.collections.sessions })}>
+        <MergedStateQuery<SessionValue> query={(q) => q.from({ sessions: collections.sessions })}>
           {({ data: allSessions }) => (
             <MergedEphemeralStateQuery<SessionStatusValue>
-              query={(db, q) => q.from({ sessionStatuses: db.collections.sessionStatuses })}>
+              query={(q) => q.from({ sessionStatuses: collections.sessionStatuses })}>
               {({ data: sessionStatuses }) => (
                 <MergedEphemeralStateQuery<WorktreeStatusValue>
-                  query={(db, q) => q.from({ worktreeStatuses: db.collections.worktreeStatuses })}>
+                  query={(q) => q.from({ worktreeStatuses: collections.worktreeStatuses })}>
                   {({ data: worktreeStatuses }) => (
                     <MergedStateQuery<ServerMessage>
-                      query={(db, q) => q.from({ messages: db.collections.messages })}>
+                      query={(q) => q.from({ messages: collections.messages })}>
                       {({ data: allMessages }) => (
                         <MergedStateQuery<ProjectValue>
-                          query={(db, q) => q.from({ backendProjects: db.collections.backendProjects })}>
+                          query={(q) => q.from({ backendProjects: collections.backendProjects })}>
                           {({ data: allProjects }) => (
                             <MergedAppStateQuery<SessionMetaValue>
-                              query={(db, q) =>
-                                q.from({ sessionMeta: db.collections.sessionMeta })
-                              }>
+                              query={(q) => q.from({ sessionMeta: collections.sessionMeta })}>
                               {({ data: sessionMetas }) => (
                                 <MergedEphemeralStateQuery<PermissionRequestValue>
-                                  query={(db, q) =>
-                                    q.from({ permissionRequests: db.collections.permissionRequests })
+                                  query={(q) =>
+                                    q.from({
+                                      permissionRequests: collections.permissionRequests,
+                                    })
                                   }>
                                   {({ data: pendingPermissions }) => (
                                     <SessionListContent
@@ -253,7 +260,11 @@ function SessionStatusDot({
   // Pending permission takes priority — pulsing amber warning triangle
   if (hasPendingPermission) {
     return (
-      <Animated.View style={[animatedStyle, { width: 8, height: 8, alignItems: 'center', justifyContent: 'center' }]}>
+      <Animated.View
+        style={[
+          animatedStyle,
+          { width: 8, height: 8, alignItems: 'center', justifyContent: 'center' },
+        ]}>
         <AlertTriangle size={10} color="#F59E0B" fill="#F59E0B" />
       </Animated.View>
     );
@@ -582,10 +593,7 @@ function SessionListContent({
   );
 
   // Backend type lookup — used to show Monitor/Cloud icon in session rows
-  const { data: backendRows } = useLiveQuery(
-    (q) => q.from({ backends: globalDb.collections.backends }),
-    []
-  );
+  const { data: backendRows } = useLiveQuery((q) => q.from({ backends: collections.backends }), []);
   const resolvedBackends = (backendRows as BackendConfigValue[] | null) ?? [];
   const hasMultipleBackends = resolvedBackends.filter((b) => b.enabled).length > 1;
   const backendTypeMap = useMemo(() => {

@@ -1,10 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useLiveQuery } from '@tanstack/react-db';
-import {
-  appendStreamToDb,
-  type StreamHandle,
-} from '../lib/durable-streams';
-import { globalDb } from '../lib/global-db';
+import { appendStreamToDb, type StreamHandle } from '../lib/durable-streams';
+import { collections, collectionEntries } from '../lib/collections';
 import {
   STATE_STREAM_COLLECTIONS,
   EPHEMERAL_STREAM_COLLECTIONS,
@@ -44,7 +41,7 @@ interface PerBackendState {
 export function useBackendManager() {
   // Read backend configs from the global DB's local-only collection
   const { data: backendConfigs } = useLiveQuery(
-    (q) => q.from({ backends: globalDb.collections.backends }),
+    (q) => q.from({ backends: collections.backends }),
     []
   );
 
@@ -111,16 +108,24 @@ export function useBackendManager() {
  * backendConnections collection.
  */
 function updateConnection(url: string, value: BackendConnectionValue | null) {
-  const collection = globalDb.collections.backendConnections as any;
+  const collection = collections.backendConnections as any;
   if (value === null) {
-    try { collection.delete({ url }); } catch { /* ignore if not found */ }
+    try {
+      collection.delete({ url });
+    } catch {
+      /* ignore if not found */
+    }
   } else {
     // TanStack DB local collections support direct insert/update
     try {
       collection.upsert(value);
     } catch {
       // Fallback: try insert then update
-      try { collection.insert(value); } catch { collection.update(value); }
+      try {
+        collection.insert(value);
+      } catch {
+        collection.update(value);
+      }
     }
   }
 }
@@ -129,10 +134,7 @@ function authHeaders(authToken?: string): Record<string, string> {
   return authToken ? { Authorization: `Bearer ${authToken}` } : {};
 }
 
-function startPolling(
-  backend: BackendConfigValue,
-  state: PerBackendState,
-) {
+function startPolling(backend: BackendConfigValue, state: PerBackendState) {
   async function poll() {
     if (state.cancelled) return;
 
@@ -189,7 +191,7 @@ function startPolling(
 
         // Attach state stream (instance-scoped)
         try {
-          const stateStream = appendStreamToDb(globalDb, {
+          const stateStream = appendStreamToDb(collectionEntries, {
             streamOptions: {
               url: `${cleanUrl}/${newInstanceId}`,
               ...{ headers: authHeaders(backend.authToken) },
@@ -210,7 +212,7 @@ function startPolling(
 
         // Attach ephemeral stream (instance-scoped)
         try {
-          const ephemeralStream = appendStreamToDb(globalDb, {
+          const ephemeralStream = appendStreamToDb(collectionEntries, {
             streamOptions: {
               url: `${cleanUrl}/${newInstanceId}/ephemeral`,
               ...{ headers: authHeaders(backend.authToken) },
@@ -231,7 +233,7 @@ function startPolling(
         // Attach app stream (only once — survives instanceId changes)
         if (!state.appStream) {
           try {
-            const appStream = appendStreamToDb(globalDb, {
+            const appStream = appendStreamToDb(collectionEntries, {
               streamOptions: {
                 url: `${cleanUrl}/app`,
                 ...{ headers: authHeaders(backend.authToken) },

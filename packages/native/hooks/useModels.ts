@@ -7,7 +7,7 @@ import {
   modelDefaultsAtom,
   type ModelSelection,
 } from '../state/settings';
-import { globalDb } from '../lib/global-db';
+import { collections } from '../lib/collections';
 import { getApi } from '../lib/api';
 import type { BackendConnectionValue } from '../lib/stream-db';
 
@@ -23,13 +23,11 @@ export function useModels(backendUrl: string) {
   const defaults = useAtomValue(modelDefaultsAtom);
 
   const { data: connectionRows } = useLiveQuery(
-    (q) =>
-      q
-        .from({ bc: globalDb.collections.backendConnections })
-        .where(({ bc }) => eq(bc.url, backendUrl)),
+    (q) => q.from({ bc: collections.backendConnections }).where(({ bc }) => eq(bc.url, backendUrl)),
     [backendUrl]
   );
-  const connectionStatus = (connectionRows as BackendConnectionValue[] | null)?.[0]?.status ?? 'reconnecting';
+  const connectionStatus =
+    (connectionRows as BackendConnectionValue[] | null)?.[0]?.status ?? 'reconnecting';
 
   const fetchCatalog = useCallback(async () => {
     const api = getApi(backendUrl);

@@ -1,5 +1,6 @@
 import { eq } from '@tanstack/react-db';
 import { useBackendEphemeralStateQuery } from '../lib/merged-query';
+import { collections } from '../lib/collections';
 import type { PermissionRequestValue } from '../lib/stream-db';
 import type { BackendUrl } from '../state/backends';
 
@@ -16,9 +17,9 @@ export function usePendingPermission(
 ): PermissionRequestValue | null {
   const { data } = useBackendEphemeralStateQuery<PermissionRequestValue>(
     backendUrl,
-    (db, q) =>
+    (q) =>
       q
-        .from({ permissionRequests: db.collections.permissionRequests })
+        .from({ permissionRequests: collections.permissionRequests })
         .where(({ permissionRequests }) => eq(permissionRequests.sessionId, sessionId)),
     [sessionId]
   );

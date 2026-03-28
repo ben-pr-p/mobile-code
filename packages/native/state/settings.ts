@@ -2,7 +2,7 @@ import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 import type { ConnectionInfo, NotificationSound } from '../__fixtures__/settings';
 import { asyncStorageAdapter } from '../lib/jotai-async-storage';
-import { globalDb } from '../lib/global-db';
+import { collections } from '../lib/collections';
 import type { BackendConnectionValue } from '../lib/stream-db';
 
 export const notificationSoundAtom = atom<NotificationSound>('chime');
@@ -17,7 +17,7 @@ export type HandsFreeMode = 'washing-dishes' | 'walking';
 export const handsFreeModeAtom = atomWithStorage<HandsFreeMode>(
   'settings:handsFreeMode',
   'washing-dishes',
-  asyncStorageAdapter<HandsFreeMode>(),
+  asyncStorageAdapter<HandsFreeMode>()
 );
 
 /** Whether hands-free (headphone button) mode is currently active. */
@@ -33,7 +33,7 @@ export const nativeRecordingAtom = atom(false);
  */
 export const connectionInfoAtom = atom<ConnectionInfo>(() => {
   // Read connections directly from the global DB collection (synchronous)
-  const connectionsCollection = globalDb.collections.backendConnections as any;
+  const connectionsCollection = collections.backendConnections as any;
   const connections = (connectionsCollection.toArray ?? []) as BackendConnectionValue[];
   if (connections.length === 0) {
     return { status: 'reconnecting', latencyMs: null, error: null };
@@ -64,7 +64,7 @@ export type ModelSelection = { providerID: string; modelID: string };
 export const selectedModelAtom = atomWithStorage<ModelSelection | null>(
   'settings:selectedModel',
   null,
-  asyncStorageAdapter<ModelSelection | null>(),
+  asyncStorageAdapter<ModelSelection | null>()
 );
 
 /** Model info for a single model from the provider catalog */

@@ -17,14 +17,11 @@ export type {
   SessionMetaValue,
   BackendConfigValue,
   BackendConnectionValue,
-  GlobalStateDef,
-  GlobalDB,
   UIMessage,
   ToolMeta,
 };
 export type { ChangedFile, ToolCallStatus } from '../../server/src/types';
 
-import type { MultiStreamDB } from './durable-streams';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Message, ChangedFile } from '../../server/src/types';
 
@@ -252,12 +249,6 @@ const globalStateDef = {
 };
 
 type GlobalStateDef = typeof globalStateDef;
-
-/**
- * The single global DB with all collections — server-synced and local-only.
- * Created once at app startup.
- */
-type GlobalDB = MultiStreamDB<GlobalStateDef>;
 
 /**
  * Collection names that should be persisted to SQLite.

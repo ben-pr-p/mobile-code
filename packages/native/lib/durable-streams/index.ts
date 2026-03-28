@@ -38,14 +38,9 @@ export type {
   ActionDefinition,
 } from './stream-db';
 
-// Multi-stream DB (create once, attach multiple streams)
-export { createDbWithNoStreams, appendStreamToDb } from './stream-db';
-export type {
-  MultiStreamDB,
-  CreateDbWithNoStreamsOptions,
-  AppendStreamOptions,
-  StreamHandle,
-} from './stream-db';
+// Multi-stream support (attach streams to existing collections)
+export { appendStreamToDb, createCapturingSyncConfig } from './stream-db';
+export type { AppendStreamOptions, StreamHandle, CollectionEntry } from './stream-db';
 
 // Re-export key types from @tanstack/db for convenience
 export type { Collection, SyncConfig } from '@tanstack/db';

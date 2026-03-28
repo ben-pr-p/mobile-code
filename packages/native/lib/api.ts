@@ -4,7 +4,7 @@ import { createORPCClient } from '@orpc/client';
 import { RPCLink } from '@orpc/client/fetch';
 import type { RouterClient } from '@orpc/server';
 import type { Router } from '../../server/src/router';
-import { globalDb } from './global-db';
+import { collections } from './collections';
 import type { BackendConfigValue } from './stream-db';
 
 /** Type-safe oRPC client for one backend server. */
@@ -35,7 +35,7 @@ export function createApiClient(url: string, authToken?: string): ApiClient {
  * on each call (oRPC clients are lightweight).
  */
 export function getApi(backendUrl: string): ApiClient {
-  const backendConfig = (globalDb.collections.backends as any).get(backendUrl) as
+  const backendConfig = (collections.backends as any).get(backendUrl) as
     | BackendConfigValue
     | undefined;
   return createApiClient(backendUrl, backendConfig?.authToken);
