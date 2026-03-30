@@ -173,6 +173,7 @@ type BackendStateContainer = {
 };
 export function useBackendManager() {
   const backendPolls = useRef<Record<string, BackendStateContainer>>({});
+  const pingsInProgress = useRef<string[]>([]);
 
   createEffect({
     query(q) {
@@ -223,57 +224,59 @@ export function useBackendManager() {
     skipInitial: false,
     onEnter(result) {
       const ping = result.value;
-      const backendUrl = ping.url;
+      const backendUrl = ping.url as string;
+      if (pingsInProgress.current.includes(backendUrl)) {
+        console.log('[useBackendManager] Ping already in progress for:', backendUrl);
+        return;
+      }
 
-      const connection = collections.backendConnections.findOne(backendUrl);
-      const currentStatus = connection?.status || 'offline';
+      pingsInProgress.current.push(backendUrl);
+      console.log('[useBackendManager] Processing ping for:', backendUrl);
 
-      updateConnection(backendUrl, {
-        url: backendUrl,
-        status: currentStatus === 'connected' ? 'reconnecting' : 'reconnecting',
-        instanceId: connection?.instanceId || null,
-        latencyMs: null,
-        error: null,
-      });
+      try {
+        collections.backendConnections.update(backendUrl, (draft) => {
+          draft.status = 'reconnecting';
+          draft.latencyMs = null;
+          draft.error = null;
+        });
+      } catch (updateErr) {
+        console.log(
+          '[useBackendManager] Update failed, inserting new connection:',
+          backendUrl,
+          updateErr
+        );
+        collections.backendConnections.insert({
+          url: backendUrl,
+          status: 'reconnecting',
+          instanceId: null,
+          latencyMs: null,
+          error: null,
+        });
+      }
 
       const pollerEntry = Object.values(backendPolls.current).find(
         (entry) => entry.url === backendUrl
       );
+
       if (pollerEntry) {
         pollerEntry.poller.ping();
+      } else {
+        console.log('[useBackendManager] No poller found for:', backendUrl);
       }
 
-      try {
-        collections.pings.delete(backendUrl);
-      } catch {}
+      setTimeout(() => {
+        try {
+          pingsInProgress.current = pingsInProgress.current.filter((url) => url !== backendUrl);
+          collections.pings.delete(backendUrl);
+        } catch (deleteErr) {
+          console.error(
+            '[useBackendManager] Failed to delete ping - this keeps happening for some reason but Im not sure why:',
+            backendUrl,
+            deleteErr
+          );
+        }
+      }, 0);
     },
-    onUpdate(result) {
-      const ping = result.value;
-      const backendUrl = ping.url;
-
-      const connection = collections.backendConnections.findOne(backendUrl);
-      const currentStatus = connection?.status || 'offline';
-
-      updateConnection(backendUrl, {
-        url: backendUrl,
-        status: currentStatus === 'connected' ? 'reconnecting' : 'reconnecting',
-        instanceId: connection?.instanceId || null,
-        latencyMs: null,
-        error: null,
-      });
-
-      const pollerEntry = Object.values(backendPolls.current).find(
-        (entry) => entry.url === backendUrl
-      );
-      if (pollerEntry) {
-        pollerEntry.poller.ping();
-      }
-
-      try {
-        collections.pings.delete(backendUrl);
-      } catch {}
-    },
-    onExit(result) {},
   });
 }
 
