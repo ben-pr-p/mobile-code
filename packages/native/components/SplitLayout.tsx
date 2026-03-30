@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { Menu, FolderOpen, Settings, X, GitMerge, Check, CircleDot } from 'lucide-react-native';
+import { ResizableSplitPane } from './ResizableSplitPane';
 import { SessionHeader } from './SessionHeader';
 import { ChatThread } from './ChatThread';
 import { ChangesView } from './ChangesView';
@@ -222,11 +223,10 @@ export function SplitLayout({
         </View>
       </View>
 
-      {/* Split pane content */}
-      <View className="flex-1 flex-row">
-        {/* Left panel — contextual content (~50%) */}
-        <View className="flex-1 border-r border-stone-200 dark:border-stone-800">
-          {leftPanel.type === 'tool-detail' ? (
+      {/* Split pane content — resizable via drag handle */}
+      <ResizableSplitPane
+        left={
+          leftPanel.type === 'tool-detail' ? (
             <ToolDetailPanel
               messageId={leftPanel.messageId}
               messages={messages}
@@ -234,54 +234,54 @@ export function SplitLayout({
             />
           ) : (
             <ChangesView sessionId={sessionId} backendUrl={backendUrl} changes={changes} />
-          )}
-        </View>
-
-        {/* Right panel — always shows chat (~50%) */}
-        <KeyboardAvoidingView
-          className="flex-1"
-          behavior="padding"
-          keyboardVerticalOffset={insets.top + 48 + 32}>
-          <ChatThread messages={messages} onToolCallPress={handleToolCallPress} />
-          {!session.parentID &&
-            (pendingPermission ? (
-              <PermissionRequestBar permission={pendingPermission} backendUrl={backendUrl} />
-            ) : (
-              <VoiceInputArea
-                textValue={textValue}
-                onTextChange={setTextValue}
-                onSend={() => {
-                  const text = textValue.trim();
-                  if (!text) return;
-                  setTextValue('');
-                  onSend(text);
-                }}
-                isSending={isSending}
-                onMicPressIn={audioRecorder.startRecording}
-                onMicPressOut={audioRecorder.stopRecording}
-                onSendRecording={audioRecorder.sendRecording}
-                onAttachPress={() => {}}
-                onStopPress={audioRecorder.cancelRecording}
-                recordingState={audioRecorder.recordingState}
-                chunks={audioRecorder.chunks}
-                totalDurationMs={audioRecorder.totalDurationMs}
-                onSendChunks={audioRecorder.sendChunks}
-                onDiscardChunk={audioRecorder.discardChunk}
-                onDiscardAllChunks={audioRecorder.discardAllChunks}
-                modelName={modelName}
-                sessionStatus={sessionStatus}
-                onAbort={onAbort}
-                onModelPress={onModelPress}
-                agentName={agentName}
-                onAgentPress={onAgentPress}
-                pendingCommand={pendingCommand}
-                onClearCommand={onClearCommand}
-                onHandsFreeToggle={onHandsFreeToggle}
-                onHandsFreeLongPress={onHandsFreeLongPress}
-              />
-            ))}
-        </KeyboardAvoidingView>
-      </View>
+          )
+        }
+        right={
+          <KeyboardAvoidingView
+            className="flex-1"
+            behavior="padding"
+            keyboardVerticalOffset={insets.top + 48 + 32}>
+            <ChatThread messages={messages} onToolCallPress={handleToolCallPress} />
+            {!session.parentID &&
+              (pendingPermission ? (
+                <PermissionRequestBar permission={pendingPermission} backendUrl={backendUrl} />
+              ) : (
+                <VoiceInputArea
+                  textValue={textValue}
+                  onTextChange={setTextValue}
+                  onSend={() => {
+                    const text = textValue.trim();
+                    if (!text) return;
+                    setTextValue('');
+                    onSend(text);
+                  }}
+                  isSending={isSending}
+                  onMicPressIn={audioRecorder.startRecording}
+                  onMicPressOut={audioRecorder.stopRecording}
+                  onSendRecording={audioRecorder.sendRecording}
+                  onAttachPress={() => {}}
+                  onStopPress={audioRecorder.cancelRecording}
+                  recordingState={audioRecorder.recordingState}
+                  chunks={audioRecorder.chunks}
+                  totalDurationMs={audioRecorder.totalDurationMs}
+                  onSendChunks={audioRecorder.sendChunks}
+                  onDiscardChunk={audioRecorder.discardChunk}
+                  onDiscardAllChunks={audioRecorder.discardAllChunks}
+                  modelName={modelName}
+                  sessionStatus={sessionStatus}
+                  onAbort={onAbort}
+                  onModelPress={onModelPress}
+                  agentName={agentName}
+                  onAgentPress={onAgentPress}
+                  pendingCommand={pendingCommand}
+                  onClearCommand={onClearCommand}
+                  onHandsFreeToggle={onHandsFreeToggle}
+                  onHandsFreeLongPress={onHandsFreeLongPress}
+                />
+              ))}
+          </KeyboardAvoidingView>
+        }
+      />
 
       {/* Settings modal — centered overlay on iPad */}
       <Modal
