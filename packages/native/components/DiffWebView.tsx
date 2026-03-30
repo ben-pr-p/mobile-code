@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useEffect, useState, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtom } from 'jotai';
 import { eq } from '@tanstack/react-db';
 import { useColorScheme } from 'nativewind';
 import { getApi } from '../lib/api';
@@ -35,8 +35,7 @@ export function DiffWebView({ sessionId, backendUrl, activeFile }: DiffWebViewPr
   );
 
   // Line selection — write to atom when WebView reports selection, clear WebView when atom goes null
-  const setLineSelection = useSetAtom(lineSelectionAtom);
-  const lineSelection = useAtomValue(lineSelectionAtom);
+  const [lineSelection, setLineSelection] = useAtom(lineSelectionAtom);
   const prevLineSelectionRef = useRef(lineSelection);
 
   // Watch changes from the ephemeral stream to know when to refetch diffs
@@ -84,10 +83,25 @@ export function DiffWebView({ sessionId, backendUrl, activeFile }: DiffWebViewPr
     }
   }, [diffs, isLoaded, sendMessage, colorScheme]);
 
-  // Inject initial diffs before page load for instant rendering
+  // Inject initial diffs and JS error forwarding before page load.
+  // Error handlers forward uncaught errors/rejections from the WebView
+  // to React Native via postMessage so they appear in the Metro console.
   const injectedJs = useMemo(() => {
-    if (!diffs) return undefined;
-    return `window.__INITIAL_DIFFS__ = ${JSON.stringify({
+    const errorHandlers = `
+      window.onerror = function(msg, url, line, col, err) {
+        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'jsError', message: String(msg), url: url, line: line, col: col,
+          stack: err ? err.stack : null
+        }));
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'jsError', message: String(e.reason), stack: e.reason && e.reason.stack ? e.reason.stack : null
+        }));
+      });
+    `;
+    if (!diffs) return `${errorHandlers} true;`;
+    return `${errorHandlers} window.__INITIAL_DIFFS__ = ${JSON.stringify({
       diffs,
       colorScheme: colorScheme ?? 'dark',
     })}; true;`;
@@ -133,6 +147,12 @@ export function DiffWebView({ sessionId, backendUrl, activeFile }: DiffWebViewPr
             webViewRef.current?.injectJavaScript(js);
             pendingFileRef.current = null;
           }
+        } else if (data.type === 'jsError') {
+          console.error(
+            `[WebView JS Error] ${data.message}`,
+            data.stack ? `\n${data.stack}` : '',
+            data.url ? `(${data.url}:${data.line}:${data.col})` : ''
+          );
         } else if (data.type === 'lineSelection') {
           if (data.range) {
             setLineSelection({

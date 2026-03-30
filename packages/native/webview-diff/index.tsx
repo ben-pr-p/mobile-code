@@ -198,11 +198,15 @@ function ImageDiff({
 
 // Module-level touch selection state, shared across all FileDiffPanel instances.
 // Only one selection can be active at a time.
-let _selectionCallback: ((range: SelectedLineRange | null) => void) | null = null
+// _selectionCallbacks maps each panel's wrapper element to its callback so the
+// touch handler can resolve the correct callback for the panel that is actually
+// visible (display !== 'none'), rather than whichever effect ran last.
+const _selectionCallbacks = new Map<HTMLElement, (range: SelectedLineRange | null) => void>()
 let _selectionRef: SelectedLineRange | null = null
 let _anchor: { lineNumber: number; side: 'additions' | 'deletions' } | null = null
 let _isDragging = false
 let _activeShadow: ShadowRoot | null = null
+let _activeCallback: ((range: SelectedLineRange | null) => void) | null = null
 
 function _getLineInfoAtPoint(shadow: ShadowRoot, x: number, y: number) {
   const el = shadow.elementFromPoint(x, y) as HTMLElement | null
@@ -252,6 +256,16 @@ function _findShadowRootAtPoint(x: number, y: number): ShadowRoot | null {
   return null
 }
 
+/** Find the selection callback for the panel that contains the touch point. */
+function _getCallbackAtPoint(x: number, y: number): ((range: SelectedLineRange | null) => void) | null {
+  const el = document.elementFromPoint(x, y) as HTMLElement | null
+  if (!el) return null
+  for (const [wrapper, cb] of _selectionCallbacks) {
+    if (wrapper.contains(el)) return cb
+  }
+  return null
+}
+
 // Install document-level touch handlers once
 let _touchHandlersInstalled = false
 function _installTouchHandlers() {
@@ -268,7 +282,8 @@ function _installTouchHandlers() {
     if (!_isNumberColumnAtPoint(shadow, touch.clientX, touch.clientY)) return
 
     const info = _getLineInfoAtPoint(shadow, touch.clientX, touch.clientY)
-    if (!info || !_selectionCallback) return
+    const cb = _getCallbackAtPoint(touch.clientX, touch.clientY)
+    if (!info || !cb) return
 
     // Prevent scrolling when touching line numbers
     e.preventDefault()
@@ -276,24 +291,26 @@ function _installTouchHandlers() {
     // Tap on already-selected single line → deselect
     if (_selectionRef && _selectionRef.start === info.lineNumber && _selectionRef.end === info.lineNumber) {
       _selectionRef = null
-      _selectionCallback(null)
+      _activeCallback = null
+      cb(null)
       return
     }
 
     _anchor = info
     _isDragging = true
     _activeShadow = shadow
+    _activeCallback = cb
     const range: SelectedLineRange = {
       start: info.lineNumber,
       end: info.lineNumber,
       side: info.side,
     }
     _selectionRef = range
-    _selectionCallback(range)
+    cb(range)
   }, { passive: false })
 
   document.addEventListener('touchmove', (e: TouchEvent) => {
-    if (!_isDragging || !_anchor || !_activeShadow || !_selectionCallback) return
+    if (!_isDragging || !_anchor || !_activeShadow || !_activeCallback) return
     const touch = e.touches[0]
     if (!touch) return
 
@@ -309,13 +326,14 @@ function _installTouchHandlers() {
       endSide: info.side !== _anchor.side ? info.side : undefined,
     }
     _selectionRef = range
-    _selectionCallback(range)
+    _activeCallback(range)
   }, { passive: false })
 
   document.addEventListener('touchend', () => {
     _anchor = null
     _isDragging = false
     _activeShadow = null
+    _activeCallback = null
   })
 }
 
@@ -325,12 +343,12 @@ function useTouchLineSelection(
   const wrapperRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    _selectionCallback = onSelectionChange
+    const el = wrapperRef.current
+    if (!el) return
+    _selectionCallbacks.set(el, onSelectionChange)
     _installTouchHandlers()
     return () => {
-      if (_selectionCallback === onSelectionChange) {
-        _selectionCallback = null
-      }
+      _selectionCallbacks.delete(el)
     }
   }, [onSelectionChange])
 
@@ -415,6 +433,10 @@ function App() {
           postToNative({ type: 'loaded', files: (msg.diffs as DiffData[]).map((d) => d.file) })
         } else if (msg.type === 'showFile') {
           setActiveFile(msg.file)
+          // Clear all selections when switching files so stale highlights
+          // don't persist if the user navigates back.
+          setSelections({})
+          _selectionRef = null
         } else if (msg.type === 'hide') {
           setActiveFile(null)
         } else if (msg.type === 'setColorScheme') {

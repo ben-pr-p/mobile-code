@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
+import { useSetAtom } from 'jotai';
 import type { ChangedFile } from '../lib/stream-db';
 import type { BackendUrl } from '../state/backends';
 import { DiffWebView } from './DiffWebView';
+import { lineSelectionAtom } from '../state/line-selection';
 
 interface ChangesViewProps {
   sessionId: string;
@@ -12,9 +14,15 @@ interface ChangesViewProps {
 
 export function ChangesView({ sessionId, backendUrl, changes }: ChangesViewProps) {
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
+  const setLineSelection = useSetAtom(lineSelectionAtom);
 
   const toggleFile = (path: string) => {
-    setExpandedFile((prev) => (prev === path ? null : path));
+    setExpandedFile((prev) => {
+      const next = prev === path ? null : path;
+      // Clear line selection when navigating away from the current file
+      if (next !== prev) setLineSelection(null);
+      return next;
+    });
   };
 
   const expandedChange = expandedFile ? changes.find((f) => f.path === expandedFile) : null;
