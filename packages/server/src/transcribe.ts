@@ -1,6 +1,7 @@
 import { chat } from "@tanstack/ai"
 import { geminiText } from "@tanstack/ai-gemini"
 import type { Message } from "./types"
+import { env } from "./env"
 
 export async function transcribeAudio(
   base64Audio: string,
@@ -43,7 +44,7 @@ If the audio is unclear or empty, respond with an empty string and nothing will 
   ] as const;
 
   const result = await chat({
-    adapter: geminiText("gemini-3-flash-preview"),
+    adapter: geminiText(env.TRANSCRIPTION_MODEL as any),
     systemPrompts: [systemPrompt],
     messages: [
       ...contextMessages,

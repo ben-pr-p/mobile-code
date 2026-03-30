@@ -9,6 +9,7 @@
  *                          [--opencode-port <port>] [--opencode-dir <dir>]
  *                          [--flock-server-port <port>]
  *                          [--flock-auth-token <token>] [--gemini-api-key <key>]
+ *                          [--transcription-model <model>]
  */
 
 import { Crust } from "@crustjs/core"
@@ -127,6 +128,9 @@ const spriteConfigure = new Crust("configure-services")
     "gemini-api-key": flag(
       z.string().optional().describe("Gemini API key for transcription (written to .flockenv)"),
     ),
+    "transcription-model": flag(
+      z.string().optional().describe("Gemini model for transcription (gemini-3-flash-preview or gemini-3.1-flash-lite-preview)"),
+    ),
   })
   .run(commandValidator(async ({ flags }) => {
     const dryRun = flags["dry-run"]
@@ -135,6 +139,7 @@ const spriteConfigure = new Crust("configure-services")
     const flockServerPort = flags["flock-server-port"]
     const flockAuthToken = flags["flock-auth-token"] ?? (env.FLOCK_AUTH_TOKEN || undefined)
     const geminiApiKey = flags["gemini-api-key"] ?? (env.GEMINI_API_KEY || undefined)
+    const transcriptionModel = flags["transcription-model"] ?? (env.TRANSCRIPTION_MODEL || undefined)
 
     const sprite = createSpriteClientFromEnv()
 
@@ -150,6 +155,7 @@ const spriteConfigure = new Crust("configure-services")
         flockServerPort,
         flockAuthToken,
         geminiApiKey,
+        transcriptionModel,
       })
 
       console.log("\n--- Summary ---")

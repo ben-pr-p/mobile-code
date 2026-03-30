@@ -61,11 +61,16 @@ export interface ConfigureServicesOptions {
    * Written to `.flockenv` on the Sprite as `FLOCK_AUTH_TOKEN`.
    */
   flockAuthToken?: string
-  /**
-   * Google / Gemini API key for audio transcription.
+/**
+ * Google / Gemini API key for audio transcription.
    * Written to `.flockenv` on the Sprite as `GEMINI_API_KEY`.
    */
   geminiApiKey?: string
+  /**
+   * Gemini model for audio transcription.
+   * Written to `.flockenv` on the Sprite as `TRANSCRIPTION_MODEL`.
+   */
+  transcriptionModel?: string
   /**
    * Callback for progress messages. If not provided, messages are printed to
    * stdout via `console.log`.
@@ -124,6 +129,7 @@ export async function configureServices(
     opencodePort,
     flockAuthToken,
     geminiApiKey,
+    transcriptionModel: options.transcriptionModel,
   })
 
   // Check if the existing file already matches
@@ -189,6 +195,7 @@ function buildFlockenv(opts: {
   opencodePort: number
   flockAuthToken?: string
   geminiApiKey?: string
+  transcriptionModel?: string
 }): string {
   const lines: string[] = [
     "# Flockcode environment — managed by `flock sprite configure-services`",
@@ -201,6 +208,9 @@ function buildFlockenv(opts: {
   }
   if (opts.geminiApiKey) {
     lines.push(`export GEMINI_API_KEY="${opts.geminiApiKey}"`)
+  }
+  if (opts.transcriptionModel) {
+    lines.push(`export TRANSCRIPTION_MODEL="${opts.transcriptionModel}"`)
   }
   lines.push("") // trailing newline
   return lines.join("\n")

@@ -22,6 +22,8 @@ export const env = cleanEnv(process.env, {
   // --- Gemini (transcription) ---
   /** Google / Gemini API key for audio transcription. Read by @tanstack/ai-gemini. */
   GEMINI_API_KEY: str({ default: "" }),
+  /** Gemini model for audio transcription. Either "gemini-3-flash-preview" or "gemini-3.1-flash-lite-preview". */
+  TRANSCRIPTION_MODEL: str({ default: "gemini-3.1-flash-lite-preview" }),
 
   // --- Fly Sprites ---
   /** Name of the Fly Sprite to sync projects to. Required for `sync` command. */
