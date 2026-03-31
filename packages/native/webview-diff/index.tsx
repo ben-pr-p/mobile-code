@@ -11,6 +11,7 @@ declare global {
     __INITIAL_DIFFS__?: {
       diffs: DiffData[]
       colorScheme?: 'light' | 'dark'
+      codeFontSize?: number
     }
   }
 }
@@ -26,11 +27,14 @@ type ThemeType = 'system' | 'light' | 'dark'
 const THEME = { dark: 'github-dark' as const, light: 'github-light' as const }
 
 /** CSS overrides to align diff viewer backgrounds with the app's stone palette */
-const STONE_CSS = `
+function buildStoneCSS(codeFontSize: number): string {
+  return `
   :host {
     --diffs-light-bg: #FAFAF9 !important;
     --diffs-dark-bg: #0C0A09 !important;
     --diffs-font-family: 'JetBrains Mono', monospace;
+    --diffs-font-size: ${codeFontSize}px !important;
+    font-size: ${codeFontSize}px !important;
   }
   /* Widen line number gutter for touch-friendly tap targets.
      touch-action: none prevents the browser from starting a scroll/pan
@@ -42,8 +46,12 @@ const STONE_CSS = `
     padding-right: 8px !important;
     touch-action: none;
   }
-
+  /* Apply font size to all code content */
+  [data-line] {
+    font-size: ${codeFontSize}px !important;
+  }
 `
+}
 
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico']
 
@@ -361,11 +369,13 @@ function FileDiffPanel({
   themeType,
   selectedLines,
   onLineSelected,
+  codeFontSize,
 }: {
   diff: DiffData
   themeType: ThemeType
   selectedLines: SelectedLineRange | null
   onLineSelected: (range: SelectedLineRange | null) => void
+  codeFontSize: number
 }) {
   const wrapperRef = useTouchLineSelection(onLineSelected)
 
@@ -384,7 +394,7 @@ function FileDiffPanel({
           themeType,
           diffStyle: 'unified',
           disableFileHeader: true,
-          unsafeCSS: STONE_CSS,
+          unsafeCSS: buildStoneCSS(codeFontSize),
           // Don't use the library's line selection — it doesn't work on iOS touch.
           // We drive selection via our own touch handlers and the controlled
           // selectedLines prop.
@@ -399,6 +409,7 @@ function App() {
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [themeType, setThemeType] = useState<ThemeType>('system')
+  const [codeFontSize, setCodeFontSize] = useState(13)
   // Per-file controlled selection state
   const [selections, setSelections] = useState<Record<string, SelectedLineRange | null>>({})
 
@@ -413,6 +424,7 @@ function App() {
     if (initialData) {
       setDiffs(initialData.diffs)
       setThemeType(initialData.colorScheme ?? 'dark')
+      if (initialData.codeFontSize) setCodeFontSize(initialData.codeFontSize)
       setLoaded(true)
       postToNative({ type: 'loaded', files: initialData.diffs.map((d) => d.file) })
     }
@@ -429,8 +441,15 @@ function App() {
           if (msg.colorScheme === 'light' || msg.colorScheme === 'dark') {
             setThemeType(msg.colorScheme)
           }
+          if (typeof msg.codeFontSize === 'number') {
+            setCodeFontSize(msg.codeFontSize)
+          }
           setLoaded(true)
           postToNative({ type: 'loaded', files: (msg.diffs as DiffData[]).map((d) => d.file) })
+        } else if (msg.type === 'setCodeFontSize') {
+          if (typeof msg.codeFontSize === 'number') {
+            setCodeFontSize(msg.codeFontSize)
+          }
         } else if (msg.type === 'showFile') {
           setActiveFile(msg.file)
           // Clear all selections when switching files so stale highlights
@@ -504,6 +523,7 @@ function App() {
             themeType={themeType}
             selectedLines={selections[diff.file] ?? null}
             onLineSelected={(range) => handleLineSelected(diff.file, range)}
+            codeFontSize={codeFontSize}
           />
         </div>
       ))}

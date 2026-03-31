@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, Linking, Pressable } from 'react-native';
 import type { ToolCallProps } from './types';
+import { useCodeFontSize } from '../../hooks/useFontSize';
 
 interface WebFetchInput {
   url: string;
@@ -30,6 +31,7 @@ function WebToolCollapsed({ description, toolName, toolMeta }: ToolCallProps) {
   const webfetchInput = toolMeta.input as WebFetchInput | undefined;
   const websearchInput = toolMeta.input as WebSearchInput | undefined;
   const codesearchInput = toolMeta.input as CodeSearchInput | undefined;
+  const fs = useCodeFontSize();
 
   let displayText = description;
   if (toolName === 'webfetch' && webfetchInput?.url) {
@@ -42,8 +44,8 @@ function WebToolCollapsed({ description, toolName, toolMeta }: ToolCallProps) {
 
   return (
     <Text
-      className="text-[13px] font-medium text-amber-600 dark:text-amber-500"
-      style={{ fontFamily: 'JetBrains Mono' }}
+      className="font-medium text-amber-600 dark:text-amber-500"
+      style={{ fontFamily: 'JetBrains Mono', fontSize: fs.collapsed }}
       numberOfLines={1}>
       {displayText}
     </Text>
@@ -56,6 +58,7 @@ function WebToolExpanded({ toolName, toolMeta }: ToolCallProps) {
   const codesearchInput = toolMeta.input as CodeSearchInput | undefined;
   const output = toolMeta.output || '';
   const error = toolMeta.error;
+  const fs = useCodeFontSize();
 
   const handleUrlPress = (url: string) => {
     Linking.openURL(url).catch(() => {});
@@ -66,14 +69,14 @@ function WebToolExpanded({ toolName, toolMeta }: ToolCallProps) {
       <View className="gap-3">
         <View className="gap-1">
           <Text
-            className="text-[10px] font-semibold uppercase text-stone-400"
-            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+            className="font-semibold uppercase text-stone-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
             URL
           </Text>
           <Pressable onPress={() => webfetchInput?.url && handleUrlPress(webfetchInput.url)}>
             <Text
-              className="text-[12px] text-blue-600 underline dark:text-blue-400"
-              style={{ fontFamily: 'JetBrains Mono' }}>
+              className="text-blue-600 underline dark:text-blue-400"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
               {webfetchInput?.url || 'Unknown URL'}
             </Text>
           </Pressable>
@@ -82,13 +85,13 @@ function WebToolExpanded({ toolName, toolMeta }: ToolCallProps) {
         {webfetchInput?.format && (
           <View className="gap-1">
             <Text
-              className="text-[10px] font-semibold uppercase text-stone-400"
-              style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
-              Format
+            className="font-semibold uppercase text-stone-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
+            Format
             </Text>
             <Text
-              className="text-[12px] text-stone-500 dark:text-stone-400"
-              style={{ fontFamily: 'JetBrains Mono' }}>
+              className="text-stone-500 dark:text-stone-400"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
               {webfetchInput.format}
             </Text>
           </View>
@@ -97,31 +100,31 @@ function WebToolExpanded({ toolName, toolMeta }: ToolCallProps) {
         {error && (
           <View className="gap-1">
             <Text
-              className="text-[10px] font-semibold uppercase text-red-400"
-              style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
-              Error
-            </Text>
-            <View className="rounded-md bg-red-50 p-2 dark:bg-red-900/20">
-              <Text
-                className="text-[12px] text-red-600 dark:text-red-400"
-                style={{ fontFamily: 'JetBrains Mono' }}>
-                {error}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {output && !error && (
-          <View className="gap-1">
+            className="font-semibold uppercase text-red-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
+            Error
+          </Text>
+          <View className="rounded-md bg-red-50 p-2 dark:bg-red-900/20">
             <Text
-              className="text-[10px] font-semibold uppercase text-stone-400"
-              style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
-              Content
+              className="text-red-600 dark:text-red-400"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
+              {error}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {output && !error && (
+        <View className="gap-1">
+          <Text
+            className="font-semibold uppercase text-stone-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
+            Content
             </Text>
             <ScrollView style={{ maxHeight: 300 }} nestedScrollEnabled>
               <Text
-                className="text-[12px] text-stone-600 dark:text-stone-400"
-                style={{ fontFamily: 'JetBrains Mono' }}>
+                className="text-stone-600 dark:text-stone-400"
+                style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
                 {output}
               </Text>
             </ScrollView>
@@ -139,13 +142,13 @@ function WebToolExpanded({ toolName, toolMeta }: ToolCallProps) {
       <View className="gap-3">
         <View className="gap-1">
           <Text
-            className="text-[10px] font-semibold uppercase text-stone-400"
-            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+            className="font-semibold uppercase text-stone-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
             Query
           </Text>
           <Text
-            className="text-[12px] text-stone-700 dark:text-stone-300"
-            style={{ fontFamily: 'JetBrains Mono' }}>
+            className="text-stone-700 dark:text-stone-300"
+            style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
             {query}
           </Text>
         </View>
@@ -153,13 +156,13 @@ function WebToolExpanded({ toolName, toolMeta }: ToolCallProps) {
         {websearchInput?.numResults && (
           <View className="gap-1">
             <Text
-              className="text-[10px] font-semibold uppercase text-stone-400"
-              style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
-              Max Results
+            className="font-semibold uppercase text-stone-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
+            Max Results
             </Text>
             <Text
-              className="text-[12px] text-stone-500 dark:text-stone-400"
-              style={{ fontFamily: 'JetBrains Mono' }}>
+              className="text-stone-500 dark:text-stone-400"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
               {websearchInput.numResults}
             </Text>
           </View>
@@ -168,31 +171,31 @@ function WebToolExpanded({ toolName, toolMeta }: ToolCallProps) {
         {error && (
           <View className="gap-1">
             <Text
-              className="text-[10px] font-semibold uppercase text-red-400"
-              style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
-              Error
-            </Text>
-            <View className="rounded-md bg-red-50 p-2 dark:bg-red-900/20">
-              <Text
-                className="text-[12px] text-red-600 dark:text-red-400"
-                style={{ fontFamily: 'JetBrains Mono' }}>
-                {error}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {output && !error && (
-          <View className="gap-1">
+            className="font-semibold uppercase text-red-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
+            Error
+          </Text>
+          <View className="rounded-md bg-red-50 p-2 dark:bg-red-900/20">
             <Text
-              className="text-[10px] font-semibold uppercase text-stone-400"
-              style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
-              Results
+              className="text-red-600 dark:text-red-400"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
+              {error}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {output && !error && (
+        <View className="gap-1">
+          <Text
+            className="font-semibold uppercase text-stone-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
+            Results
             </Text>
             <ScrollView style={{ maxHeight: 300 }} nestedScrollEnabled>
               <Text
-                className="text-[12px] text-stone-600 dark:text-stone-400"
-                style={{ fontFamily: 'JetBrains Mono' }}>
+                className="text-stone-600 dark:text-stone-400"
+                style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
                 {output}
               </Text>
             </ScrollView>
@@ -207,14 +210,14 @@ function WebToolExpanded({ toolName, toolMeta }: ToolCallProps) {
       {error && (
         <View className="gap-1">
           <Text
-            className="text-[10px] font-semibold uppercase text-red-400"
-            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+            className="font-semibold uppercase text-red-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
             Error
           </Text>
           <View className="rounded-md bg-red-50 p-2 dark:bg-red-900/20">
             <Text
-              className="text-[12px] text-red-600 dark:text-red-400"
-              style={{ fontFamily: 'JetBrains Mono' }}>
+              className="text-red-600 dark:text-red-400"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
               {error}
             </Text>
           </View>
@@ -224,14 +227,14 @@ function WebToolExpanded({ toolName, toolMeta }: ToolCallProps) {
       {output && !error && (
         <View className="gap-1">
           <Text
-            className="text-[10px] font-semibold uppercase text-stone-400"
-            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+            className="font-semibold uppercase text-stone-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
             Output
           </Text>
           <ScrollView style={{ maxHeight: 300 }} nestedScrollEnabled>
             <Text
-              className="text-[12px] text-stone-600 dark:text-stone-400"
-              style={{ fontFamily: 'JetBrains Mono' }}>
+              className="text-stone-600 dark:text-stone-400"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
               {output}
             </Text>
           </ScrollView>

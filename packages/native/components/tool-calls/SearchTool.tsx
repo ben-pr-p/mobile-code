@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import type { ToolCallProps } from './types';
+import { useCodeFontSize } from '../../hooks/useFontSize';
 
 interface GrepInput {
   pattern: string;
@@ -18,6 +19,7 @@ interface ListInput {
 }
 
 function SearchToolCollapsed({ description, toolName, toolMeta }: ToolCallProps) {
+  const fs = useCodeFontSize();
   const grepInput = toolMeta.input as GrepInput | undefined;
   const globInput = toolMeta.input as GlobInput | undefined;
   const listInput = toolMeta.input as ListInput | undefined;
@@ -36,8 +38,8 @@ function SearchToolCollapsed({ description, toolName, toolMeta }: ToolCallProps)
 
   return (
     <Text
-      className="text-[13px] font-medium text-amber-600 dark:text-amber-500"
-      style={{ fontFamily: 'JetBrains Mono' }}
+      className="font-medium text-amber-600 dark:text-amber-500"
+      style={{ fontFamily: 'JetBrains Mono', fontSize: fs.collapsed }}
       numberOfLines={1}>
       {displayText}
     </Text>
@@ -54,6 +56,7 @@ function SearchToolExpanded({ toolName, toolMeta }: ToolCallProps) {
   const results = output.split('\n').filter((line) => line.trim().length > 0);
   const hasResults =
     results.length > 0 && output !== 'No files found' && !output.startsWith('No matches');
+  const fs = useCodeFontSize();
 
   return (
     <View className="gap-3">
@@ -61,13 +64,13 @@ function SearchToolExpanded({ toolName, toolMeta }: ToolCallProps) {
         <>
           <View className="gap-1">
             <Text
-              className="text-[10px] font-semibold uppercase text-stone-400"
-              style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+              className="font-semibold uppercase text-stone-400"
+              style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
               Pattern
             </Text>
             <Text
-              className="text-[12px] text-stone-700 dark:text-stone-300"
-              style={{ fontFamily: 'JetBrains Mono' }}>
+              className="text-stone-700 dark:text-stone-300"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
               {grepInput?.pattern || 'Unknown'}
             </Text>
           </View>
@@ -75,13 +78,13 @@ function SearchToolExpanded({ toolName, toolMeta }: ToolCallProps) {
           {grepInput?.path && (
             <View className="gap-1">
               <Text
-                className="text-[10px] font-semibold uppercase text-stone-400"
-                style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+                className="font-semibold uppercase text-stone-400"
+                style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
                 Path
               </Text>
               <Text
-                className="text-[12px] text-stone-500 dark:text-stone-400"
-                style={{ fontFamily: 'JetBrains Mono' }}>
+                className="text-stone-500 dark:text-stone-400"
+                style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
                 {grepInput.path}
               </Text>
             </View>
@@ -90,13 +93,13 @@ function SearchToolExpanded({ toolName, toolMeta }: ToolCallProps) {
           {grepInput?.include && (
             <View className="gap-1">
               <Text
-                className="text-[10px] font-semibold uppercase text-stone-400"
-                style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+                className="font-semibold uppercase text-stone-400"
+                style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
                 Include
               </Text>
               <Text
-                className="text-[12px] text-stone-500 dark:text-stone-400"
-                style={{ fontFamily: 'JetBrains Mono' }}>
+                className="text-stone-500 dark:text-stone-400"
+                style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
                 {grepInput.include}
               </Text>
             </View>
@@ -108,13 +111,13 @@ function SearchToolExpanded({ toolName, toolMeta }: ToolCallProps) {
         <>
           <View className="gap-1">
             <Text
-              className="text-[10px] font-semibold uppercase text-stone-400"
-              style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+              className="font-semibold uppercase text-stone-400"
+              style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
               Pattern
             </Text>
             <Text
-              className="text-[12px] text-stone-700 dark:text-stone-300"
-              style={{ fontFamily: 'JetBrains Mono' }}>
+              className="text-stone-700 dark:text-stone-300"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
               {globInput?.pattern || 'Unknown'}
             </Text>
           </View>
@@ -122,13 +125,13 @@ function SearchToolExpanded({ toolName, toolMeta }: ToolCallProps) {
           {globInput?.path && (
             <View className="gap-1">
               <Text
-                className="text-[10px] font-semibold uppercase text-stone-400"
-                style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+                className="font-semibold uppercase text-stone-400"
+                style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
                 Path
               </Text>
               <Text
-                className="text-[12px] text-stone-500 dark:text-stone-400"
-                style={{ fontFamily: 'JetBrains Mono' }}>
+                className="text-stone-500 dark:text-stone-400"
+                style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
                 {globInput.path}
               </Text>
             </View>
@@ -139,13 +142,13 @@ function SearchToolExpanded({ toolName, toolMeta }: ToolCallProps) {
       {toolName === 'list' && (
         <View className="gap-1">
           <Text
-            className="text-[10px] font-semibold uppercase text-stone-400"
-            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+            className="font-semibold uppercase text-stone-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
             Path
           </Text>
           <Text
-            className="text-[12px] text-stone-700 dark:text-stone-300"
-            style={{ fontFamily: 'JetBrains Mono' }}>
+            className="text-stone-700 dark:text-stone-300"
+            style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
             {listInput?.path || 'Unknown'}
           </Text>
         </View>
@@ -154,14 +157,14 @@ function SearchToolExpanded({ toolName, toolMeta }: ToolCallProps) {
       {error && (
         <View className="gap-1">
           <Text
-            className="text-[10px] font-semibold uppercase text-red-400"
-            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+            className="font-semibold uppercase text-red-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
             Error
           </Text>
           <View className="rounded-md bg-red-50 p-2 dark:bg-red-900/20">
             <Text
-              className="text-[12px] text-red-600 dark:text-red-400"
-              style={{ fontFamily: 'JetBrains Mono' }}>
+              className="text-red-600 dark:text-red-400"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
               {error}
             </Text>
           </View>
@@ -172,12 +175,12 @@ function SearchToolExpanded({ toolName, toolMeta }: ToolCallProps) {
         <View className="gap-1">
           <View className="flex-row items-center justify-between">
             <Text
-              className="text-[10px] font-semibold uppercase text-stone-400"
-              style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+              className="font-semibold uppercase text-stone-400"
+              style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
               Results
             </Text>
             {hasResults && (
-              <Text className="text-[10px] text-stone-400" style={{ fontFamily: 'JetBrains Mono' }}>
+              <Text className="text-stone-400" style={{ fontFamily: 'JetBrains Mono', fontSize: fs.label }}>
                 {results.length} {results.length === 1 ? 'match' : 'matches'}
               </Text>
             )}
@@ -187,15 +190,15 @@ function SearchToolExpanded({ toolName, toolMeta }: ToolCallProps) {
               results.map((line, idx) => (
                 <Text
                   key={idx}
-                  className="text-[12px] text-stone-600 dark:text-stone-400"
-                  style={{ fontFamily: 'JetBrains Mono' }}>
+                  className="text-stone-600 dark:text-stone-400"
+                  style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
                   {line}
                 </Text>
               ))
             ) : (
               <Text
-                className="text-[12px] italic text-stone-400"
-                style={{ fontFamily: 'JetBrains Mono' }}>
+                className="italic text-stone-400"
+                style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
                 {output || 'No results'}
               </Text>
             )}

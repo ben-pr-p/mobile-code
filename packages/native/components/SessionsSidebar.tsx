@@ -64,6 +64,7 @@ import { getApi, type ApiClient } from '../lib/api';
 import { collections } from '../lib/collections';
 import { pinnedSessionIdsAtom, pinnedProjectIdsAtom } from '../state/ui';
 import type { BackendConfigValue } from '../lib/stream-db';
+import { useMenuFontSize } from '../hooks/useFontSize';
 
 type BackendType = BackendConfigValue['type'];
 
@@ -82,6 +83,7 @@ export function SessionsSidebar({
 }: SessionsSidebarProps) {
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
+  const menuFs = useMenuFontSize();
   const iconColor = colorScheme === 'dark' ? '#A8A29E' : '#44403C';
   const mutedIconColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const micIconColor = colorScheme === 'dark' ? '#0C0A09' : '#FFFFFF';
@@ -133,8 +135,8 @@ export function SessionsSidebar({
         </Pressable>
 
         <Text
-          className="text-lg font-semibold text-stone-900 dark:text-stone-50"
-          style={{ fontFamily: 'JetBrains Mono' }}>
+          className="font-semibold text-stone-900 dark:text-stone-50"
+          style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.title }}>
           Sessions
         </Text>
 
@@ -202,7 +204,7 @@ export function SessionsSidebar({
         </MergedStateQuery>
       ) : (
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-center text-sm font-medium text-stone-700 dark:text-stone-400">
+          <Text className="text-center font-medium text-stone-700 dark:text-stone-400" style={{ fontSize: menuFs.primary }}>
             Select a project to view sessions
           </Text>
         </View>
@@ -286,6 +288,7 @@ function SessionStatusDot({
 
 function SessionWorktreeBadge({ worktreeStatus }: { worktreeStatus: WorktreeStatusValue }) {
   const { colorScheme } = useColorScheme();
+  const menuFs = useMenuFontSize();
 
   if (!worktreeStatus.isWorktreeSession || worktreeStatus.error) return null;
 
@@ -294,8 +297,8 @@ function SessionWorktreeBadge({ worktreeStatus }: { worktreeStatus: WorktreeStat
       <View className="flex-row items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 dark:bg-amber-900/30">
         <CircleDot size={8} color={colorScheme === 'dark' ? '#fbbf24' : '#d97706'} />
         <Text
-          className="text-[9px] text-amber-700 dark:text-amber-400"
-          style={{ fontFamily: 'JetBrains Mono' }}>
+          className="text-amber-700 dark:text-amber-400"
+          style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.badge }}>
           Uncommitted
         </Text>
       </View>
@@ -307,8 +310,8 @@ function SessionWorktreeBadge({ worktreeStatus }: { worktreeStatus: WorktreeStat
       <View className="flex-row items-center gap-0.5 rounded bg-blue-100 px-1.5 py-0.5 dark:bg-blue-900/30">
         <GitBranch size={8} color={colorScheme === 'dark' ? '#60a5fa' : '#2563eb'} />
         <Text
-          className="text-[9px] text-blue-700 dark:text-blue-400"
-          style={{ fontFamily: 'JetBrains Mono' }}>
+          className="text-blue-700 dark:text-blue-400"
+          style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.badge }}>
           Awaiting merge
         </Text>
       </View>
@@ -320,8 +323,8 @@ function SessionWorktreeBadge({ worktreeStatus }: { worktreeStatus: WorktreeStat
       <View className="flex-row items-center gap-0.5 rounded bg-green-100 px-1.5 py-0.5 dark:bg-green-900/30">
         <Check size={8} color={colorScheme === 'dark' ? '#4ade80' : '#16a34a'} />
         <Text
-          className="text-[9px] text-green-700 dark:text-green-400"
-          style={{ fontFamily: 'JetBrains Mono' }}>
+          className="text-green-700 dark:text-green-400"
+          style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.badge }}>
           Merged
         </Text>
       </View>
@@ -368,6 +371,7 @@ function ArchiveSwipeAction({
   isArchived: boolean;
   isLoading: boolean;
 }) {
+  const menuFs = useMenuFontSize();
   // The icon scales up once the user drags past the threshold to confirm the action.
   const iconStyle = useAnimatedStyle(() => {
     const scale = interpolate(
@@ -397,8 +401,8 @@ function ArchiveSwipeAction({
         )}
       </Animated.View>
       <Text
-        className="mt-1 text-[10px] font-medium text-white"
-        style={{ fontFamily: 'JetBrains Mono' }}>
+        className="mt-1 font-medium text-white"
+        style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.tiny }}>
         {isArchived ? 'Unarchive' : 'Archive'}
       </Text>
     </View>
@@ -424,6 +428,7 @@ function SessionRow({
   backendType,
 }: SessionRowProps) {
   const { colorScheme } = useColorScheme();
+  const menuFs = useMenuFontSize();
   const overflowColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const chevronColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const subSessionIconColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
@@ -506,14 +511,14 @@ function SessionRow({
         )}
         <View className="flex-1 gap-0.5">
           <Text
-            className={`font-medium text-stone-700 dark:text-stone-400 ${isSubSession ? 'text-xs' : 'text-sm'}`}
-            style={{ fontFamily: 'JetBrains Mono' }}>
+            className="font-medium text-stone-700 dark:text-stone-400"
+            style={{ fontFamily: 'JetBrains Mono', fontSize: isSubSession ? menuFs.secondary : menuFs.primary }}>
             {session.title}
           </Text>
           <View className="flex-row items-center gap-1.5">
             <Text
-              className="text-[11px] text-stone-400 dark:text-stone-600"
-              style={{ fontFamily: 'JetBrains Mono' }}>
+              className="text-stone-400 dark:text-stone-600"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.tertiary }}>
               {formatRelativeTime(session.time.updated)}
             </Text>
             {backendType &&
@@ -525,8 +530,8 @@ function SessionRow({
             {agentName && (
               <View className="rounded bg-stone-200 px-1.5 py-0.5 dark:bg-stone-800">
                 <Text
-                  className="text-[9px] text-stone-500 dark:text-stone-400"
-                  style={{ fontFamily: 'JetBrains Mono' }}>
+                  className="text-stone-500 dark:text-stone-400"
+                  style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.badge }}>
                   {agentName}
                 </Text>
               </View>
@@ -575,6 +580,7 @@ function SessionListContent({
   sessionMetas: WithBackendUrl<SessionMetaValue>[] | null;
   pendingPermissions: WithBackendUrl<PermissionRequestValue>[] | null;
 }) {
+  const menuFs = useMenuFontSize();
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const [showArchived, setShowArchived] = useState(false);
@@ -886,8 +892,8 @@ function SessionListContent({
             onChangeText={setSearchQuery}
             placeholder="search --sessions"
             placeholderTextColor={placeholderColor}
-            className="flex-1 text-xs text-stone-900 dark:text-stone-50"
-            style={{ fontFamily: 'JetBrains Mono' }}
+            className="flex-1 text-stone-900 dark:text-stone-50"
+            style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.secondary }}
           />
         </View>
       </View>
@@ -931,8 +937,8 @@ function SessionListContent({
                   )}
                   <Pin size={10} color={colorScheme === 'dark' ? '#D97706' : '#B45309'} />
                   <Text
-                    className="text-[11px] font-semibold text-amber-700 dark:text-amber-500"
-                    style={{ fontFamily: 'JetBrains Mono' }}>
+                    className="font-semibold text-amber-700 dark:text-amber-500"
+                    style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.tertiary }}>
                     {group.projectName}
                   </Text>
                 </Pressable>
@@ -1023,8 +1029,8 @@ function SessionListContent({
                 <ChevronRight size={14} color={mutedIconColor} />
               )}
               <Text
-                className="text-xs text-stone-400 dark:text-stone-600"
-                style={{ fontFamily: 'JetBrains Mono' }}>
+                className="text-stone-400 dark:text-stone-600"
+                style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.secondary }}>
                 Archived ({archivedTree.length})
               </Text>
             </Pressable>
