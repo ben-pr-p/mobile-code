@@ -79,3 +79,34 @@ export const agentCatalogAtom = atom<AgentInfo[] | null>(null);
 
 /** Command catalog fetched from the server. `null` means not yet loaded. */
 export const commandCatalogAtom = atom<CommandInfo[] | null>(null);
+
+// ---------------------------------------------------------------------------
+// Font Size Settings
+// ---------------------------------------------------------------------------
+
+/**
+ * Font size scale factor. 0 is the default size, negative values shrink,
+ * positive values enlarge. Each step is ~2px at the base sizes.
+ */
+export type FontSizeStep = -2 | -1 | 0 | 1 | 2 | 3 | 4;
+
+/** User's preferred code font size (tool calls, diff viewer). */
+export const codeFontSizeAtom = atomWithStorage<FontSizeStep>(
+  'settings:codeFontSize',
+  0,
+  asyncStorageAdapter<FontSizeStep>()
+);
+
+/** User's preferred conversation font size (user + assistant messages). */
+export const conversationFontSizeAtom = atomWithStorage<FontSizeStep>(
+  'settings:conversationFontSize',
+  0,
+  asyncStorageAdapter<FontSizeStep>()
+);
+
+/** User's preferred menu/UI font size (sidebars, headers, settings). */
+export const menuFontSizeAtom = atomWithStorage<FontSizeStep>(
+  'settings:menuFontSize',
+  0,
+  asyncStorageAdapter<FontSizeStep>()
+);

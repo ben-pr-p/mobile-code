@@ -1,16 +1,18 @@
 import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import type { ToolCallProps } from './types';
+import { useCodeFontSize } from '../../hooks/useFontSize';
 
 interface QuestionInput {
   questions: string;
 }
 
 function QuestionToolCollapsed({ description }: ToolCallProps) {
+  const fs = useCodeFontSize();
   return (
     <Text
-      className="text-[13px] font-medium text-amber-600 dark:text-amber-500"
-      style={{ fontFamily: 'JetBrains Mono' }}
+      className="font-medium text-amber-600 dark:text-amber-500"
+      style={{ fontFamily: 'JetBrains Mono', fontSize: fs.collapsed }}
       numberOfLines={1}>
       {description || 'Asked question'}
     </Text>
@@ -34,13 +36,15 @@ function QuestionToolExpanded({ toolMeta }: ToolCallProps) {
     }
   }
 
+  const fs = useCodeFontSize();
+
   return (
     <View className="gap-3">
       {questions.length > 0 && (
         <View className="gap-1">
           <Text
-            className="text-[10px] font-semibold uppercase text-stone-400"
-            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+            className="font-semibold uppercase text-stone-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
             Questions
           </Text>
           <View className="gap-2">
@@ -48,14 +52,14 @@ function QuestionToolExpanded({ toolMeta }: ToolCallProps) {
               <View key={idx}>
                 {q.name && (
                   <Text
-                    className="mb-1 text-[10px] text-stone-400"
-                    style={{ fontFamily: 'JetBrains Mono' }}>
+                    className="mb-1 text-stone-400"
+                    style={{ fontFamily: 'JetBrains Mono', fontSize: fs.label }}>
                     {q.name}
                   </Text>
                 )}
                 <Text
-                  className="text-[12px] text-stone-700 dark:text-stone-300"
-                  style={{ fontFamily: 'JetBrains Mono' }}>
+                  className="text-stone-700 dark:text-stone-300"
+                  style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
                   {typeof q === 'string' ? q : q.text || JSON.stringify(q)}
                 </Text>
               </View>
@@ -67,14 +71,14 @@ function QuestionToolExpanded({ toolMeta }: ToolCallProps) {
       {error && (
         <View className="gap-1">
           <Text
-            className="text-[10px] font-semibold uppercase text-red-400"
-            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+            className="font-semibold uppercase text-red-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
             Error
           </Text>
           <View className="rounded-md bg-red-50 p-2 dark:bg-red-900/20">
             <Text
-              className="text-[12px] text-red-600 dark:text-red-400"
-              style={{ fontFamily: 'JetBrains Mono' }}>
+              className="text-red-600 dark:text-red-400"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
               {error}
             </Text>
           </View>
@@ -84,14 +88,14 @@ function QuestionToolExpanded({ toolMeta }: ToolCallProps) {
       {output && !error && (
         <View className="gap-1">
           <Text
-            className="text-[10px] font-semibold uppercase text-stone-400"
-            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+            className="font-semibold uppercase text-stone-400"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
             Answer
           </Text>
           <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
             <Text
-              className="text-[12px] text-stone-600 dark:text-stone-400"
-              style={{ fontFamily: 'JetBrains Mono' }}>
+              className="text-stone-600 dark:text-stone-400"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}>
               {output}
             </Text>
           </ScrollView>

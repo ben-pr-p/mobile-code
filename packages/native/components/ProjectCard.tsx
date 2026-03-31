@@ -3,6 +3,7 @@ import { View, Text, Pressable } from 'react-native'
 import { Pin } from 'lucide-react-native'
 import { useColorScheme } from 'nativewind'
 import type { Project } from '../../server/src/types'
+import { useMenuFontSize } from '../hooks/useFontSize'
 
 interface ProjectCardProps {
   project: Project
@@ -23,6 +24,7 @@ export function ProjectCard({
   onOverflow,
   onLongPress,
 }: ProjectCardProps) {
+  const menuFs = useMenuFontSize()
   const name = projectName(project.worktree)
   const avatarColor = isSelected ? '#F59E0B' : (AVATAR_COLORS[index % AVATAR_COLORS.length] ?? '#78716C')
   const initial = name.charAt(0).toUpperCase()
@@ -46,15 +48,15 @@ export function ProjectCard({
           className="w-9 h-9 rounded-lg items-center justify-center"
           style={{ backgroundColor: avatarColor }}
         >
-          <Text className="text-sm font-semibold text-white">{initial}</Text>
+          <Text className="font-semibold text-white" style={{ fontSize: menuFs.primary }}>{initial}</Text>
         </View>
 
         <View className="flex-1 gap-0.5">
           <View className="flex-row items-center gap-1.5">
-            <Text className="text-[15px] font-semibold text-stone-900 dark:text-stone-50" style={{ fontFamily: 'JetBrains Mono' }}>{name}</Text>
+            <Text className="font-semibold text-stone-900 dark:text-stone-50" style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.projectName }}>{name}</Text>
             {isPinned && <Pin size={12} color={pinColor} />}
           </View>
-          <Text className="text-[11px] text-stone-500 font-normal" style={{ fontFamily: 'JetBrains Mono' }}>
+          <Text className="text-stone-500 font-normal" style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.tertiary }}>
             {project.worktree}
           </Text>
         </View>
@@ -66,7 +68,7 @@ export function ProjectCard({
 
       {/* Stats row */}
       <View className="flex-row items-center gap-3">
-        <Text className="text-[11px] text-stone-500" style={{ fontFamily: 'JetBrains Mono' }}>
+        <Text className="text-stone-500" style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.tertiary }}>
           {project.id.slice(0, 4)} · {formatRelativeTime(lastActiveAt)}
         </Text>
       </View>

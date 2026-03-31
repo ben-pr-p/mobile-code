@@ -5,6 +5,7 @@ import { useColorScheme } from 'nativewind';
 import { useLiveQuery, eq } from '@tanstack/react-db';
 import { collections } from '../lib/collections';
 import type { WorktreeStatusValue } from '../lib/stream-db';
+import { useMenuFontSize } from '../hooks/useFontSize';
 
 interface SessionHeaderProps {
   projectName: string;
@@ -34,6 +35,7 @@ export function SessionHeader({
   onMerge,
   backendUrl,
 }: SessionHeaderProps) {
+  const menuFs = useMenuFontSize();
   const { colorScheme } = useColorScheme();
   const iconColor = colorScheme === 'dark' ? '#A8A29E' : '#44403C';
   const { data: backendsWithConnections } = useLiveQuery(
@@ -78,8 +80,8 @@ export function SessionHeader({
         <View className="flex-row items-center gap-2">
           <View className={`h-2 w-2 rounded-full ${dotColor}`} />
           <Text
-            className="text-sm font-semibold text-stone-900 dark:text-stone-50"
-            style={{ fontFamily: 'JetBrains Mono' }}>
+            className="font-semibold text-stone-900 dark:text-stone-50"
+            style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.primary }}>
             {projectName}
             {worktreeShortId ? ` (${worktreeShortId})` : ''}
           </Text>
@@ -121,30 +123,30 @@ export function SessionHeader({
         <View className="flex-row items-center justify-between px-4 pb-2">
           <View className="flex-shrink flex-row items-center gap-1.5">
             <Text
-              className="text-xs text-stone-700 dark:text-stone-400"
-              style={{ fontFamily: 'JetBrains Mono' }}>
+              className="text-stone-700 dark:text-stone-400"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.secondary }}>
               {branchName}
             </Text>
             <Text
-              className="text-xs text-stone-400 dark:text-stone-600"
-              style={{ fontFamily: 'JetBrains Mono' }}>
+              className="text-stone-400 dark:text-stone-600"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.secondary }}>
               ·
             </Text>
             <Text
-              className="text-xs text-stone-400 dark:text-stone-600"
-              style={{ fontFamily: 'JetBrains Mono' }}>
+              className="text-stone-400 dark:text-stone-600"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.secondary }}>
               {relativeTime}
             </Text>
             {serverName && (
               <>
                 <Text
-                  className="text-xs text-stone-400 dark:text-stone-600"
-                  style={{ fontFamily: 'JetBrains Mono' }}>
+                  className="text-stone-400 dark:text-stone-600"
+                  style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.secondary }}>
                   ·
                 </Text>
                 <Text
-                  className="text-xs text-stone-400 dark:text-stone-600"
-                  style={{ fontFamily: 'JetBrains Mono' }}>
+                  className="text-stone-400 dark:text-stone-600"
+                  style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.secondary }}>
                   {serverName}
                 </Text>
               </>
@@ -181,6 +183,7 @@ function WorktreeStatusBadge({
   isMerging: boolean;
   onMerge?: () => void;
 }) {
+  const menuFs = useMenuFontSize();
   const { colorScheme } = useColorScheme();
 
   if (isMerging) {
@@ -188,8 +191,8 @@ function WorktreeStatusBadge({
       <View className="flex-row items-center gap-1 rounded bg-stone-200 px-2 py-1 dark:bg-stone-800">
         <ActivityIndicator size="small" color={colorScheme === 'dark' ? '#A8A29E' : '#44403C'} />
         <Text
-          className="text-xs text-stone-500 dark:text-stone-400"
-          style={{ fontFamily: 'JetBrains Mono' }}>
+          className="text-stone-500 dark:text-stone-400"
+          style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.secondary }}>
           Merging...
         </Text>
       </View>
@@ -202,8 +205,8 @@ function WorktreeStatusBadge({
       <View className="flex-row items-center gap-1 rounded bg-amber-100 px-2 py-1 dark:bg-amber-900/30">
         <CircleDot size={12} color={colorScheme === 'dark' ? '#fbbf24' : '#d97706'} />
         <Text
-          className="text-xs text-amber-700 dark:text-amber-400"
-          style={{ fontFamily: 'JetBrains Mono' }}>
+          className="text-amber-700 dark:text-amber-400"
+          style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.secondary }}>
           Uncommitted
         </Text>
       </View>
@@ -219,8 +222,8 @@ function WorktreeStatusBadge({
         hitSlop={4}>
         <GitMerge size={12} color={colorScheme === 'dark' ? '#60a5fa' : '#2563eb'} />
         <Text
-          className="text-xs text-blue-700 dark:text-blue-400"
-          style={{ fontFamily: 'JetBrains Mono' }}>
+          className="text-blue-700 dark:text-blue-400"
+          style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.secondary }}>
           Merge
         </Text>
       </Pressable>
@@ -233,8 +236,8 @@ function WorktreeStatusBadge({
       <View className="flex-row items-center gap-1 rounded bg-green-100 px-2 py-1 dark:bg-green-900/30">
         <Check size={12} color={colorScheme === 'dark' ? '#4ade80' : '#16a34a'} />
         <Text
-          className="text-xs text-green-700 dark:text-green-400"
-          style={{ fontFamily: 'JetBrains Mono' }}>
+          className="text-green-700 dark:text-green-400"
+          style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.secondary }}>
           Merged
         </Text>
       </View>

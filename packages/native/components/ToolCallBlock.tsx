@@ -5,6 +5,7 @@ import type { ToolMeta } from '../lib/stream-db'
 import { getToolRenderers } from './tool-calls'
 import { StatusDot, TOOL_LABELS } from './tool-calls/shared'
 import { ToolCallModal } from './ToolCallModal'
+import { useCodeFontSize } from '../hooks/useFontSize'
 
 interface ToolCallBlockProps {
   toolName: string
@@ -23,6 +24,7 @@ export function ToolCallBlock({ toolName, description, status, toolMeta, onPress
   const [modalVisible, setModalVisible] = useState(false)
   const { width } = useWindowDimensions()
   const isTablet = width >= 768
+  const fs = useCodeFontSize()
 
   const { Collapsed } = getToolRenderers(toolName)
 
@@ -48,8 +50,8 @@ export function ToolCallBlock({ toolName, description, status, toolMeta, onPress
         <View className="flex-row items-center gap-1.5">
           <StatusDot status={status} />
           <Text
-            className="text-[11px] font-semibold text-stone-500"
-            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1.5 }}
+            className="font-semibold text-stone-500"
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1.5, fontSize: fs.toolLabel }}
           >
             {toolLabel}
           </Text>

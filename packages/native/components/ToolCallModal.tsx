@@ -6,6 +6,7 @@ import { useColorScheme } from 'nativewind'
 import { getToolRenderers, type ToolCallProps } from './tool-calls'
 import { StatusDot, TOOL_LABELS, formatDuration } from './tool-calls/shared'
 import type { ToolMeta } from '../lib/stream-db'
+import { useCodeFontSize } from '../hooks/useFontSize'
 
 interface ToolCallModalProps {
   visible: boolean
@@ -35,6 +36,7 @@ export function ToolCallModal({
   const toolLabel = TOOL_LABELS[toolName] || toolName
   const iconColor = colorScheme === 'dark' ? '#A8A29E' : '#44403C'
   const duration = toolMeta.time ? formatDuration(toolMeta.time.start, toolMeta.time.end) : null
+  const fs = useCodeFontSize()
 
   const toolCallProps: ToolCallProps = {
     toolName,
@@ -63,15 +65,15 @@ export function ToolCallModal({
             <View className="flex-row items-center gap-2">
               <StatusDot status={toolMeta.status} />
               <Text
-                className="text-sm font-semibold text-stone-900 dark:text-stone-50"
-                style={{ fontFamily: 'JetBrains Mono' }}
+                className="font-semibold text-stone-900 dark:text-stone-50"
+                style={{ fontFamily: 'JetBrains Mono', fontSize: fs.collapsed }}
               >
                 {toolLabel}
               </Text>
               {duration && (
                 <Text
-                  className="text-[11px] text-stone-400"
-                  style={{ fontFamily: 'JetBrains Mono' }}
+                  className="text-stone-400"
+                  style={{ fontFamily: 'JetBrains Mono', fontSize: fs.toolLabel }}
                 >
                   {duration}
                 </Text>

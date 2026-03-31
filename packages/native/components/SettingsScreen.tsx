@@ -3,11 +3,18 @@ import { View, Text, Pressable, ScrollView, TextInput, Switch, Alert } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { useLiveQuery } from '@tanstack/react-db';
-import { ArrowLeft, ChevronDown, Monitor, Cloud, Plus, Pencil, Trash2, RefreshCw } from 'lucide-react-native';
+import { useAtom } from 'jotai';
+import { ArrowLeft, ChevronDown, Monitor, Cloud, Plus, Pencil, Trash2, RefreshCw, Minus } from 'lucide-react-native';
 import { collections } from '../lib/collections';
 import { useInsertPing } from '../hooks/useBackendManager';
 import type { NotificationSound } from '../__fixtures__/settings';
 import type { BackendConfig, BackendType, BackendConnection } from '../state/backends';
+import {
+  codeFontSizeAtom,
+  conversationFontSizeAtom,
+  menuFontSizeAtom,
+  type FontSizeStep,
+} from '../state/settings';
 
 interface SettingsScreenProps {
   notificationSound: NotificationSound;
@@ -30,6 +37,9 @@ export function SettingsScreen({
   const mutedIconColor = colorScheme === 'dark' ? '#57534E' : '#A8A29E';
   const [editingUrl, setEditingUrl] = useState<string | null>(null);
   const { insertPing } = useInsertPing();
+  const [codeFontSize, setCodeFontSize] = useAtom(codeFontSizeAtom);
+  const [conversationFontSize, setConversationFontSize] = useAtom(conversationFontSizeAtom);
+  const [menuFontSize, setMenuFontSize] = useAtom(menuFontSizeAtom);
 
   // Read backends and connections from collections
   const { data: backendRows } = useLiveQuery((q) => q.from({ backends: collections.backends }), []);
@@ -163,6 +173,24 @@ export function SettingsScreen({
               </Pressable>
             ))}
           </View>
+        </View>
+
+        <View className="mt-4 gap-3 px-5">
+          <FontSizeStepper
+            label="Conversation font size"
+            value={conversationFontSize}
+            onChange={setConversationFontSize}
+          />
+          <FontSizeStepper
+            label="Code font size"
+            value={codeFontSize}
+            onChange={setCodeFontSize}
+          />
+          <FontSizeStepper
+            label="Menu font size"
+            value={menuFontSize}
+            onChange={setMenuFontSize}
+          />
         </View>
 
         {/* Divider */}
@@ -430,6 +458,67 @@ function SettingsRow({ label, description, children }: SettingsRowProps) {
           )}
         </View>
         {children}
+      </View>
+    </View>
+  );
+}
+
+const FONT_SIZE_LABELS: Record<FontSizeStep, string> = {
+  [-2]: 'XS',
+  [-1]: 'S',
+  [0]: 'Default',
+  [1]: 'L',
+  [2]: 'XL',
+  [3]: '2XL',
+  [4]: '3XL',
+};
+
+const FONT_SIZE_STEPS: FontSizeStep[] = [-2, -1, 0, 1, 2, 3, 4];
+
+function FontSizeStepper({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: FontSizeStep;
+  onChange: (v: FontSizeStep) => void;
+}) {
+  const { colorScheme } = useColorScheme();
+  const iconColor = colorScheme === 'dark' ? '#A8A29E' : '#44403C';
+  const disabledColor = colorScheme === 'dark' ? '#44403C' : '#D6D3D1';
+
+  const currentIdx = FONT_SIZE_STEPS.indexOf(value);
+  const canDecrease = currentIdx > 0;
+  const canIncrease = currentIdx < FONT_SIZE_STEPS.length - 1;
+
+  return (
+    <View className="flex-row items-center justify-between">
+      <Text
+        className="flex-1 text-sm font-medium text-stone-900 dark:text-stone-50"
+        style={{ fontFamily: 'JetBrains Mono' }}>
+        {label}
+      </Text>
+      <View className="flex-row items-center gap-2">
+        <Pressable
+          onPress={() => canDecrease && onChange(FONT_SIZE_STEPS[currentIdx - 1])}
+          className="h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-stone-900"
+          disabled={!canDecrease}>
+          <Minus size={16} color={canDecrease ? iconColor : disabledColor} />
+        </Pressable>
+        <View className="w-16 items-center">
+          <Text
+            className="text-xs text-stone-700 dark:text-stone-400"
+            style={{ fontFamily: 'JetBrains Mono' }}>
+            {FONT_SIZE_LABELS[value]}
+          </Text>
+        </View>
+        <Pressable
+          onPress={() => canIncrease && onChange(FONT_SIZE_STEPS[currentIdx + 1])}
+          className="h-8 w-8 items-center justify-center rounded-lg bg-white dark:bg-stone-900"
+          disabled={!canIncrease}>
+          <Plus size={16} color={canIncrease ? iconColor : disabledColor} />
+        </Pressable>
       </View>
     </View>
   );

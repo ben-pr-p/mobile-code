@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { ProjectCard } from './ProjectCard';
 import { useDeduplicatedProjects, type DeduplicatedProject } from '../hooks/useDeduplicatedProjects';
 import { projectFilterAtom, pinnedProjectIdsAtom } from '../state/ui';
+import { useMenuFontSize } from '../hooks/useFontSize';
 
 
 interface ProjectGroup {
@@ -57,6 +58,7 @@ export function ProjectsSidebar({
   selectedProjectId,
   onClose,
 }: ProjectsSidebarProps) {
+  const menuFs = useMenuFontSize();
   const { projects, isLoading } = useDeduplicatedProjects();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
@@ -152,8 +154,8 @@ export function ProjectsSidebar({
         </Pressable>
 
         <Text
-          className="text-lg font-semibold text-stone-900 dark:text-stone-50"
-          style={{ fontFamily: 'JetBrains Mono' }}>
+          className="font-semibold text-stone-900 dark:text-stone-50"
+          style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.title }}>
           Projects{showCount ? ` (${projects.length})` : ''}
         </Text>
 
@@ -175,8 +177,8 @@ export function ProjectsSidebar({
             onChangeText={setSearchQuery}
             placeholder="search projects"
             placeholderTextColor={placeholderColor}
-            className="h-10 rounded-lg bg-white px-3 text-sm text-stone-900 dark:bg-stone-900 dark:text-stone-50"
-            style={{ fontFamily: 'JetBrains Mono' }}
+            className="h-10 rounded-lg bg-white px-3 text-stone-900 dark:bg-stone-900 dark:text-stone-50"
+            style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.primary }}
           />
         </View>
       )}
@@ -205,12 +207,12 @@ export function ProjectsSidebar({
                       : undefined
                   }>
                   <Text
-                    className={`text-xs font-medium ${
+                    className={`font-medium ${
                       isActive
                         ? 'text-amber-700 dark:text-amber-400'
                         : 'text-stone-600 dark:text-stone-400'
                     }`}
-                    style={{ fontFamily: 'JetBrains Mono' }}>
+                    style={{ fontFamily: 'JetBrains Mono', fontSize: menuFs.secondary }}>
                     {group.label}
                   </Text>
                 </Pressable>
@@ -224,26 +226,26 @@ export function ProjectsSidebar({
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={colorScheme === 'dark' ? '#A8A29E' : '#78716C'} size="small" />
-          <Text className="mt-3 text-sm text-stone-500">Loading projects...</Text>
+          <Text className="mt-3 text-stone-500" style={{ fontSize: menuFs.primary }}>Loading projects...</Text>
         </View>
       ) : filtered.length === 0 && searchQuery ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-center text-sm text-stone-500">
+          <Text className="text-center text-stone-500" style={{ fontSize: menuFs.primary }}>
             No projects matching "{searchQuery}"
           </Text>
         </View>
       ) : filtered.length === 0 ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-center text-sm font-medium text-stone-900 dark:text-stone-50">
+          <Text className="text-center font-medium text-stone-900 dark:text-stone-50" style={{ fontSize: menuFs.primary }}>
             No projects yet
           </Text>
-          <Text className="mt-1 text-center text-xs text-stone-500">
+          <Text className="mt-1 text-center text-stone-500" style={{ fontSize: menuFs.secondary }}>
             Add a project to get started
           </Text>
           <Pressable
             onPress={() => {}}
             className="mt-4 h-8 items-center justify-center rounded-lg bg-white px-4 dark:bg-stone-900">
-            <Text className="text-sm text-stone-700 dark:text-stone-400">+ New Project</Text>
+            <Text className="text-stone-700 dark:text-stone-400" style={{ fontSize: menuFs.primary }}>+ New Project</Text>
           </Pressable>
         </View>
       ) : (

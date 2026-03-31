@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from 'react-native'
 import { Check, Circle, Loader } from 'lucide-react-native'
 import { useColorScheme } from 'nativewind'
 import type { ToolCallProps } from './types'
+import { useCodeFontSize } from '../../hooks/useFontSize'
 
 interface TodoItem {
   content: string
@@ -32,6 +33,7 @@ function TodoToolCollapsed({ description, toolMeta }: ToolCallProps) {
 
   const completed = todos.filter(t => t.status === 'completed').length
   const total = todos.length
+  const fs = useCodeFontSize()
 
   let displayText = description
   if (total > 0) {
@@ -43,8 +45,8 @@ function TodoToolCollapsed({ description, toolMeta }: ToolCallProps) {
 
   return (
     <Text
-      className="text-[13px] font-medium text-amber-600 dark:text-amber-500"
-      style={{ fontFamily: 'JetBrains Mono' }}
+      className="font-medium text-amber-600 dark:text-amber-500"
+      style={{ fontFamily: 'JetBrains Mono', fontSize: fs.collapsed }}
       numberOfLines={1}
     >
       {displayText}
@@ -55,6 +57,7 @@ function TodoToolCollapsed({ description, toolMeta }: ToolCallProps) {
 function TodoItemRow({ item, index }: { item: TodoItem; index: number }) {
   const { colorScheme } = useColorScheme()
   const iconColor = colorScheme === 'dark' ? '#A8A29E' : '#78716C'
+  const fs = useCodeFontSize()
 
   const StatusIcon = () => {
     switch (item.status) {
@@ -82,16 +85,16 @@ function TodoItemRow({ item, index }: { item: TodoItem; index: number }) {
       </View>
       <View className="flex-1">
         <Text
-          className={`text-[12px] ${item.status === 'completed' ? 'text-stone-400 dark:text-stone-500 line-through' : 'text-stone-700 dark:text-stone-300'}`}
-          style={{ fontFamily: 'JetBrains Mono' }}
+          className={`${item.status === 'completed' ? 'text-stone-400 dark:text-stone-500 line-through' : 'text-stone-700 dark:text-stone-300'}`}
+          style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}
         >
           {item.content}
         </Text>
       </View>
       <View className="flex-row items-center gap-1">
         <Text
-          className={`text-[10px] ${PRIORITY_COLORS[item.priority]}`}
-          style={{ fontFamily: 'JetBrains Mono' }}
+          className={`${PRIORITY_COLORS[item.priority]}`}
+          style={{ fontFamily: 'JetBrains Mono', fontSize: fs.label }}
         >
           {item.priority}
         </Text>
@@ -108,20 +111,21 @@ function TodoToolExpanded({ toolMeta }: ToolCallProps) {
   const completed = todos.filter(t => t.status === 'completed').length
   const inProgress = todos.filter(t => t.status === 'in_progress').length
   const pending = todos.filter(t => t.status === 'pending').length
+  const fs = useCodeFontSize()
 
   return (
     <View className="gap-3">
       <View className="flex-row items-center gap-3">
         <View className="flex-row items-center gap-1">
           <View className="w-2 h-2 rounded-full bg-green-500" />
-          <Text className="text-[10px] text-stone-500 dark:text-stone-400" style={{ fontFamily: 'JetBrains Mono' }}>
+          <Text className="text-stone-500 dark:text-stone-400" style={{ fontFamily: 'JetBrains Mono', fontSize: fs.label }}>
             {completed} done
           </Text>
         </View>
         {inProgress > 0 && (
           <View className="flex-row items-center gap-1">
             <View className="w-2 h-2 rounded-full bg-amber-500" />
-            <Text className="text-[10px] text-stone-500 dark:text-stone-400" style={{ fontFamily: 'JetBrains Mono' }}>
+            <Text className="text-stone-500 dark:text-stone-400" style={{ fontFamily: 'JetBrains Mono', fontSize: fs.label }}>
               {inProgress} active
             </Text>
           </View>
@@ -129,7 +133,7 @@ function TodoToolExpanded({ toolMeta }: ToolCallProps) {
         {pending > 0 && (
           <View className="flex-row items-center gap-1">
             <View className="w-2 h-2 rounded-full bg-stone-400" />
-            <Text className="text-[10px] text-stone-500 dark:text-stone-400" style={{ fontFamily: 'JetBrains Mono' }}>
+            <Text className="text-stone-500 dark:text-stone-400" style={{ fontFamily: 'JetBrains Mono', fontSize: fs.label }}>
               {pending} pending
             </Text>
           </View>
@@ -138,13 +142,13 @@ function TodoToolExpanded({ toolMeta }: ToolCallProps) {
 
       {error && (
         <View className="gap-1">
-          <Text className="text-[10px] font-semibold text-red-400 uppercase" style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+          <Text className="font-semibold text-red-400 uppercase" style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
             Error
           </Text>
           <View className="bg-red-50 dark:bg-red-900/20 rounded-md p-2">
             <Text
-              className="text-[12px] text-red-600 dark:text-red-400"
-              style={{ fontFamily: 'JetBrains Mono' }}
+              className="text-red-600 dark:text-red-400"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}
             >
               {error}
             </Text>
@@ -154,7 +158,7 @@ function TodoToolExpanded({ toolMeta }: ToolCallProps) {
 
       {todos.length > 0 && !error && (
         <View className="gap-1">
-          <Text className="text-[10px] font-semibold text-stone-400 uppercase" style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+          <Text className="font-semibold text-stone-400 uppercase" style={{ fontFamily: 'JetBrains Mono', letterSpacing: 1, fontSize: fs.label }}>
             Tasks
           </Text>
           <ScrollView
@@ -172,8 +176,8 @@ function TodoToolExpanded({ toolMeta }: ToolCallProps) {
 
       {todos.length === 0 && !error && (
         <Text
-          className="text-[12px] text-stone-400 italic"
-          style={{ fontFamily: 'JetBrains Mono' }}
+          className="text-stone-400 italic"
+          style={{ fontFamily: 'JetBrains Mono', fontSize: fs.body }}
         >
           No tasks
         </Text>

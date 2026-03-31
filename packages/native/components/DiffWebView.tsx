@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useEffect, useState, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { eq } from '@tanstack/react-db';
 import { useColorScheme } from 'nativewind';
 import { getApi } from '../lib/api';
@@ -9,6 +9,7 @@ import { useBackendEphemeralStateQuery } from '../lib/merged-query';
 import { collections } from '../lib/collections';
 import type { ChangeValue } from '../lib/stream-db';
 import { lineSelectionAtom } from '../state/line-selection';
+import { codeFontSizeAtom } from '../state/settings';
 import diffViewerHtml from '../assets/diff-viewer';
 
 interface DiffWebViewProps {
@@ -37,6 +38,7 @@ export function DiffWebView({ sessionId, backendUrl, activeFile }: DiffWebViewPr
   // Line selection — write to atom when WebView reports selection, clear WebView when atom goes null
   const [lineSelection, setLineSelection] = useAtom(lineSelectionAtom);
   const prevLineSelectionRef = useRef(lineSelection);
+  const codeFontStep = useAtomValue(codeFontSizeAtom);
 
   // Watch changes from the ephemeral stream to know when to refetch diffs
   const { data: changeResults } = useBackendEphemeralStateQuery<ChangeValue>(
@@ -79,9 +81,9 @@ export function DiffWebView({ sessionId, backendUrl, activeFile }: DiffWebViewPr
   // When diffs change and WebView is loaded, send them via postMessage
   useEffect(() => {
     if (isLoaded && diffs) {
-      sendMessage({ type: 'loadDiffs', diffs, colorScheme: colorScheme ?? 'dark' });
+      sendMessage({ type: 'loadDiffs', diffs, colorScheme: colorScheme ?? 'dark', codeFontSize: Math.max(6, 13 + codeFontStep * 2) });
     }
-  }, [diffs, isLoaded, sendMessage, colorScheme]);
+  }, [diffs, isLoaded, sendMessage, colorScheme, codeFontStep]);
 
   // Inject initial diffs and JS error forwarding before page load.
   // Error handlers forward uncaught errors/rejections from the WebView
@@ -104,8 +106,9 @@ export function DiffWebView({ sessionId, backendUrl, activeFile }: DiffWebViewPr
     return `${errorHandlers} window.__INITIAL_DIFFS__ = ${JSON.stringify({
       diffs,
       colorScheme: colorScheme ?? 'dark',
+      codeFontSize: Math.max(6, 13 + codeFontStep * 2),
     })}; true;`;
-  }, [diffs, colorScheme]);
+  }, [diffs, colorScheme, codeFontStep]);
 
   // When the atom is externally cleared (e.g. after send or user taps X), tell the WebView
   useEffect(() => {
@@ -122,6 +125,12 @@ export function DiffWebView({ sessionId, backendUrl, activeFile }: DiffWebViewPr
     if (!isLoaded) return;
     sendMessage({ type: 'setColorScheme', colorScheme: colorScheme ?? 'dark' });
   }, [colorScheme, isLoaded, sendMessage]);
+
+  // Sync code font size changes to the WebView
+  useEffect(() => {
+    if (!isLoaded) return;
+    sendMessage({ type: 'setCodeFontSize', codeFontSize: Math.max(6, 13 + codeFontStep * 2) });
+  }, [codeFontStep, isLoaded, sendMessage]);
 
   // When activeFile changes, tell the WebView to show it
   useEffect(() => {
