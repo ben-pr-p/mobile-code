@@ -4,7 +4,6 @@
  */
 
 import { createApp } from "./app"
-import diffPage from "./diff-page/index.html"
 
 /** Options for {@link startServer}. */
 export interface StartServerOptions {
@@ -29,9 +28,6 @@ export async function startServer(options: StartServerOptions) {
   const server = Bun.serve({
     port,
     idleTimeout: 255, // seconds — must exceed durable streams long-poll timeout (30s)
-    routes: {
-      "/diff": diffPage,
-    },
     fetch: app.fetch,
   })
 
