@@ -5,13 +5,23 @@ import {
   Pressable,
   Modal,
   KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
-import { Menu, FolderOpen, Settings, X, GitMerge, Check, CircleDot } from 'lucide-react-native';
+import {
+  Menu,
+  FolderOpen,
+  Settings,
+  X,
+  GitMerge,
+  Check,
+  CircleDot,
+  Monitor,
+  Cloud,
+} from 'lucide-react-native';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { ResizableSplitPane } from './ResizableSplitPane';
 import { SessionHeader } from './SessionHeader';
 import { ChatThread } from './ChatThread';
@@ -31,7 +41,8 @@ import type { NotificationSound } from '../__fixtures__/settings';
 import type { LeftPanelContent } from '../state/ui';
 import type { RecordingState, AudioChunk } from '../hooks/useChunkedAudioRecorder';
 import type { PendingCommand } from '../state/settings';
-import type { BackendConfig, BackendConnection, BackendUrl } from '../state/backends';
+import type { BackendUrl } from '../state/backends';
+import { collections } from '../lib/collections';
 import { useSessionStatus } from '../hooks/useSessionStatus';
 import { PermissionRequestBar } from './PermissionRequestBar';
 
@@ -89,6 +100,8 @@ interface SplitLayoutProps {
   onHandsFreeLongPress?: () => void;
   /** Pending permission request for this session (replaces voice input when set). */
   pendingPermission?: PermissionRequestValue | null;
+  /** Optional content rendered in place of the chat thread for new sessions (e.g. NewSessionOptions). */
+  newSessionOptions?: React.ReactNode;
 }
 
 export function SplitLayout({
@@ -118,6 +131,7 @@ export function SplitLayout({
   onHandsFreeToggle,
   onHandsFreeLongPress,
   pendingPermission,
+  newSessionOptions,
 }: SplitLayoutProps) {
   const sessionStatus = useSessionStatus(backendUrl, sessionId);
   const insets = useSafeAreaInsets();
@@ -127,6 +141,20 @@ export function SplitLayout({
   const [textValue, setTextValue] = useState('');
   const [leftPanel, setLeftPanel] = useState<LeftPanelContent>({ type: 'changes' });
   const [settingsVisible, setSettingsVisible] = useState(false);
+
+  // Backend connection status — mirrors SessionHeader's real connection indicator
+  const { data: backendsWithConnections } = useLiveQuery(
+    (q) =>
+      q
+        .from({ b: collections.backends })
+        .leftJoin({ bc: collections.backendConnections }, ({ b, bc }) => eq(b.url, bc.url)),
+    []
+  );
+  const backendRows = backendsWithConnections ?? [];
+  const enabledRows = backendRows.filter((r) => r.b.enabled);
+  const anyConnected = enabledRows.some((r) => r.bc?.status === 'connected');
+  const dotColor = anyConnected ? 'bg-green-500' : 'bg-red-500';
+  const hasMultipleBackends = enabledRows.length > 1;
 
   // Extract the short worktree ID (e.g. "x7k2" from branch "worktree/x7k2-add-button")
   const isWorktree = worktreeStatus?.isWorktreeSession && !worktreeStatus.error;
@@ -165,13 +193,36 @@ export function SplitLayout({
             <Menu size={20} color={iconColor} />
           </Pressable>
           <View className="flex-row items-center gap-2">
-            <View className="h-2 w-2 rounded-full bg-green-500" />
+            <View className={`h-2 w-2 rounded-full ${dotColor}`} />
             <Text
               className="text-sm font-semibold text-stone-900 dark:text-stone-50"
               style={{ fontFamily: 'JetBrains Mono' }}>
               {projectName}
               {worktreeShortId ? ` (${worktreeShortId})` : ''}
             </Text>
+            {hasMultipleBackends && (
+              <View className="flex-row items-center gap-1">
+                {enabledRows.map((r) => {
+                  const isConnected = r.bc?.status === 'connected';
+                  const Icon = r.b.type === 'local' ? Monitor : Cloud;
+                  return (
+                    <Icon
+                      key={r.b.url}
+                      size={12}
+                      color={
+                        isConnected
+                          ? colorScheme === 'dark'
+                            ? '#A8A29E'
+                            : '#44403C'
+                          : colorScheme === 'dark'
+                            ? '#44403C'
+                            : '#D6D3D1'
+                      }
+                    />
+                  );
+                })}
+              </View>
+            )}
           </View>
         </View>
 
@@ -241,7 +292,11 @@ export function SplitLayout({
             className="flex-1"
             behavior="padding"
             keyboardVerticalOffset={insets.top + 48 + 32}>
-            <ChatThread messages={messages} onToolCallPress={handleToolCallPress} />
+            {newSessionOptions ? (
+              newSessionOptions
+            ) : (
+              <ChatThread messages={messages} onToolCallPress={handleToolCallPress} />
+            )}
             {!session.parentID &&
               (pendingPermission ? (
                 <PermissionRequestBar permission={pendingPermission} backendUrl={backendUrl} />

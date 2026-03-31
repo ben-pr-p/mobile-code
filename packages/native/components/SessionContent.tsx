@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, Text, Pressable, Alert } from 'react-native';
+import { View, Text, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { eq, useLiveQuery } from '@tanstack/react-db';
@@ -37,9 +37,9 @@ import type { ModelSelection, PendingCommand, HandsFreeMode } from '../state/set
 import { handsFreeModeAtom } from '../state/settings';
 import type { VoicePromptResult } from '../hooks/useHandsFreeMode';
 import { lineSelectionAtom, type LineSelection } from '../state/line-selection';
-import { Server, ChevronDown } from 'lucide-react-native';
 import type { BackendConfig, BackendConnection, BackendUrl } from '../state/backends';
-import { BackendSelectorSheet, type BackendOption } from './BackendSelectorSheet';
+import { type BackendOption } from './BackendSelectorSheet';
+import { NewSessionOptions } from './NewSessionOptions';
 
 /** An audio part with an optional per-chunk line reference for the server. */
 export interface AnnotatedAudioPart {
@@ -80,11 +80,9 @@ interface SessionViewProps {
   onAbort?: () => void;
   /** Whether this is a new session (no session ID yet). Commands are disabled for new sessions. */
   isNewSession?: boolean;
-  emptyMessage?: string;
   sessionModelInfo?: { modelID?: string; providerID?: string } | null;
-  worktreeToggle?: React.ReactNode;
-  /** Optional server selector element rendered below the worktree toggle (new sessions only). */
-  serverSelector?: React.ReactNode;
+  /** Optional content rendered in place of the chat thread for new sessions (e.g. NewSessionOptions). */
+  newSessionOptions?: React.ReactNode;
 }
 
 /**
@@ -108,11 +106,9 @@ export function SessionView({
   onExecuteCommand,
   onVoicePrompt,
   onAbort,
-  emptyMessage,
   sessionModelInfo,
-  worktreeToggle,
   isNewSession,
-  serverSelector,
+  newSessionOptions,
 }: SessionViewProps) {
   const sessionStatus = useSessionStatus(backendUrl, sessionId);
   const pendingPermission = usePendingPermission(backendUrl, sessionId);
@@ -476,6 +472,7 @@ export function SessionView({
           onHandsFreeToggle={handsFree.isHandsFreeAvailable ? handsFree.toggle : undefined}
           onHandsFreeLongPress={() => setModePickerVisible(true)}
           pendingPermission={pendingPermission}
+          newSessionOptions={newSessionOptions}
         />
         {modelSheet}
         {agentCommandSheet}
@@ -506,18 +503,16 @@ export function SessionView({
         isSending={isSending}
         audioRecorder={audioRecorder}
         onAbort={onAbort}
-        emptyMessage={emptyMessage}
         modelName={modelName}
         onModelPress={handleModelPress}
         agentName={agentDisplayName}
         onAgentPress={handleAgentPress}
         pendingCommand={pendingCommand}
         onClearCommand={() => setPendingCommand(null)}
-        worktreeToggle={worktreeToggle}
         worktreeStatus={worktreeStatus}
         isMerging={isMerging}
         onMerge={handleMerge}
-        serverSelector={serverSelector}
+        newSessionOptions={newSessionOptions}
         onHandsFreeToggle={handsFree.isHandsFreeAvailable ? handsFree.toggle : undefined}
         onHandsFreeLongPress={() => setModePickerVisible(true)}
         pendingPermission={pendingPermission}
@@ -894,13 +889,6 @@ function NewSessionDataLoader({
   const api = getApi(backendUrl);
   const creatingRef = useRef(false);
   const [useWorktree, setUseWorktree] = useState(false);
-  const [backendSelectorVisible, setBackendSelectorVisible] = useState(false);
-
-  // Find the display name for the currently selected backend
-  const selectedBackendName = useMemo(() => {
-    const opt = backendOptions.find((o) => o.config.url === selectedBackendUrl);
-    return opt?.config.name || 'Server';
-  }, [backendOptions, selectedBackendUrl]);
 
   const now = Date.now();
   const placeholderSession: SessionValue = {
@@ -957,63 +945,30 @@ function NewSessionDataLoader({
     [createAndPrompt]
   );
 
-  // Only show the server selector when there are multiple backends hosting this project
-  const showServerSelector = backendOptions.length > 1;
-
   return (
-    <>
-      <SessionView
-        sessionId="new"
-        backendUrl={backendUrl}
-        session={placeholderSession}
-        serverMessages={[]}
-        changes={[]}
-        isTabletLandscape={isTabletLandscape}
-        onMenuPress={onMenuPress}
-        onProjectsPress={onProjectsPress}
-        settings={settings}
-        onSendText={handleSendText}
-        onSendAudio={handleSendAudio}
-        isNewSession
-        emptyMessage="Send a message to start a new session"
-        worktreeToggle={
-          <Pressable
-            onPress={() => setUseWorktree((v) => !v)}
-            className="mt-4 flex-row items-center gap-2 rounded-lg bg-stone-100 px-4 py-2 dark:bg-stone-900">
-            <View
-              className={`h-4 w-4 rounded border ${
-                useWorktree
-                  ? 'border-blue-500 bg-blue-500'
-                  : 'border-stone-400 dark:border-stone-600'
-              }`}
-            />
-            <Text className="text-sm text-stone-500 dark:text-stone-400">Run in worktree</Text>
-          </Pressable>
-        }
-        serverSelector={
-          showServerSelector ? (
-            <Pressable
-              onPress={() => setBackendSelectorVisible(true)}
-              className="mt-2 flex-row items-center gap-2 rounded-lg bg-stone-100 px-4 py-2 dark:bg-stone-900">
-              <Server size={14} color="#A8A29E" />
-              <Text className="text-sm text-stone-500 dark:text-stone-400">
-                {selectedBackendName}
-              </Text>
-              <ChevronDown size={12} color="#A8A29E" />
-            </Pressable>
-          ) : undefined
-        }
-      />
-      {showServerSelector && (
-        <BackendSelectorSheet
-          visible={backendSelectorVisible}
-          onClose={() => setBackendSelectorVisible(false)}
-          options={backendOptions}
-          selectedUrl={selectedBackendUrl}
-          onSelect={onSelectBackend}
+    <SessionView
+      sessionId="new"
+      backendUrl={backendUrl}
+      session={placeholderSession}
+      serverMessages={[]}
+      changes={[]}
+      isTabletLandscape={isTabletLandscape}
+      onMenuPress={onMenuPress}
+      onProjectsPress={onProjectsPress}
+      settings={settings}
+      onSendText={handleSendText}
+      onSendAudio={handleSendAudio}
+      isNewSession
+      newSessionOptions={
+        <NewSessionOptions
+          useWorktree={useWorktree}
+          onWorktreeChange={setUseWorktree}
+          backendOptions={backendOptions}
+          selectedBackendUrl={selectedBackendUrl}
+          onSelectBackend={onSelectBackend}
         />
-      )}
-    </>
+      }
+    />
   );
 }
 

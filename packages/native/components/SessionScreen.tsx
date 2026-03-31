@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react'
-import { View, Text, KeyboardAvoidingView, Platform } from 'react-native'
+import { KeyboardAvoidingView } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, useGlobalSearchParams } from 'expo-router'
 import { SessionHeader } from './SessionHeader'
@@ -42,7 +42,6 @@ interface SessionScreenProps {
     discardAllChunks: () => void
   }
   onAbort?: () => void
-  emptyMessage?: string
   modelName: string
   onModelPress?: () => void
   /** Current agent name for the bottom-left selector button. */
@@ -53,16 +52,14 @@ interface SessionScreenProps {
   pendingCommand?: PendingCommand | null
   /** Dismiss the queued command. */
   onClearCommand?: () => void
-  /** Optional toggle element rendered below the empty message (e.g. worktree option) */
-  worktreeToggle?: React.ReactNode
   /** Worktree status for worktree sessions. */
   worktreeStatus?: WorktreeStatusValue
   /** Whether a merge operation is in progress. */
   isMerging?: boolean
   /** Callback to trigger a merge. */
   onMerge?: () => void
-  /** Optional server selector element rendered below the worktree toggle (new sessions only). */
-  serverSelector?: React.ReactNode
+  /** Optional content rendered in place of the chat thread for new sessions (e.g. NewSessionOptions). */
+  newSessionOptions?: React.ReactNode
   /** Toggle hands-free mode on/off. */
   onHandsFreeToggle?: () => void
   /** Open the hands-free mode picker (long-press). */
@@ -87,18 +84,16 @@ export function SessionScreen({
   isSending,
   audioRecorder,
   onAbort,
-  emptyMessage,
   modelName,
   onModelPress,
   agentName,
   onAgentPress,
   pendingCommand,
   onClearCommand,
-  worktreeToggle,
   worktreeStatus,
   isMerging,
   onMerge,
-  serverSelector,
+  newSessionOptions,
   onHandsFreeToggle,
   onHandsFreeLongPress,
   pendingPermission,
@@ -138,12 +133,8 @@ export function SessionScreen({
 
       <TabBar activeTab={activeTab} onTabChange={onTabChange} onNewSession={handleNewSession} />
 
-      {emptyMessage ? (
-        <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-stone-400 dark:text-stone-600 text-sm text-center">{emptyMessage}</Text>
-          {worktreeToggle}
-          {serverSelector}
-        </View>
+      {newSessionOptions ? (
+        newSessionOptions
       ) : activeTab === 'session' ? (
         <ChatThread messages={messages} onToolCallPress={onToolCallPress} />
       ) : (
