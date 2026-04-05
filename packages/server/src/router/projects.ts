@@ -37,9 +37,11 @@ export const projects = {
       model: z.object({ providerID: z.string(), modelID: z.string() }).optional(),
       agent: z.string().optional(),
       useWorktree: z.boolean().optional(),
+      /** Client-generated message ID for voice messages. */
+      clientMessageId: z.string().optional(),
     }))
     .handler(async ({ input, context }) => {
-      const { projectId, parts, model, useWorktree, agent } = input
+      const { projectId, parts, model, useWorktree, agent, clientMessageId } = input
 
       // Look up the project to get its worktree
       const projectsRes = await context.client.project.list()
@@ -114,10 +116,16 @@ export const projects = {
         }), { contentType: "application/json" })
       }
 
+      // Confirm upload if client provided a message ID
+      if (clientMessageId) {
+        context.stateStream.emitPendingTranscription(clientMessageId, sessionId, "upload-confirmed")
+      }
+
       // Fire the prompt in the background — don't block the response.
       // The client navigates to the session immediately and sees streaming
-      // updates via the SSE durable stream.
-      sendPrompt(context.client, sessionId, parts, directory, model, agent).catch(
+      // updates via the SSE durable stream. Pending transcription events are
+      // emitted to the ephemeral stream so the client can show progress.
+      sendPrompt(context.client, sessionId, parts, directory, model, agent, undefined, context.stateStream, clientMessageId).catch(
         (err: any) => {
           console.error("[projects.createSession] prompt failed:", err)
         },

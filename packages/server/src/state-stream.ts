@@ -8,7 +8,7 @@ import type { Message, MessagePart, ChangedFile } from "./types"
 import { WorktreeDriver } from "./worktree"
 
 type InstanceEventType = "project" | "session" | "message"
-type EphemeralEventType = "sessionStatus" | "message" | "change" | "worktreeStatus" | "permissionRequest"
+type EphemeralEventType = "sessionStatus" | "message" | "change" | "worktreeStatus" | "permissionRequest" | "pendingTranscription"
 
 type StateEvent = {
   type: InstanceEventType | EphemeralEventType
@@ -31,6 +31,22 @@ export type PermissionRequestValue = {
   description: string
 }
 
+/**
+ * Pending transcription value emitted to the client via the ephemeral stream.
+ *
+ * Keyed by `messageId` (a client-generated UUID) so that multiple concurrent
+ * voice messages to the same session can each have independent status.
+ * The same `messageId` is passed to OpenCode's `promptAsync` so the real user
+ * message arrives with the same ID — enabling seamless client-side dedup.
+ */
+export type PendingTranscriptionValue = {
+  messageId: string
+  sessionId: string
+  status: "uploading" | "upload-confirmed" | "transcribing" | "completed" | "forwarded"
+  /** The transcribed text, available when status is 'completed' or 'forwarded'. */
+  text?: string
+}
+
 class StateStream implements StateStreamSink {
   #instanceDs: DurableStreamServer
   #ephemeralDs: DurableStreamServer
@@ -39,6 +55,7 @@ class StateStream implements StateStreamSink {
   #sessionDirectories: Map<string, string> = new Map()
   #sessionStatuses: Map<string, { status: SessionStatus; error?: string }> = new Map()
   #pendingPermissions: Map<string, PermissionRequestValue> = new Map()
+  #pendingTranscriptions: Map<string, PendingTranscriptionValue> = new Map()
   #lastEmittedSessions: Map<string, any> = new Map()
   #sessionWorktrees: SessionWorktreeMap
 
@@ -359,6 +376,20 @@ class StateStream implements StateStreamSink {
     })
   }
 
+  /** Emit a pending transcription status update for a specific message. */
+  emitPendingTranscription(messageId: string, sessionId: string, status: PendingTranscriptionValue["status"], text?: string) {
+    const value: PendingTranscriptionValue = { messageId, sessionId, status, ...(text ? { text } : {}) }
+    this.#pendingTranscriptions.set(messageId, value)
+    this.#appendEphemeralEvent({
+      type: "pendingTranscription",
+      key: messageId,
+      value,
+      headers: { operation: "upsert" },
+    })
+  }
+
+
+
   todoUpdated(_sessionId: string, _todos: any[]) {
     // No-op for now
   }
@@ -381,6 +412,7 @@ class StateStream implements StateStreamSink {
     sessionStatuses: Record<string, { status: SessionStatus; error?: string }>
     worktreeStatuses: Record<string, any>
     pendingPermissions: Record<string, PermissionRequestValue>
+    pendingTranscriptions: Record<string, PendingTranscriptionValue>
   } {
     const { messages } = this.#ephemeralDs.readStream("/")
     return {
@@ -388,6 +420,7 @@ class StateStream implements StateStreamSink {
       sessionStatuses: Object.fromEntries(this.#sessionStatuses),
       worktreeStatuses: Object.fromEntries(this.#lastWorktreeStatus),
       pendingPermissions: Object.fromEntries(this.#pendingPermissions),
+      pendingTranscriptions: Object.fromEntries(this.#pendingTranscriptions),
     }
   }
 

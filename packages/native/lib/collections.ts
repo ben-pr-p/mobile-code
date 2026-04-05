@@ -29,6 +29,7 @@ import type {
   ChangeValue,
   WorktreeStatusValue,
   PermissionRequestValue,
+  PendingTranscriptionValue,
   SessionMetaValue,
   BackendConfigValue,
   BackendConnectionValue,
@@ -197,6 +198,12 @@ const _permissionRequests = createEphemeralStreamCollection<PermissionRequestVal
   (item) => String(item.sessionId)
 );
 
+const _pendingTranscriptions = createEphemeralStreamCollection<PendingTranscriptionValue>(
+  'pendingTranscriptions',
+  globalStateDef.pendingTranscriptions,
+  (item) => String(item.messageId)
+);
+
 // ---------------------------------------------------------------------------
 // Local-only collections
 // ---------------------------------------------------------------------------
@@ -248,6 +255,7 @@ export const collections = {
   changes: _changes.collection,
   worktreeStatuses: _worktreeStatuses.collection,
   permissionRequests: _permissionRequests.collection,
+  pendingTranscriptions: _pendingTranscriptions.collection,
   backends: _backends.collection,
   backendConnections: _backendConnections.collection,
   pings: _pings.collection,
@@ -269,6 +277,7 @@ export const collectionEntries = {
   changes: _changes,
   worktreeStatuses: _worktreeStatuses,
   permissionRequests: _permissionRequests,
+  pendingTranscriptions: _pendingTranscriptions,
   backends: _backends,
   backendConnections: _backendConnections,
   pings: _pings,
