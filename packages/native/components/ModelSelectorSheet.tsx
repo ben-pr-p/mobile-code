@@ -13,8 +13,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { Check, Search } from 'lucide-react-native';
+import { useLiveQuery } from '@tanstack/react-db';
 import type { CatalogModel, ModelSelection } from '../state/settings';
-import { useBackendStateQuery } from '../lib/merged-query';
 import { collections } from '../lib/collections';
 import type { BackendUrl } from '../state/backends';
 import type { Message as ServerMessage } from '../../server/src/types';
@@ -53,8 +53,7 @@ export function ModelSelectorSheet({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Derive recently used models from all messages — only queries when the sheet is visible
-  const { data: allRawMessages } = useBackendStateQuery<ServerMessage>(
-    backendUrl,
+  const { data: allRawMessages } = useLiveQuery(
     (q) => (visible ? q.from({ messages: collections.messages }) : null),
     [visible]
   );

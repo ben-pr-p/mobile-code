@@ -1,8 +1,6 @@
-import { eq } from '@tanstack/react-db';
-import { useBackendEphemeralStateQuery } from '../lib/merged-query';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { collections } from '../lib/collections';
 import type { SessionStatusValue } from '../lib/stream-db';
-import type { BackendUrl } from '../state/backends';
 
 /**
  * Live session status from the ephemeral stream.
@@ -11,16 +9,14 @@ import type { BackendUrl } from '../state/backends';
  * defaulting to 'idle' when no status has been emitted yet.
  */
 export function useSessionStatus(
-  backendUrl: BackendUrl,
   sessionId: string
 ): SessionStatusValue['status'] {
-  const { data } = useBackendEphemeralStateQuery<SessionStatusValue>(
-    backendUrl,
+  const { data } = useLiveQuery(
     (q) =>
       q
         .from({ sessionStatuses: collections.sessionStatuses })
         .where(({ sessionStatuses }) => eq(sessionStatuses.sessionId, sessionId)),
     [sessionId]
   );
-  return data?.[0]?.status ?? 'idle';
+  return (data as SessionStatusValue[] | null)?.[0]?.status ?? 'idle';
 }

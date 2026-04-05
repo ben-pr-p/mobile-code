@@ -1,8 +1,6 @@
-import { eq } from '@tanstack/react-db';
-import { useBackendEphemeralStateQuery } from '../lib/merged-query';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { collections } from '../lib/collections';
 import type { PermissionRequestValue } from '../lib/stream-db';
-import type { BackendUrl } from '../state/backends';
 
 /**
  * Live pending permission request for a session from the ephemeral stream.
@@ -12,16 +10,14 @@ import type { BackendUrl } from '../state/backends';
  * at a time per session (it blocks until replied).
  */
 export function usePendingPermission(
-  backendUrl: BackendUrl,
   sessionId: string
 ): PermissionRequestValue | null {
-  const { data } = useBackendEphemeralStateQuery<PermissionRequestValue>(
-    backendUrl,
+  const { data } = useLiveQuery(
     (q) =>
       q
         .from({ permissionRequests: collections.permissionRequests })
         .where(({ permissionRequests }) => eq(permissionRequests.sessionId, sessionId)),
     [sessionId]
   );
-  return data?.[0] ?? null;
+  return (data as PermissionRequestValue[] | null)?.[0] ?? null;
 }

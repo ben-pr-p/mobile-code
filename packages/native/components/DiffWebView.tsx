@@ -2,10 +2,9 @@ import React, { useCallback, useRef, useEffect, useState, useMemo } from 'react'
 import { View, StyleSheet } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { useAtom, useAtomValue } from 'jotai';
-import { eq } from '@tanstack/react-db';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useColorScheme } from 'nativewind';
 import { getApi } from '../lib/api';
-import { useBackendEphemeralStateQuery } from '../lib/merged-query';
 import { collections } from '../lib/collections';
 import type { ChangeValue } from '../lib/stream-db';
 import { lineSelectionAtom } from '../state/line-selection';
@@ -41,15 +40,14 @@ export function DiffWebView({ sessionId, backendUrl, activeFile }: DiffWebViewPr
   const codeFontStep = useAtomValue(codeFontSizeAtom);
 
   // Watch changes from the ephemeral stream to know when to refetch diffs
-  const { data: changeResults } = useBackendEphemeralStateQuery<ChangeValue>(
-    backendUrl,
+  const { data: changeResults } = useLiveQuery(
     (q) =>
       q
         .from({ changes: collections.changes })
         .where(({ changes }) => eq(changes.sessionId, sessionId)),
     [sessionId]
   );
-  const changeValue = changeResults?.[0];
+  const changeValue = (changeResults as ChangeValue[] | null)?.[0];
 
   const sendMessage = useCallback((msg: Record<string, unknown>) => {
     const js = `window.postMessage(${JSON.stringify(JSON.stringify(msg))}); true;`;

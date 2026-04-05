@@ -98,7 +98,7 @@ export function SessionScreen({
   onHandsFreeLongPress,
   pendingPermission,
 }: SessionScreenProps) {
-  const sessionStatus = useSessionStatus(backendUrl, sessionId)
+  const sessionStatus = useSessionStatus(sessionId)
   const insets = useSafeAreaInsets()
   const [textValue, setTextValue] = useState('')
   const router = useRouter()

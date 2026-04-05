@@ -133,7 +133,7 @@ export function SplitLayout({
   pendingPermission,
   newSessionOptions,
 }: SplitLayoutProps) {
-  const sessionStatus = useSessionStatus(backendUrl, sessionId);
+  const sessionStatus = useSessionStatus(sessionId);
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
   const iconColor = colorScheme === 'dark' ? '#A8A29E' : '#44403C';

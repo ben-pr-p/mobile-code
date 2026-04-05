@@ -54,12 +54,6 @@ import type {
   ProjectValue,
 } from '../lib/stream-db';
 import type { Message as ServerMessage } from '../../server/src/types';
-import {
-  MergedStateQuery,
-  MergedEphemeralStateQuery,
-  MergedAppStateQuery,
-  type WithBackendUrl,
-} from '../lib/merged-query';
 import { getApi, type ApiClient } from '../lib/api';
 import { collections } from '../lib/collections';
 import { pinnedSessionIdsAtom, pinnedProjectIdsAtom } from '../state/ui';
@@ -151,57 +145,12 @@ export function SessionsSidebar({
       <View className="h-px bg-stone-200 dark:bg-stone-800" />
 
       {projectId ? (
-        <MergedStateQuery<SessionValue> query={(q) => q.from({ sessions: collections.sessions })}>
-          {({ data: allSessions }) => (
-            <MergedEphemeralStateQuery<SessionStatusValue>
-              query={(q) => q.from({ sessionStatuses: collections.sessionStatuses })}>
-              {({ data: sessionStatuses }) => (
-                <MergedEphemeralStateQuery<WorktreeStatusValue>
-                  query={(q) => q.from({ worktreeStatuses: collections.worktreeStatuses })}>
-                  {({ data: worktreeStatuses }) => (
-                    <MergedStateQuery<ServerMessage>
-                      query={(q) => q.from({ messages: collections.messages })}>
-                      {({ data: allMessages }) => (
-                        <MergedStateQuery<ProjectValue>
-                          query={(q) => q.from({ backendProjects: collections.backendProjects })}>
-                          {({ data: allProjects }) => (
-                            <MergedAppStateQuery<SessionMetaValue>
-                              query={(q) => q.from({ sessionMeta: collections.sessionMeta })}>
-                              {({ data: sessionMetas }) => (
-                                <MergedEphemeralStateQuery<PermissionRequestValue>
-                                  query={(q) =>
-                                    q.from({
-                                      permissionRequests: collections.permissionRequests,
-                                    })
-                                  }>
-                                  {({ data: pendingPermissions }) => (
-                                    <SessionListContent
-                                      projectId={projectId}
-                                      selectedSessionId={selectedSessionId}
-                                      onSelectSession={handleSelectSession}
-                                      onNewSession={handleNewSession}
-                                      allSessions={allSessions}
-                                      sessionStatuses={sessionStatuses}
-                                      worktreeStatuses={worktreeStatuses}
-                                      allMessages={allMessages}
-                                      allProjects={allProjects}
-                                      sessionMetas={sessionMetas}
-                                      pendingPermissions={pendingPermissions}
-                                    />
-                                  )}
-                                </MergedEphemeralStateQuery>
-                              )}
-                            </MergedAppStateQuery>
-                          )}
-                        </MergedStateQuery>
-                      )}
-                    </MergedStateQuery>
-                  )}
-                </MergedEphemeralStateQuery>
-              )}
-            </MergedEphemeralStateQuery>
-          )}
-        </MergedStateQuery>
+        <SessionsSidebarQueries
+          projectId={projectId}
+          selectedSessionId={selectedSessionId}
+          onSelectSession={handleSelectSession}
+          onNewSession={handleNewSession}
+        />
       ) : (
         <View className="flex-1 items-center justify-center px-8">
           <Text className="text-center font-medium text-stone-700 dark:text-stone-400" style={{ fontSize: menuFs.primary }}>
@@ -334,7 +283,7 @@ function SessionWorktreeBadge({ worktreeStatus }: { worktreeStatus: WorktreeStat
   return null;
 }
 
-type TaggedSession = WithBackendUrl<SessionValue>;
+type TaggedSession = SessionValue;
 
 interface SessionRowProps {
   session: TaggedSession;
@@ -554,6 +503,64 @@ type SessionTree = {
   children: TaggedSession[];
 };
 
+/** Wrapper that replaces the nested Merged*Query render-props with useLiveQuery hooks. */
+function SessionsSidebarQueries({
+  projectId,
+  selectedSessionId,
+  onSelectSession,
+  onNewSession,
+}: {
+  projectId: string;
+  selectedSessionId: string | null;
+  onSelectSession: (sessionId: string, projectId: string, backendUrl: string) => void;
+  onNewSession: (projectId: string) => void;
+}) {
+  const { data: allSessions } = useLiveQuery(
+    (q) => q.from({ sessions: collections.sessions }),
+    []
+  );
+  const { data: sessionStatuses } = useLiveQuery(
+    (q) => q.from({ sessionStatuses: collections.sessionStatuses }),
+    []
+  );
+  const { data: worktreeStatuses } = useLiveQuery(
+    (q) => q.from({ worktreeStatuses: collections.worktreeStatuses }),
+    []
+  );
+  const { data: allMessages } = useLiveQuery(
+    (q) => q.from({ messages: collections.messages }),
+    []
+  );
+  const { data: allProjects } = useLiveQuery(
+    (q) => q.from({ backendProjects: collections.backendProjects }),
+    []
+  );
+  const { data: sessionMetas } = useLiveQuery(
+    (q) => q.from({ sessionMeta: collections.sessionMeta }),
+    []
+  );
+  const { data: pendingPermissions } = useLiveQuery(
+    (q) => q.from({ permissionRequests: collections.permissionRequests }),
+    []
+  );
+
+  return (
+    <SessionListContent
+      projectId={projectId}
+      selectedSessionId={selectedSessionId}
+      onSelectSession={onSelectSession}
+      onNewSession={onNewSession}
+      allSessions={allSessions as TaggedSession[] | null}
+      sessionStatuses={sessionStatuses as SessionStatusValue[] | null}
+      worktreeStatuses={worktreeStatuses as WorktreeStatusValue[] | null}
+      allMessages={allMessages as ServerMessage[] | null}
+      allProjects={allProjects as ProjectValue[] | null}
+      sessionMetas={sessionMetas as SessionMetaValue[] | null}
+      pendingPermissions={pendingPermissions as PermissionRequestValue[] | null}
+    />
+  );
+}
+
 function SessionListContent({
   projectId,
   selectedSessionId,
@@ -573,12 +580,12 @@ function SessionListContent({
   /** Create a new session for the given project ID. */
   onNewSession: (projectId: string) => void;
   allSessions: TaggedSession[] | null;
-  sessionStatuses: WithBackendUrl<SessionStatusValue>[] | null;
-  worktreeStatuses: WithBackendUrl<WorktreeStatusValue>[] | null;
-  allMessages: WithBackendUrl<ServerMessage>[] | null;
-  allProjects: WithBackendUrl<ProjectValue>[] | null;
-  sessionMetas: WithBackendUrl<SessionMetaValue>[] | null;
-  pendingPermissions: WithBackendUrl<PermissionRequestValue>[] | null;
+  sessionStatuses: SessionStatusValue[] | null;
+  worktreeStatuses: WorktreeStatusValue[] | null;
+  allMessages: ServerMessage[] | null;
+  allProjects: ProjectValue[] | null;
+  sessionMetas: SessionMetaValue[] | null;
+  pendingPermissions: PermissionRequestValue[] | null;
 }) {
   const menuFs = useMenuFontSize();
   const [searchQuery, setSearchQuery] = useState('');

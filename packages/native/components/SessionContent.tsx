@@ -22,8 +22,6 @@ import {
 } from '../lib/stream-db';
 import type { Message as ServerMessage } from '../../server/src/types';
 import { getApi, type ApiClient } from '../lib/api';
-import { useBackendStateQuery, useBackendEphemeralStateQuery } from '../lib/merged-query';
-import { MergedStateQuery } from '../lib/merged-query';
 import { collections } from '../lib/collections';
 import { useSessionStatus } from '../hooks/useSessionStatus';
 import { usePendingTranscriptions } from '../hooks/useTranscriptionStatus';
@@ -114,9 +112,9 @@ export function SessionView({
   isNewSession,
   newSessionOptions,
 }: SessionViewProps) {
-  const sessionStatus = useSessionStatus(backendUrl, sessionId);
+  const sessionStatus = useSessionStatus(sessionId);
   const pendingVoiceMessages = usePendingTranscriptions(sessionId);
-  const pendingPermission = usePendingPermission(backendUrl, sessionId);
+  const pendingPermission = usePendingPermission(sessionId);
   const [activeTab, setActiveTab] = useState<'session' | 'changes'>('session');
   const [isSending, setIsSending] = useState(false);
   const [modelSelectorVisible, setModelSelectorVisible] = useState(false);
@@ -142,15 +140,14 @@ export function SessionView({
   }, [agents, effectiveAgent]);
 
   // Worktree status from the ephemeral stream
-  const { data: worktreeStatusResults } = useBackendEphemeralStateQuery<WorktreeStatusValue>(
-    backendUrl,
+  const { data: worktreeStatusResults } = useLiveQuery(
     (q) =>
       q
         .from({ worktreeStatuses: collections.worktreeStatuses })
         .where(({ worktreeStatuses }) => eq(worktreeStatuses.sessionId, sessionId)),
     [sessionId]
   );
-  const worktreeStatus = worktreeStatusResults?.[0];
+  const worktreeStatus = (worktreeStatusResults as WorktreeStatusValue[] | null)?.[0];
 
   const api = getApi(backendUrl);
 
@@ -175,8 +172,7 @@ export function SessionView({
   }, [api, sessionId]);
 
   // Look up the project to derive the display name
-  const { data: projectResults } = useBackendStateQuery<ProjectValue>(
-    backendUrl,
+  const { data: projectResults } = useLiveQuery(
     (q) =>
       q
         .from({ backendProjects: collections.backendProjects })
@@ -184,7 +180,7 @@ export function SessionView({
     [session.projectID]
   );
   // Multiple rows may match (same project on multiple backends) — take first
-  const project = projectResults?.[0];
+  const project = (projectResults as ProjectValue[] | null)?.[0];
   const worktree = project?.worktree ?? '';
   const sessionDir = session.directory ?? '';
   const projectDir = worktree.split('/').pop() ?? worktree;
@@ -529,15 +525,14 @@ export function SessionContent({
   onProjectsPress,
   settings,
 }: SessionContentProps) {
-  const { data: sessionResults, isLoading: sessionLoading } = useBackendStateQuery<SessionValue>(
-    backendUrl,
+  const { data: sessionResults, isLoading: sessionLoading } = useLiveQuery(
     (q) =>
       q
         .from({ sessions: collections.sessions })
         .where(({ sessions }) => eq(sessions.id, sessionId)),
     [sessionId]
   );
-  const session = sessionResults?.[0] ?? null;
+  const session = (sessionResults as SessionValue[] | null)?.[0] ?? null;
 
   if (sessionLoading || !session) {
     return <SessionLoading onMenuPress={onMenuPress} onProjectsPress={onProjectsPress} />;
@@ -583,8 +578,7 @@ function ExistingSessionDataLoader({
   lineSelectionRef.current = lineSelection;
 
   // Finalized messages from the instance stream
-  const { data: instanceMessages } = useBackendStateQuery<ServerMessage>(
-    backendUrl,
+  const { data: instanceMessages } = useLiveQuery(
     (q) =>
       q
         .from({ messages: collections.messages })
@@ -593,8 +587,7 @@ function ExistingSessionDataLoader({
   );
 
   // In-progress messages from the ephemeral stream
-  const { data: ephemeralMessages } = useBackendEphemeralStateQuery<ServerMessage>(
-    backendUrl,
+  const { data: ephemeralMessages } = useLiveQuery(
     (q) =>
       q
         .from({ pendingMessages: collections.pendingMessages })
@@ -606,13 +599,13 @@ function ExistingSessionDataLoader({
   // Ephemeral messages that don't exist in the instance stream are in-progress.
   const rawMessages = useMemo(() => {
     const instanceMap = new Map<string, ServerMessage>();
-    for (const msg of instanceMessages ?? []) {
+    for (const msg of (instanceMessages as ServerMessage[] | null) ?? []) {
       instanceMap.set(msg.id, msg);
     }
     // Start with all instance messages
     const merged = new Map(instanceMap);
     // Add ephemeral messages that aren't finalized yet
-    for (const msg of ephemeralMessages ?? []) {
+    for (const msg of (ephemeralMessages as ServerMessage[] | null) ?? []) {
       if (!merged.has(msg.id)) {
         merged.set(msg.id, msg);
       }
@@ -639,8 +632,7 @@ function ExistingSessionDataLoader({
   }, [sortedRawMessages]);
 
   // File changes from the ephemeral stream (both live and finalized)
-  const { data: changeResults } = useBackendEphemeralStateQuery<ChangeValue>(
-    backendUrl,
+  const { data: changeResults } = useLiveQuery(
     (q) =>
       q
         .from({ changes: collections.changes })
@@ -648,7 +640,7 @@ function ExistingSessionDataLoader({
     [sessionId]
   );
   const changes = useMemo(() => {
-    return changeResults?.[0]?.files ?? [];
+    return (changeResults as ChangeValue[] | null)?.[0]?.files ?? [];
   }, [changeResults]);
 
   const handleSendText = useCallback(
@@ -756,7 +748,7 @@ interface NewSessionContentProps {
 
 /**
  * New-session wrapper.
- * Uses MergedStateQuery to find which backends have this project, then lets
+ * Queries projects to find which backends have this project, then lets
  * the user pick which server to create the session on via a selector.
  * Connected backends are selectable; offline ones are shown but disabled.
  */
@@ -781,62 +773,60 @@ export function NewSessionContent({
     connectionsMap[c.url] = c;
   }
 
+  const { data: projectResults, isLoading } = useLiveQuery(
+    (q) =>
+      q
+        .from({ backendProjects: collections.backendProjects })
+        .where(({ backendProjects }) => eq(backendProjects.projectId, projectId)),
+    [projectId]
+  );
+
+  if (isLoading || !projectResults || projectResults.length === 0) {
+    return <SessionLoading onMenuPress={onMenuPress} onProjectsPress={onProjectsPress} />;
+  }
+
+  const typedProjectResults = projectResults as ProjectValue[];
+
+  // Build a set of backend URLs that host this project
+  const backendUrlsWithProject = new Set(typedProjectResults.map((p) => p.backendUrl));
+
+  // Build BackendOption[] for all backends that host the project
+  const backendOptions: BackendOption[] = ((allBackends as BackendConfig[] | null) ?? [])
+    .filter((b) => b.enabled && backendUrlsWithProject.has(b.url))
+    .map((config) => ({
+      config,
+      connection: connectionsMap[config.url],
+      hasProject: true,
+    }));
+
+  // Default to the first connected backend if no selection yet
+  const connectedOptions = backendOptions.filter((o) => o.connection?.status === 'connected');
+  const effectiveUrl =
+    selectedBackendUrl && connectedOptions.some((o) => o.config.url === selectedBackendUrl)
+      ? selectedBackendUrl
+      : (connectedOptions[0]?.config.url ?? null);
+
+  if (!effectiveUrl) {
+    return <SessionLoading onMenuPress={onMenuPress} onProjectsPress={onProjectsPress} />;
+  }
+
+  // Look up the worktree from the matching project result
+  const matchingProject = typedProjectResults.find((p) => p.backendUrl === effectiveUrl);
+
   return (
-    <MergedStateQuery<ProjectValue>
-      query={(q) =>
-        q
-          .from({ backendProjects: collections.backendProjects })
-          .where(({ backendProjects }) => eq(backendProjects.projectId, projectId))
-      }
-      deps={[projectId]}>
-      {({ data: projectResults, isLoading }) => {
-        if (isLoading || !projectResults || projectResults.length === 0) {
-          return <SessionLoading onMenuPress={onMenuPress} onProjectsPress={onProjectsPress} />;
-        }
-
-        // Build a set of backend URLs that host this project
-        const backendUrlsWithProject = new Set(projectResults.map((p) => p.backendUrl));
-
-        // Build BackendOption[] for all backends that host the project
-        const backendOptions: BackendOption[] = ((allBackends as BackendConfig[] | null) ?? [])
-          .filter((b) => b.enabled && backendUrlsWithProject.has(b.url))
-          .map((config) => ({
-            config,
-            connection: connectionsMap[config.url],
-            hasProject: true,
-          }));
-
-        // Default to the first connected backend if no selection yet
-        const connectedOptions = backendOptions.filter((o) => o.connection?.status === 'connected');
-        const effectiveUrl =
-          selectedBackendUrl && connectedOptions.some((o) => o.config.url === selectedBackendUrl)
-            ? selectedBackendUrl
-            : (connectedOptions[0]?.config.url ?? null);
-
-        if (!effectiveUrl) {
-          return <SessionLoading onMenuPress={onMenuPress} onProjectsPress={onProjectsPress} />;
-        }
-
-        // Look up the worktree from the matching project result
-        const matchingProject = projectResults.find((p) => p.backendUrl === effectiveUrl);
-
-        return (
-          <NewSessionDataLoader
-            projectId={projectId}
-            backendUrl={effectiveUrl}
-            worktree={matchingProject?.worktree ?? ''}
-            isTabletLandscape={isTabletLandscape}
-            onMenuPress={onMenuPress}
-            onProjectsPress={onProjectsPress}
-            onSessionCreated={onSessionCreated}
-            settings={settings}
-            backendOptions={backendOptions}
-            selectedBackendUrl={effectiveUrl}
-            onSelectBackend={setSelectedBackendUrl}
-          />
-        );
-      }}
-    </MergedStateQuery>
+    <NewSessionDataLoader
+      projectId={projectId}
+      backendUrl={effectiveUrl}
+      worktree={matchingProject?.worktree ?? ''}
+      isTabletLandscape={isTabletLandscape}
+      onMenuPress={onMenuPress}
+      onProjectsPress={onProjectsPress}
+      onSessionCreated={onSessionCreated}
+      settings={settings}
+      backendOptions={backendOptions}
+      selectedBackendUrl={effectiveUrl}
+      onSelectBackend={setSelectedBackendUrl}
+    />
   );
 }
 

@@ -6,11 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { SessionHeader } from '../../../../components/SessionHeader';
 import { useRightDrawer } from '../../../../lib/drawer-context';
-import { MergedStateQuery, MergedAppStateQuery } from '../../../../lib/merged-query';
 import { collections } from '../../../../lib/collections';
 import type { SessionValue, SessionMetaValue } from '../../../../lib/stream-db';
-import type { WithBackendUrl } from '../../../../lib/merged-query';
-import { eq } from '@tanstack/react-db';
+import { eq, useLiveQuery } from '@tanstack/react-db';
 
 /**
  * Project root route — auto-navigates to the most recent non-archived session,
@@ -19,30 +17,29 @@ import { eq } from '@tanstack/react-db';
 export default function ProjectIndexScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
 
+  const { data: sessions, isLoading: sessionsLoading } = useLiveQuery(
+    (q) =>
+      projectId
+        ? q
+            .from({ sessions: collections.sessions })
+            .where(({ sessions }) => eq(sessions.projectID, projectId))
+        : null,
+    [projectId]
+  );
+  const { data: sessionMetas, isLoading: metasLoading } = useLiveQuery(
+    (q) => q.from({ sessionMeta: collections.sessionMeta }),
+    []
+  );
+
   if (!projectId) return null;
 
   return (
-    <MergedStateQuery<SessionValue>
-      query={(q) =>
-        q
-          .from({ sessions: collections.sessions })
-          .where(({ sessions }) => eq(sessions.projectID, projectId))
-      }
-      deps={[projectId]}>
-      {({ data: sessions, isLoading: sessionsLoading }) => (
-        <MergedAppStateQuery<SessionMetaValue>
-          query={(q) => q.from({ sessionMeta: collections.sessionMeta })}>
-          {({ data: sessionMetas, isLoading: metasLoading }) => (
-            <ProjectIndexContent
-              projectId={projectId}
-              sessions={sessions}
-              sessionMetas={sessionMetas}
-              isLoading={sessionsLoading || metasLoading}
-            />
-          )}
-        </MergedAppStateQuery>
-      )}
-    </MergedStateQuery>
+    <ProjectIndexContent
+      projectId={projectId}
+      sessions={sessions as SessionValue[] | null}
+      sessionMetas={sessionMetas as SessionMetaValue[] | null}
+      isLoading={sessionsLoading || metasLoading}
+    />
   );
 }
 
@@ -53,8 +50,8 @@ function ProjectIndexContent({
   isLoading,
 }: {
   projectId: string;
-  sessions: WithBackendUrl<SessionValue>[] | null;
-  sessionMetas: WithBackendUrl<SessionMetaValue>[] | null;
+  sessions: SessionValue[] | null;
+  sessionMetas: SessionMetaValue[] | null;
   isLoading: boolean;
 }) {
   const router = useRouter();
