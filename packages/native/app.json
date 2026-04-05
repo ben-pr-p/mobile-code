@@ -42,7 +42,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "13",
+      "buildNumber": "14",
       "bundleIdentifier": "xyz.bprp.flockcode",
       "appleTeamId": "UX4LJ86VY7",
       "infoPlist": {
