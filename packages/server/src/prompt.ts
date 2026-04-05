@@ -4,6 +4,7 @@ import type { OpencodeClient } from "./opencode"
 import { mapMessage } from "./opencode"
 import { transcribeAudio } from "./transcribe"
 import type { Message, PromptPartInput } from "./types"
+import type { StateStream } from "./state-stream"
 
 /** Line reference from the diff viewer — the user selected these lines before sending. */
 interface LineReference {
@@ -21,11 +22,18 @@ export async function sendPrompt(
   model?: { providerID: string; modelID: string },
   agent?: string,
   lineReference?: LineReference,
+  stateStream?: StateStream,
+  /** Client-generated message ID. When provided, the real OpenCode user message
+   *  will be created with this ID, enabling seamless client-side dedup. */
+  clientMessageId?: string,
 ): Promise<void> {
   // Fetch conversation context for audio transcription
   let conversationContext: Message[] | undefined
   const hasAudio = parts.some((p) => p.type === "audio")
-  if (hasAudio) {
+  if (hasAudio && clientMessageId) {
+    // Notify client that the server has the audio and transcription is starting
+    stateStream?.emitPendingTranscription(clientMessageId, sessionId, "transcribing")
+
     try {
       const res = await client.session.messages({ sessionID: sessionId, directory })
       if (!res.error && res.data) {
@@ -68,6 +76,12 @@ export async function sendPrompt(
     }),
   )
 
+  // Notify client that transcription is complete with the resolved text
+  if (hasAudio && clientMessageId) {
+    const resolvedText = textParts.map((p) => p.text).join("\n")
+    stateStream?.emitPendingTranscription(clientMessageId, sessionId, "completed", resolvedText)
+  }
+
   // Prepend line reference context if the user selected lines in the diff viewer
   if (lineReference && textParts.length > 0) {
     const lines = lineReference.startLine === lineReference.endLine
@@ -92,10 +106,21 @@ export async function sendPrompt(
     tools: { question: false },
     ...(model ? { model } : {}),
     ...(agent ? { agent } : {}),
+    // Use the client-generated message ID so the real user message arrives with
+    // the same ID, enabling seamless client-side dedup with the pending placeholder.
+    ...(clientMessageId ? { messageID: clientMessageId } : {}),
   })
   if (res.error) {
     console.error(`[prompt] session=${sessionId} opencode error:`, res.error)
     throw new Error(`Prompt failed: ${JSON.stringify(res.error)}`)
+  }
+
+  // Notify client the prompt has been forwarded to OpenCode.
+  // The real user message will arrive via the instance stream with the same ID,
+  // and the client's allMessages merge deduplicates by ID (server wins) —
+  // no explicit delete needed.
+  if (hasAudio && clientMessageId) {
+    stateStream?.emitPendingTranscription(clientMessageId, sessionId, "forwarded", textParts.map((p) => p.text).join("\n"))
   }
 
   console.log(`[prompt] session=${sessionId} prompt accepted by opencode (async)`)

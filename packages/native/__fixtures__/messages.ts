@@ -20,7 +20,7 @@ export interface Message {
   transcription: string | null
   toolName: string | null
   toolMeta: ToolMeta | null
-  syncStatus: 'synced' | 'pending' | 'sending' | 'failed'
+  syncStatus: 'synced' | 'pending' | 'sending' | 'uploading' | 'transcribing' | 'forwarded' | 'failed'
   createdAt: number
   isComplete: boolean
 }

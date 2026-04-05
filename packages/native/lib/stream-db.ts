@@ -14,6 +14,7 @@ export type {
   ChangeValue,
   WorktreeStatusValue,
   PermissionRequestValue,
+  PendingTranscriptionValue,
   SessionMetaValue,
   BackendConfigValue,
   BackendConnectionValue,
@@ -105,6 +106,20 @@ type PermissionRequestValue = {
   permission: string;
   patterns: string[];
   description: string;
+};
+
+/**
+ * Pending transcription status for a voice message, keyed by the client-generated
+ * message ID. Delivered via the ephemeral stream so the client can show real-time
+ * transcription progress without local state.
+ */
+type PendingTranscriptionValue = {
+  messageId: string;
+  sessionId: string;
+  backendUrl: string;
+  status: 'uploading' | 'upload-confirmed' | 'transcribing' | 'completed' | 'forwarded';
+  /** The transcribed text, available when status is 'completed' or 'forwarded'. */
+  text?: string;
 };
 
 type SessionMetaValue = {
@@ -208,6 +223,11 @@ const ephemeralStateDef = {
     type: 'permissionRequest' as const,
     primaryKey: 'sessionId' as const,
   },
+  pendingTranscriptions: {
+    schema: passthrough<PendingTranscriptionValue>(),
+    type: 'pendingTranscription' as const,
+    primaryKey: 'messageId' as const,
+  },
 };
 
 const appStateDef = {
@@ -270,6 +290,7 @@ const globalStateDef = {
   changes: ephemeralStateDef.changes,
   worktreeStatuses: ephemeralStateDef.worktreeStatuses,
   permissionRequests: ephemeralStateDef.permissionRequests,
+  pendingTranscriptions: ephemeralStateDef.pendingTranscriptions,
   // App stream (persisted)
   sessionMeta: appStateDef.sessionMeta,
   // Local-only
@@ -304,6 +325,7 @@ const EPHEMERAL_STREAM_COLLECTIONS = [
   'changes',
   'worktreeStatuses',
   'permissionRequests',
+  'pendingTranscriptions',
 ] as const;
 const APP_STREAM_COLLECTIONS = ['sessionMeta'] as const;
 
@@ -330,7 +352,7 @@ type UIMessage = {
   transcription: string | null;
   toolName: string | null;
   toolMeta: ToolMeta | null;
-  syncStatus: 'synced' | 'pending' | 'sending' | 'failed';
+  syncStatus: 'synced' | 'pending' | 'sending' | 'uploading' | 'transcribing' | 'forwarded' | 'failed';
   createdAt: number;
   isComplete: boolean;
 };

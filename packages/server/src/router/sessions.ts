@@ -32,13 +32,34 @@ export const sessions = {
         endLine: z.number(),
         side: z.enum(["additions", "deletions"]).optional(),
       }).optional(),
+      /** Client-generated message ID for voice messages. Enables server-side
+       *  transcription status tracking and seamless client-side dedup. */
+      clientMessageId: z.string().optional(),
     }))
     .handler(async ({ input, context }) => {
-      const { sessionId, parts, model, agent, lineReference } = input
+      const { sessionId, parts, model, agent, lineReference, clientMessageId } = input
       try {
         const sessionRes = await context.client.session.get({ sessionID: sessionId })
         const directory = sessionRes.data?.directory
-        await sendPrompt(context.client, sessionId, parts, directory, model, agent, lineReference)
+        const hasAudio = parts.some((p) => p.type === "audio")
+
+        if (hasAudio && clientMessageId) {
+          // Confirm upload — client can now show "safe to navigate away"
+          context.stateStream.emitPendingTranscription(clientMessageId, sessionId, "upload-confirmed")
+        }
+
+        if (hasAudio) {
+          // For audio prompts, return immediately and run transcription in the background.
+          // The client tracks progress via pending transcription events on the ephemeral stream.
+          sendPrompt(context.client, sessionId, parts, directory, model, agent, lineReference, context.stateStream, clientMessageId).catch(
+            (err: any) => {
+              console.error("[sessions.prompt] background audio prompt failed:", err)
+            },
+          )
+          return { success: true as const }
+        }
+        // Text-only prompts are fast — await them inline
+        await sendPrompt(context.client, sessionId, parts, directory, model, agent, lineReference, context.stateStream, clientMessageId)
         return { success: true as const }
       } catch (err: any) {
         console.error("[sessions.prompt]", err)

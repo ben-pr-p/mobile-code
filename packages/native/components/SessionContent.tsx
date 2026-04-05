@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { createTransaction } from '@tanstack/db';
 import { View, Text, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
@@ -25,6 +26,7 @@ import { useBackendStateQuery, useBackendEphemeralStateQuery } from '../lib/merg
 import { MergedStateQuery } from '../lib/merged-query';
 import { collections } from '../lib/collections';
 import { useSessionStatus } from '../hooks/useSessionStatus';
+import { usePendingTranscriptions } from '../hooks/useTranscriptionStatus';
 import { usePendingPermission } from '../hooks/usePendingPermission';
 import { useChunkedAudioRecorder, type AudioChunk } from '../hooks/useChunkedAudioRecorder';
 import { useHandsFreeMode } from '../hooks/useHandsFreeMode';
@@ -68,8 +70,10 @@ interface SessionViewProps {
   onProjectsPress: () => void;
   settings: SessionSettings;
   onSendText: (text: string, model: ModelSelection | null, agent?: string) => Promise<void>;
-  /** Send one or more annotated audio chunks. Each chunk may carry its own lineReference. */
-  onSendAudio: (parts: AnnotatedAudioPart[], model: ModelSelection | null) => void;
+  /** Send one or more annotated audio chunks. Each chunk may carry its own lineReference.
+   *  The `clientMessageId` is a client-generated UUID used for server-side tracking
+   *  and seamless dedup when the real message arrives. */
+  onSendAudio: (parts: AnnotatedAudioPart[], model: ModelSelection | null, clientMessageId: string) => void;
   onExecuteCommand?: (command: string, args: string, model: ModelSelection | null) => Promise<void>;
   /** Walking-mode voice prompt handler. */
   onVoicePrompt?: (
@@ -111,11 +115,10 @@ export function SessionView({
   newSessionOptions,
 }: SessionViewProps) {
   const sessionStatus = useSessionStatus(backendUrl, sessionId);
+  const pendingVoiceMessages = usePendingTranscriptions(sessionId);
   const pendingPermission = usePendingPermission(backendUrl, sessionId);
   const [activeTab, setActiveTab] = useState<'session' | 'changes'>('session');
   const [isSending, setIsSending] = useState(false);
-  const [pendingVoiceMessages, setPendingVoiceMessages] = useState<Message[]>([]);
-  const voiceIdCounter = useRef(0);
   const [modelSelectorVisible, setModelSelectorVisible] = useState(false);
   const [agentCommandSheetVisible, setAgentCommandSheetVisible] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
@@ -223,33 +226,11 @@ export function SessionView({
     setModelSelectorVisible(true);
   }, []);
 
-  // Clear pending voice messages once corresponding server messages arrive.
-  // When a voice message is transcribed, the server returns a real user message
-  // with a different ID. We detect this by checking for server-side user
-  // messages that were created after our optimistic placeholder.
-  useEffect(() => {
-    if (pendingVoiceMessages.length === 0) return;
-
-    const serverUserMessages = serverMessagesList.filter((m) => m.role === 'user');
-    const latestServerUserTime =
-      serverUserMessages.length > 0 ? Math.max(...serverUserMessages.map((m) => m.createdAt)) : 0;
-
-    // Remove pending voice messages whose timestamp is at or before the latest
-    // server user message — the server has caught up.
-    const remaining = pendingVoiceMessages.filter((vm) => vm.createdAt > latestServerUserTime);
-
-    if (remaining.length < pendingVoiceMessages.length) {
-      setPendingVoiceMessages(remaining);
-    }
-  }, [serverMessagesList, pendingVoiceMessages]);
-
-  // Merge optimistic voice messages with server messages
+  // Merge server messages with pending voice messages from the hook.
+  // The hook already deduplicates against real server messages and maps to UIMessage[].
   const allMessages = useMemo(() => {
-    const merged = [...serverMessagesList];
-    for (const vm of pendingVoiceMessages) {
-      merged.push(vm);
-    }
-    return merged;
+    return [...serverMessagesList, ...pendingVoiceMessages]
+      .sort((a, b) => a.createdAt - b.createdAt);
   }, [serverMessagesList, pendingVoiceMessages]);
 
   // Line selection ref for the chunked recorder to snapshot at recording time.
@@ -258,27 +239,40 @@ export function SessionView({
   const lineSelectionRef = useRef<LineSelection | null>(lineSelection);
   lineSelectionRef.current = lineSelection;
 
-  // Shared helper: adds a pending voice message and sends annotated audio chunks to the server.
+  // Optimistically insert a pending transcription into TanStack DB so it
+  // shows up immediately in useLiveQuery results via the hook.
+  // The server's ephemeral events will upsert over this optimistic row.
+  const insertOptimisticPendingTranscription = useCallback(
+    (clientMessageId: string) => {
+      const tx = createTransaction({
+        mutationFn: async () => {
+          // The server will send real pendingTranscription events via the
+          // ephemeral stream which upsert over this optimistic row.
+          // We never resolve — the transaction stays open and its optimistic
+          // state is visible until the server data arrives and the hook
+          // filters it out (real message arrived).
+          // Use a long-lived promise so the optimistic state persists.
+          await new Promise(() => {});
+        },
+      });
+      tx.mutate(() => {
+        collections.pendingTranscriptions.insert({
+          messageId: clientMessageId,
+          sessionId,
+          backendUrl,
+          status: 'uploading',
+        });
+      });
+    },
+    [sessionId, backendUrl]
+  );
+
+  // Shared helper: generates a message ID, optimistically writes a pending
+  // transcription, and sends annotated audio chunks to the server.
   const sendVoiceChunks = useCallback(
     (chunks: AudioChunk[]) => {
-      const pendingId = `voice-${++voiceIdCounter.current}`;
-      setPendingVoiceMessages((prev) => [
-        ...prev,
-        {
-          id: pendingId,
-          sessionId,
-          role: 'user',
-          type: 'voice',
-          content: '',
-          audioUri: null,
-          transcription: null,
-          toolName: null,
-          toolMeta: null,
-          syncStatus: 'sending',
-          createdAt: Date.now(),
-          isComplete: false,
-        },
-      ]);
+      const clientMessageId = `msg_${crypto.randomUUID()}`;
+      insertOptimisticPendingTranscription(clientMessageId);
 
       const parts: AnnotatedAudioPart[] = chunks.map((chunk) => ({
         type: 'audio' as const,
@@ -287,35 +281,19 @@ export function SessionView({
         lineReference: chunk.lineReference ?? undefined,
       }));
 
-      onSendAudio(parts, effectiveModel);
+      onSendAudio(parts, effectiveModel, clientMessageId);
 
       // Clear line selection after sending
       if (lineSelectionRef.current) setLineSelection(null);
     },
-    [sessionId, onSendAudio, effectiveModel, setLineSelection]
+    [onSendAudio, effectiveModel, setLineSelection, insertOptimisticPendingTranscription]
   );
 
   // Hands-free shim: wraps a single recording into the new multi-part format.
   const sendSingleVoiceAudio = useCallback(
     (base64: string, mimeType: string) => {
-      const pendingId = `voice-${++voiceIdCounter.current}`;
-      setPendingVoiceMessages((prev) => [
-        ...prev,
-        {
-          id: pendingId,
-          sessionId,
-          role: 'user',
-          type: 'voice',
-          content: '',
-          audioUri: null,
-          transcription: null,
-          toolName: null,
-          toolMeta: null,
-          syncStatus: 'sending',
-          createdAt: Date.now(),
-          isComplete: false,
-        },
-      ]);
+      const clientMessageId = `msg_${crypto.randomUUID()}`;
+      insertOptimisticPendingTranscription(clientMessageId);
 
       const currentSelection = lineSelectionRef.current;
       const parts: AnnotatedAudioPart[] = [
@@ -326,10 +304,10 @@ export function SessionView({
           lineReference: currentSelection ?? undefined,
         },
       ];
-      onSendAudio(parts, effectiveModel);
+      onSendAudio(parts, effectiveModel, clientMessageId);
       if (currentSelection) setLineSelection(null);
     },
-    [sessionId, onSendAudio, effectiveModel, setLineSelection]
+    [onSendAudio, effectiveModel, setLineSelection, insertOptimisticPendingTranscription]
   );
 
   const restorePlaybackSession = useCallback(async () => {
@@ -691,13 +669,14 @@ function ExistingSessionDataLoader({
   );
 
   const handleSendAudio = useCallback(
-    (parts: AnnotatedAudioPart[], model: ModelSelection | null) => {
+    (parts: AnnotatedAudioPart[], model: ModelSelection | null, clientMessageId: string) => {
       if (!api) return;
       api.sessions
         .prompt({
           sessionId,
           parts,
           ...(model ? { model } : {}),
+          clientMessageId,
         })
         .catch((err) => {
           console.error('[SessionContent] audio prompt failed:', err);
@@ -904,7 +883,8 @@ function NewSessionDataLoader({
   const createAndPrompt = useCallback(
     async (
       parts: ({ type: 'text'; text: string } | AnnotatedAudioPart)[],
-      model: ModelSelection | null
+      model: ModelSelection | null,
+      clientMessageId?: string
     ) => {
       if (creatingRef.current || !api) return;
       creatingRef.current = true;
@@ -915,8 +895,8 @@ function NewSessionDataLoader({
           parts,
           ...(model ? { model } : {}),
           ...(useWorktree ? { useWorktree: true } : {}),
+          ...(clientMessageId ? { clientMessageId } : {}),
         };
-        console.log('create session input', input);
         const data = await api.projects.createSession(input);
         onSessionCreated(data.sessionId, projectId, backendUrl);
       } catch (err) {
@@ -937,8 +917,8 @@ function NewSessionDataLoader({
   );
 
   const handleSendAudio = useCallback(
-    (parts: AnnotatedAudioPart[], model: ModelSelection | null) => {
-      createAndPrompt(parts, model).catch((err) => {
+    (parts: AnnotatedAudioPart[], model: ModelSelection | null, clientMessageId: string) => {
+      createAndPrompt(parts, model, clientMessageId).catch((err) => {
         console.error('[NewSessionContent] audio create + prompt failed:', err);
       });
     },
