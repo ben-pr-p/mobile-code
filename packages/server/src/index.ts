@@ -17,6 +17,7 @@ import { helpPlugin, versionPlugin } from "@crustjs/plugins"
 import { flag, commandValidator } from "@crustjs/validate/zod"
 import { z } from "zod/v4"
 import { createClient } from "./opencode"
+import { ensureOpenCode } from "./spawn-opencode"
 import { createSpriteClientFromEnv } from "./sprites"
 import { sync } from "./sprite-sync"
 import { configureServices, type ServiceResult } from "./sprite-configure-services"
@@ -47,7 +48,7 @@ const start = new Crust("start")
     ),
   })
   .run(commandValidator(async ({ flags }) => {
-    const opencodeUrl = flags["opencode-url"] ?? env.OPENCODE_URL
+    const opencodeUrl = flags["opencode-url"] || undefined
     const port = flags.port ?? env.PORT
 
     await startServer({ opencodeUrl, port })
@@ -73,10 +74,11 @@ const spriteSync = new Crust("sync")
     ),
   })
   .run(commandValidator(async ({ flags }) => {
-    const opencodeUrl = flags["opencode-url"] ?? env.OPENCODE_URL
+    const opencodeUrl = flags["opencode-url"] || env.OPENCODE_URL || undefined
+    const { url, child } = await ensureOpenCode(opencodeUrl)
     const dryRun = flags["dry-run"]
 
-    const opencode = createClient(opencodeUrl)
+    const opencode = createClient(url)
     const sprite = createSpriteClientFromEnv()
 
     if (dryRun) {
@@ -98,7 +100,10 @@ const spriteSync = new Crust("sync")
       }
     } catch (err: any) {
       console.error("Sync failed:", err.message ?? err)
-      process.exit(1)
+    } finally {
+      if (child) {
+        try { child.kill() } catch {}
+      }
     }
   }))
 

@@ -12,8 +12,8 @@ export const env = cleanEnv(process.env, {
   // --- Server ---
   /** Port for the Hono HTTP server. */
   PORT: port({ default: 3000 }),
-  /** URL of the OpenCode server to bridge. */
-  OPENCODE_URL: url({ default: "http://localhost:4096" }),
+  /** URL of the OpenCode server to bridge. Empty string means "spawn one automatically". */
+  OPENCODE_URL: str({ default: "" }),
 
   // --- Auth ---
   /** Bearer token for authenticating mobile clients. Optional when running locally. */

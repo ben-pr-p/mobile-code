@@ -10,6 +10,6 @@ import { startServer } from "./start-server"
 import { env } from "./env"
 
 export const { app, instanceDs, ephemeralDs, appDs, stateStream, instanceId, server } = await startServer({
-  opencodeUrl: env.OPENCODE_URL,
+  opencodeUrl: env.OPENCODE_URL || undefined,
   port: env.PORT,
 })
