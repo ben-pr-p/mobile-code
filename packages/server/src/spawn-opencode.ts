@@ -17,7 +17,7 @@ const MAX_PORT_ATTEMPTS = 100
 const READY_TIMEOUT_MS = 30_000
 const READY_POLL_INTERVAL_MS = 250
 
-const opencodeStore = createStore({
+export const opencodeStore = createStore({
   dirPath: stateDir("flockcode"),
   name: "opencode",
   fields: {

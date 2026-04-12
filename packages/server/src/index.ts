@@ -4,6 +4,7 @@
  *
  * Usage:
  *   flock start     [--opencode-url <url>] [--port <port>]         — start the HTTP server
+ *   flock attach                                              — attach to the managed opencode server
  *   flock sprite sync      [--opencode-url <url>] [--dry-run]      — sync projects to Fly Sprite
  *   flock sprite configure-services [--dry-run]                     — configure services & env on Sprite
  *                          [--opencode-port <port>] [--opencode-dir <dir>]
@@ -17,7 +18,7 @@ import { helpPlugin, versionPlugin } from "@crustjs/plugins"
 import { flag, commandValidator } from "@crustjs/validate/zod"
 import { z } from "zod/v4"
 import { createClient } from "./opencode"
-import { ensureOpenCode } from "./spawn-opencode"
+import { ensureOpenCode, opencodeStore } from "./spawn-opencode"
 import { createSpriteClientFromEnv } from "./sprites"
 import { sync } from "./sprite-sync"
 import { configureServices, type ServiceResult } from "./sprite-configure-services"
@@ -55,6 +56,31 @@ const start = new Crust("start")
 
     // Keep the process alive — Bun.serve runs in the background
     await new Promise(() => {})
+  }))
+
+// ---------------------------------------------------------------------------
+// attach — connect to a flock-managed opencode server
+// ---------------------------------------------------------------------------
+
+const attach = new Crust("attach")
+  .meta({ description: "Attach to the flock-managed opencode server" })
+  .run(commandValidator(async () => {
+    const { port } = await opencodeStore.read()
+    if (!port) {
+      console.error("No managed opencode server found. Start one with `flock start` first.")
+      process.exit(1)
+    }
+
+    const url = `http://localhost:${port}`
+    const cwd = process.cwd()
+    const child = Bun.spawn(["opencode", "attach", url, "--dir", cwd], {
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    })
+
+    const exitCode = await child.exited
+    process.exit(exitCode)
   }))
 
 // ---------------------------------------------------------------------------
@@ -191,6 +217,7 @@ const main = new Crust("flock")
   .use(versionPlugin("0.0.1"))
   .use(helpPlugin())
   .command(start)
+  .command(attach)
   .command(sprite)
 
 await main.execute()
